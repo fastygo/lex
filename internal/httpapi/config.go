@@ -18,6 +18,7 @@ type Config struct {
 	BearerTokens   map[string][]string
 	RequestTimeout time.Duration
 	MaxBodyBytes   int64
+	Decider        Decider
 }
 
 // LoadConfig reads the API boundary configuration without exposing secrets.

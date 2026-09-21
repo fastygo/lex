@@ -1,6 +1,9 @@
 package httpapi
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -36,8 +39,8 @@ func TestHandlerCapabilitiesReturnsNoStore(t *testing.T) {
 	if cacheControl := recorder.Header().Get("Cache-Control"); cacheControl != "no-store" {
 		t.Fatalf("Cache-Control = %q, want no-store", cacheControl)
 	}
-	if got := recorder.Body.String(); got == "" {
-		t.Fatal("expected capability response body")
+	if got := recorder.Body.String(); !strings.Contains(got, `"replay":true`) || !strings.Contains(got, `"evaluation":false`) {
+		t.Fatalf("body = %s", got)
 	}
 }
 
@@ -66,6 +69,137 @@ func TestHandlerRejectsUnauthorizedBearerToken(t *testing.T) {
 	}
 }
 
+const evaluationBody = `{"project_id":"project-test","entity":{"id":"claim-1","type":"claim","schema_version":"0.1","version":"1"},"query":"account","sources":[{"id":"source-1","version":"v1","text":"The account is locked."}]}`
+
+const passingAnswers = `{"support":{"type":"noul","noul":0.9},"established":{"type":"noul","noul":0.9},"conflict":{"type":"noul","noul":0.1},"safe_to_auto_act":{"type":"noul","noul":0.9},"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}}`
+
+func TestEvaluationUsesFrozenContextAndInjectedDecider(t *testing.T) {
+	handler := mustHandlerWithDecider(t, &scriptedDecider{answers: []byte(passingAnswers)})
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(evaluationBody))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body)
+	}
+	if !strings.Contains(recorder.Body.String(), `"verdict":"validated"`) || !strings.Contains(recorder.Body.String(), `"context_runtime":"memory-exact-v1"`) {
+		t.Fatalf("body = %s", recorder.Body)
+	}
+	var sealed struct {
+		ReplayBundle struct {
+			Context struct {
+				Pack struct {
+					Checksum string `json:"checksum"`
+				} `json:"pack"`
+				PackHash string `json:"pack_hash"`
+			} `json:"context"`
+		} `json:"replay_bundle"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &sealed); err != nil {
+		t.Fatal(err)
+	}
+	if sealed.ReplayBundle.Context.Pack.Checksum == "" || sealed.ReplayBundle.Context.Pack.Checksum == sealed.ReplayBundle.Context.PackHash {
+		t.Fatalf("upstream checksum = %q pack hash = %q", sealed.ReplayBundle.Context.Pack.Checksum, sealed.ReplayBundle.Context.PackHash)
+	}
+}
+
+func TestEvaluationSkipsProviderWhenRetrievalIsEmpty(t *testing.T) {
+	decider := &scriptedDecider{answers: []byte(passingAnswers)}
+	handler := mustHandlerWithDecider(t, decider)
+	body := strings.Replace(evaluationBody, `"query":"account"`, `"query":"missing-phrase"`, 1)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body)
+	}
+	if decider.calls != 0 || !strings.Contains(recorder.Body.String(), `"verdict":"insufficient"`) || !strings.Contains(recorder.Body.String(), `"replay_available":false`) {
+		t.Fatalf("calls = %d body = %s", decider.calls, recorder.Body)
+	}
+}
+
+func TestReplayReproducesEvaluationVerdict(t *testing.T) {
+	handler := mustHandlerWithDecider(t, &scriptedDecider{answers: []byte(passingAnswers)})
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(evaluationBody))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("evaluation status = %d, body = %s", recorder.Code, recorder.Body)
+	}
+	var response struct {
+		ReplayBundle json.RawMessage `json:"replay_bundle"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	replay := httptest.NewRequest(http.MethodPost, "/v1/replays", bytes.NewReader(response.ReplayBundle))
+	replay.Header.Set("Authorization", "Bearer test-token")
+	replay.Header.Set("Content-Type", "application/json")
+	replayRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(replayRecorder, replay)
+	if replayRecorder.Code != http.StatusOK || !strings.Contains(replayRecorder.Body.String(), `"verdict":"validated"`) {
+		t.Fatalf("replay status = %d body = %s", replayRecorder.Code, replayRecorder.Body)
+	}
+}
+
+func TestEvaluationReportsProviderFailure(t *testing.T) {
+	handler := mustHandlerWithDecider(t, failingDecider{})
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(evaluationBody))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadGateway || !strings.Contains(recorder.Body.String(), `"reason":"decision_error"`) {
+		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
+	}
+}
+
+type failingDecider struct{}
+
+func (failingDecider) AdapterID() string      { return "direct-systemone" }
+func (failingDecider) AdapterVersion() string { return "0.1.0" }
+func (failingDecider) Evaluate(context.Context, any, map[string]any) (Decision, error) {
+	return Decision{}, context.DeadlineExceeded
+}
+
+func TestEvaluationRejectsAnotherProject(t *testing.T) {
+	handler := mustHandlerWithDecider(t, &scriptedDecider{answers: []byte(passingAnswers)})
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(`{"project_id":"other-project","entity":{"id":"claim-1","type":"claim","schema_version":"0.1","version":"1"},"query":"account","sources":[{"id":"source-1","version":"v1","text":"The account is locked."}]}`))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusForbidden)
+	}
+}
+
+type scriptedDecider struct {
+	answers []byte
+	calls   int
+}
+
+func (decider *scriptedDecider) AdapterID() string      { return "direct-systemone" }
+func (decider *scriptedDecider) AdapterVersion() string { return "0.1.0" }
+
+func (decider *scriptedDecider) Evaluate(context.Context, any, map[string]any) (Decision, error) {
+	decider.calls++
+	return Decision{ResolvedModel: "fixture-v1", Answers: decider.answers}, nil
+}
+
 func TestReplayRejectsMalformedBundle(t *testing.T) {
 	handler := mustHandler(t)
 	request := httptest.NewRequest(http.MethodPost, "/v1/replays", strings.NewReader(`{"protocol_version":"0.1-draft"}`))
@@ -78,6 +212,20 @@ func TestReplayRejectsMalformedBundle(t *testing.T) {
 	if recorder.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusUnprocessableEntity)
 	}
+}
+
+func mustHandlerWithDecider(t *testing.T, decider Decider) http.Handler {
+	t.Helper()
+	handler, err := NewHandler(Config{
+		BearerTokens:   map[string][]string{"test-token": {"project-test"}},
+		RequestTimeout: defaultRequestTimeout,
+		MaxBodyBytes:   defaultMaxBodyBytes,
+		Decider:        decider,
+	})
+	if err != nil {
+		t.Fatalf("NewHandler() error = %v", err)
+	}
+	return handler
 }
 
 func mustHandler(t *testing.T) http.Handler {

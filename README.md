@@ -40,12 +40,12 @@ The fixed first implementation profile is:
   side-effect execution;
 - no TypeScript SDK or JavaScript application runtime in v0.1.
 
-Context v0.1.0 and Framework v0.3.0 are pinned. The repository has a P0
-foundation: a Go module, a Framework-composed API handler, static bearer-token
-authentication, an embedded Context runtime adapter, RFC 8785 hashing, and an
-initial replay-bundle schema. Vercel deployment, the full wire contract,
-verifier, adapters, conformance, calibration, and SLO evidence remain planned
-work.
+Context v0.1.0 and Framework v0.3.0 are pinned. The local service freezes a
+Context pack, requests one embedded question set through a direct or hosted
+System One adapter, applies an uncalibrated policy, and returns a verdict plus
+a caller-owned replay bundle. Replay reproduces that verdict without retrieval
+or a provider call. Vercel proof of this path, OpenAPI, calibration, adversarial
+fixtures, and SLO evidence remain planned work.
 
 ## Architecture
 
@@ -176,16 +176,23 @@ go test ./... -count=1
 go vet ./...
 ```
 
-The protocol schemas, verifier, and conformance suite remain work in progress.
+The protocol schemas, OpenAPI description, and conformance suite remain work in progress.
 
-## P0 local API
+## Local API
 
-The local P0 handler exposes `GET /healthz` and authenticated
-`GET /v1/capabilities`. Configure a development-only bearer-token-to-project
-map outside version control, then start the server:
+The local handler exposes `GET /healthz`, authenticated `GET /v1/capabilities`,
+`POST /v1/evaluations`, and `POST /v1/replays`. Evaluation accepts a project,
+entity, exact-phrase query, and versioned source texts. The server assigns
+source trust and evidence class, freezes the pack, and applies the embedded
+`claim-validation` policy. That policy is explicitly uncalibrated. An empty
+exact retrieval returns `insufficient` and does not call a provider.
+
+Configure bearer tokens outside version control. Set one decision credential,
+or set `LEX_DECISION_ADAPTER` to `direct` or `hosted` when both are present:
 
 ```bash
 export LEX_BEARER_TOKENS='{"development-token":["example-project"]}'
+export LEX_TYPESAFE_API_KEY='replace-with-secret'
 go run ./cmd/api
 ```
 

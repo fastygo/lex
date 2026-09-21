@@ -13,6 +13,7 @@ import (
 
 	frameworkapp "github.com/fastygo/framework/pkg/app"
 	"github.com/fastygo/framework/pkg/web/security"
+	"github.com/fastygo/lex/internal/profile"
 	"github.com/fastygo/lex/internal/wire"
 )
 
@@ -29,7 +30,12 @@ func NewHandler(config Config) (http.Handler, error) {
 		WithSecurity(security.Config{Enabled: false}).
 		WithHealthEndpoints("/healthz", "")
 	mux := builder.Mux()
-	mux.Handle("/v1/capabilities", authenticated(config, http.HandlerFunc(capabilities)))
+	mux.Handle("/v1/capabilities", authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		capabilities(w, request, config.Decider != nil)
+	})))
+	mux.Handle("/v1/evaluations", authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		evaluate(w, request, config.Decider)
+	})))
 	mux.Handle("/v1/replays", authenticated(config, http.HandlerFunc(replay)))
 
 	return withRequestLimits(builder.Build().Handler(), config), nil
@@ -55,11 +61,12 @@ func authenticated(config Config, next http.Handler) http.Handler {
 			writeProblem(w, http.StatusUnauthorized, "authentication_required", "a bearer token is required")
 			return
 		}
-		if !authorizedToken(token, config.BearerTokens) {
+		projects, ok := authorizedProjects(token, config.BearerTokens)
+		if !ok {
 			writeProblem(w, http.StatusForbidden, "authentication_denied", "the bearer token is not authorized")
 			return
 		}
-		next.ServeHTTP(w, request)
+		next.ServeHTTP(w, request.WithContext(context.WithValue(request.Context(), projectsKey{}, projects)))
 	})
 }
 
@@ -72,15 +79,21 @@ func bearerToken(header string) (string, bool) {
 	return token, token != "" && !strings.ContainsAny(token, " \t\r\n")
 }
 
-func authorizedToken(token string, tokens map[string][]string) bool {
-	authorized := 0
-	for expected := range tokens {
-		authorized |= subtle.ConstantTimeCompare([]byte(token), []byte(expected))
+type projectsKey struct{}
+
+func authorizedProjects(token string, tokens map[string][]string) ([]string, bool) {
+	var projects []string
+	matched := 0
+	for expected, allowed := range tokens {
+		if subtle.ConstantTimeCompare([]byte(token), []byte(expected)) == 1 {
+			matched++
+			projects = append([]string{}, allowed...)
+		}
 	}
-	return authorized == 1
+	return projects, matched == 1
 }
 
-func capabilities(w http.ResponseWriter, request *http.Request) {
+func capabilities(w http.ResponseWriter, request *http.Request, evaluationEnabled bool) {
 	if request.Method != http.MethodGet {
 		w.Header().Set("Allow", http.MethodGet)
 		writeProblem(w, http.StatusMethodNotAllowed, "method_not_allowed", "only GET is supported")
@@ -95,8 +108,8 @@ func capabilities(w http.ResponseWriter, request *http.Request) {
 			"capability": "memory-exact-v1",
 		},
 		"operations": map[string]bool{
-			"evaluation": false,
-			"replay":     false,
+			"evaluation": evaluationEnabled,
+			"replay":     true,
 			"execution":  false,
 		},
 	})
@@ -122,7 +135,8 @@ func replay(w http.ResponseWriter, request *http.Request) {
 		writeProblem(w, http.StatusRequestEntityTooLarge, "body_too_large", "request body exceeds the configured limit")
 		return
 	}
-	if err := wire.VerifyReplayBundleHash(raw); err != nil {
+	report, err := wire.Replay(raw)
+	if err != nil {
 		writeProblem(w, http.StatusUnprocessableEntity, "invalid_replay_bundle", "replay bundle failed deterministic structural validation")
 		return
 	}
@@ -130,7 +144,10 @@ func replay(w http.ResponseWriter, request *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"replay_status": "bundle_integrity_verified",
+		"replay_status":      "verdict_reproduced",
+		"verdict":            report.Verdict,
+		"findings":           report.Findings,
+		"policy_calibration": profile.Calibration,
 	})
 }
 

@@ -25,6 +25,10 @@ func TestHashJSONIgnoresObjectKeyOrder(t *testing.T) {
 	if first != second {
 		t.Fatalf("hashes differ: %s != %s", first, second)
 	}
+	const independent = "43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777"
+	if first != independent {
+		t.Fatalf("hash = %s, want independent digest %s", first, independent)
+	}
 }
 
 func TestCanonicalizeRejectsDuplicateKeys(t *testing.T) {

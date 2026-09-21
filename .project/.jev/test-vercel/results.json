@@ -1,0 +1,182 @@
+{
+  "origin": "https://lexproto.vercel.app",
+  "ran_at": "2026-09-21T17:55:42.830Z",
+  "results": [
+    {
+      "id": "health-open",
+      "method": "GET",
+      "path": "/healthz",
+      "status": 200,
+      "reason": "",
+      "cache_control": "no-store"
+    },
+    {
+      "id": "capabilities-open",
+      "method": "GET",
+      "path": "/v1/capabilities",
+      "status": 401,
+      "reason": "authentication_required",
+      "cache_control": "no-store"
+    },
+    {
+      "id": "capabilities-auth",
+      "method": "GET",
+      "path": "/v1/capabilities",
+      "status": 200,
+      "reason": "",
+      "cache_control": "no-store"
+    },
+    {
+      "id": "replay-get",
+      "method": "GET",
+      "path": "/v1/replays",
+      "status": 405,
+      "reason": "method_not_allowed",
+      "cache_control": "no-store"
+    },
+    {
+      "id": "replay-empty-object",
+      "method": "POST",
+      "path": "/v1/replays",
+      "status": 422,
+      "reason": "invalid_replay_bundle",
+      "cache_control": "no-store"
+    },
+    {
+      "id": "replay-plain-text",
+      "method": "POST",
+      "path": "/v1/replays",
+      "status": 415,
+      "reason": "unsupported_media_type",
+      "cache_control": "no-store"
+    },
+    {
+      "id": "playground-questions:/v1/evaluations",
+      "method": "POST",
+      "path": "/v1/evaluations",
+      "status": 404,
+      "reason": "",
+      "cache_control": "public, max-age=0, must-revalidate"
+    },
+    {
+      "id": "playground-questions:/v1/replays",
+      "method": "POST",
+      "path": "/v1/replays",
+      "status": 422,
+      "reason": "invalid_replay_bundle",
+      "cache_control": "no-store"
+    },
+    {
+      "id": "playground-response:/v1/evaluations",
+      "method": "POST",
+      "path": "/v1/evaluations",
+      "status": 404,
+      "reason": "",
+      "cache_control": "public, max-age=0, must-revalidate"
+    },
+    {
+      "id": "playground-response:/v1/replays",
+      "method": "POST",
+      "path": "/v1/replays",
+      "status": 422,
+      "reason": "invalid_replay_bundle",
+      "cache_control": "no-store"
+    },
+    {
+      "id": "context-questions:/v1/evaluations",
+      "method": "POST",
+      "path": "/v1/evaluations",
+      "status": 404,
+      "reason": "",
+      "cache_control": "public, max-age=0, must-revalidate"
+    },
+    {
+      "id": "context-questions:/v1/replays",
+      "method": "POST",
+      "path": "/v1/replays",
+      "status": 422,
+      "reason": "invalid_replay_bundle",
+      "cache_control": "no-store"
+    },
+    {
+      "id": "context-response:/v1/evaluations",
+      "method": "POST",
+      "path": "/v1/evaluations",
+      "status": 404,
+      "reason": "",
+      "cache_control": "public, max-age=0, must-revalidate"
+    },
+    {
+      "id": "context-response:/v1/replays",
+      "method": "POST",
+      "path": "/v1/replays",
+      "status": 422,
+      "reason": "invalid_replay_bundle",
+      "cache_control": "no-store"
+    },
+    {
+      "id": "llm-questions:/v1/evaluations",
+      "method": "POST",
+      "path": "/v1/evaluations",
+      "status": 404,
+      "reason": "",
+      "cache_control": "public, max-age=0, must-revalidate"
+    },
+    {
+      "id": "llm-questions:/v1/replays",
+      "method": "POST",
+      "path": "/v1/replays",
+      "status": 422,
+      "reason": "invalid_replay_bundle",
+      "cache_control": "no-store"
+    },
+    {
+      "id": "llm-response:/v1/evaluations",
+      "method": "POST",
+      "path": "/v1/evaluations",
+      "status": 404,
+      "reason": "",
+      "cache_control": "public, max-age=0, must-revalidate"
+    },
+    {
+      "id": "llm-response:/v1/replays",
+      "method": "POST",
+      "path": "/v1/replays",
+      "status": 422,
+      "reason": "invalid_replay_bundle",
+      "cache_control": "no-store"
+    },
+    {
+      "id": "chaos-questions:/v1/evaluations",
+      "method": "POST",
+      "path": "/v1/evaluations",
+      "status": 404,
+      "reason": "",
+      "cache_control": "public, max-age=0, must-revalidate"
+    },
+    {
+      "id": "chaos-questions:/v1/replays",
+      "method": "POST",
+      "path": "/v1/replays",
+      "status": 422,
+      "reason": "invalid_replay_bundle",
+      "cache_control": "no-store"
+    },
+    {
+      "id": "chaos-response:/v1/evaluations",
+      "method": "POST",
+      "path": "/v1/evaluations",
+      "status": 404,
+      "reason": "",
+      "cache_control": "public, max-age=0, must-revalidate"
+    },
+    {
+      "id": "chaos-response:/v1/replays",
+      "method": "POST",
+      "path": "/v1/replays",
+      "status": 422,
+      "reason": "invalid_replay_bundle",
+      "cache_control": "no-store"
+    }
+  ]
+}
