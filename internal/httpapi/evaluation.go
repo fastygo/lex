@@ -66,49 +66,49 @@ type evidenceView struct {
 func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, maxBodyBytes int64) {
 	if request.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
-		writeProblem(w, http.StatusMethodNotAllowed, "method_not_allowed", "only POST is supported")
+		writeProblem(w, http.StatusMethodNotAllowed, reasonMethodNotAllowed, "only POST is supported")
 		return
 	}
 	if !acceptsJSON(request.Header.Get("Accept")) {
-		writeProblem(w, http.StatusNotAcceptable, "not_acceptable", "Accept must allow application/json")
+		writeProblem(w, http.StatusNotAcceptable, reasonNotAcceptable, "Accept must allow application/json")
 		return
 	}
 	contentType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
 	if err != nil || contentType != "application/json" {
-		writeProblem(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Content-Type must be application/json")
+		writeProblem(w, http.StatusUnsupportedMediaType, reasonUnsupportedMediaType, "Content-Type must be application/json")
 		return
 	}
 	raw, err := io.ReadAll(io.LimitReader(request.Body, defaultMaxBodyBytes))
 	if err != nil {
-		writeProblem(w, http.StatusRequestEntityTooLarge, "body_too_large", "request body exceeds the configured limit")
+		writeProblem(w, http.StatusRequestEntityTooLarge, reasonBodyTooLarge, "request body exceeds the configured limit")
 		return
 	}
 	if _, err = canonical.DecodeJSON(raw); err != nil {
-		writeProblem(w, http.StatusBadRequest, "invalid_json", "request body must be one evaluation object")
+		writeProblem(w, http.StatusBadRequest, reasonInvalidJSON, "request body must be one evaluation object")
 		return
 	}
 	if err = wire.ValidateEvaluationRequest(raw); err != nil {
-		writeProblem(w, http.StatusBadRequest, "invalid_json", "request body must be one evaluation object")
+		writeProblem(w, http.StatusBadRequest, reasonInvalidJSON, "request body must be one evaluation object")
 		return
 	}
 	var body evaluationRequest
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	if err = decoder.Decode(&body); err != nil {
-		writeProblem(w, http.StatusBadRequest, "invalid_json", "request body must be one evaluation object")
+		writeProblem(w, http.StatusBadRequest, reasonInvalidJSON, "request body must be one evaluation object")
 		return
 	}
 	projects, _ := request.Context().Value(projectsKey{}).([]string)
 	if !containsProject(projects, body.ProjectID) {
-		writeProblem(w, http.StatusForbidden, "project_forbidden", "the authenticated principal cannot access this project")
+		writeProblem(w, http.StatusForbidden, reasonProjectForbidden, "the authenticated principal cannot access this project")
 		return
 	}
 	if !validEntity(body.Entity) || body.Query == "" || len(body.Sources) == 0 {
-		writeProblem(w, http.StatusUnprocessableEntity, "question_error", "entity, query, and at least one source are required")
+		writeProblem(w, http.StatusUnprocessableEntity, reasonQuestionError, "entity, query, and at least one source are required")
 		return
 	}
 	if len(body.Sources) > contextmemory.MaxSources {
-		writeProblem(w, http.StatusUnprocessableEntity, "question_error", "a request can include at most 128 sources")
+		writeProblem(w, http.StatusUnprocessableEntity, reasonQuestionError, "a request can include at most 128 sources")
 		return
 	}
 
@@ -134,12 +134,12 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		if writeRequestStop(w, err, trace("receive", "completed", "pack", "failed")) {
 			return
 		}
-		tracedProblem(w, http.StatusUnprocessableEntity, "pack_error", "Context could not freeze the supplied sources", trace("receive", "completed", "pack", "failed"))
+		tracedProblem(w, http.StatusUnprocessableEntity, reasonPackError, "Context could not freeze the supplied sources", trace("receive", "completed", "pack", "failed"))
 		return
 	}
 	items, err := admissibleEvidence(pack.ContextPack)
 	if err != nil {
-		tracedProblem(w, http.StatusUnprocessableEntity, "pack_error", "frozen evidence failed admission", trace("receive", "completed", "pack", "failed"))
+		tracedProblem(w, http.StatusUnprocessableEntity, reasonPackError, "frozen evidence failed admission", trace("receive", "completed", "pack", "failed"))
 		return
 	}
 	if len(items) == 0 {
@@ -163,16 +163,16 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		return
 	}
 	if decider == nil {
-		tracedProblem(w, http.StatusServiceUnavailable, "decision_provider_unavailable", "no decision adapter is configured", trace("receive", "completed", "pack", "completed", "decide", "skipped"))
+		tracedProblem(w, http.StatusServiceUnavailable, reasonDecisionProviderUnavailable, "no decision adapter is configured", trace("receive", "completed", "pack", "completed", "decide", "skipped"))
 		return
 	}
 	snapshotRaw, err := json.Marshal(pack.Snapshot)
 	if err != nil {
-		tracedProblem(w, http.StatusUnprocessableEntity, "pack_error", "Context snapshot could not be measured", trace("receive", "completed", "pack", "failed"))
+		tracedProblem(w, http.StatusUnprocessableEntity, reasonPackError, "Context snapshot could not be measured", trace("receive", "completed", "pack", "failed"))
 		return
 	}
 	if int64(len(pack.ContextPack)+len(snapshotRaw))+responseReserve > maxBodyBytes {
-		tracedProblem(w, http.StatusUnprocessableEntity, "response_budget", "the frozen pack does not fit the response budget", trace("receive", "completed", "pack", "completed", "decide", "skipped"))
+		tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the frozen pack does not fit the response budget", trace("receive", "completed", "pack", "completed", "decide", "skipped"))
 		return
 	}
 	if writeRequestStop(w, request.Context().Err(), trace("receive", "completed", "pack", "completed", "decide", "failed")) {
@@ -185,7 +185,7 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		if writeRequestStop(w, err, trace("receive", "completed", "pack", "completed", "decide", "failed")) {
 			return
 		}
-		tracedProblem(w, http.StatusBadGateway, "decision_error", "the decision adapter failed", trace("receive", "completed", "pack", "completed", "decide", "failed"))
+		tracedProblem(w, http.StatusBadGateway, reasonDecisionError, "the decision adapter failed", trace("receive", "completed", "pack", "completed", "decide", "failed"))
 		return
 	}
 	if writeRequestStop(w, request.Context().Err(), trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed")) {
@@ -201,16 +201,16 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		ResolvedModel: decision.ResolvedModel, Answers: decision.Answers,
 	})
 	if err != nil {
-		tracedProblem(w, http.StatusBadGateway, "decision_error", "the decision adapter returned answers that cannot be sealed", trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
+		tracedProblem(w, http.StatusBadGateway, reasonDecisionError, "the decision adapter returned answers that cannot be sealed", trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
 		return
 	}
 	report, err := wire.Replay(bundle)
 	if err != nil {
-		tracedProblem(w, http.StatusInternalServerError, "verification_error", "the sealed bundle could not be verified", trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
+		tracedProblem(w, http.StatusInternalServerError, reasonVerificationError, "the sealed bundle could not be verified", trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
 		return
 	}
 	if report.Verdict == verify.VerdictError {
-		writeVerdictProblem(w, http.StatusUnprocessableEntity, "decision_error", "typed answers failed deterministic checks", report)
+		writeVerdictProblem(w, http.StatusUnprocessableEntity, reasonDecisionError, "typed answers failed deterministic checks", report, bundle, maxBodyBytes)
 		return
 	}
 	writeEvaluation(w, evaluationResponse{
@@ -221,14 +221,9 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		ResolvedModel:   decision.ResolvedModel,
 		ReplayAvailable: true,
 		ReplayBundle:    bundle,
-		Trace: []traceStage{
-			{Name: "receive", Status: "completed"},
-			{Name: "pack", Status: "completed"},
-			{Name: "decide", Status: "completed"},
-			{Name: "verify", Status: "completed"},
-		},
-		Policy:    policyDisclosure(),
-		Retention: retentionDisclosure(),
+		Trace:           trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "completed"),
+		Policy:          policyDisclosure(),
+		Retention:       retentionDisclosure(),
 	}, maxBodyBytes)
 }
 
@@ -306,9 +301,9 @@ func writeRequestStop(w http.ResponseWriter, err error, stages []traceStage) boo
 func requestStopped(err error) (int, string, string, bool) {
 	switch {
 	case errors.Is(err, context.DeadlineExceeded):
-		return http.StatusGatewayTimeout, "deadline_exceeded", "the request deadline elapsed before the stage finished", true
+		return http.StatusGatewayTimeout, reasonDeadlineExceeded, "the request deadline elapsed before the stage finished", true
 	case errors.Is(err, context.Canceled):
-		return statusClientClosedRequest, "client_canceled", "the client disconnected before the stage finished", true
+		return statusClientClosedRequest, reasonClientCanceled, "the client disconnected before the stage finished", true
 	default:
 		return 0, "", "", false
 	}
@@ -320,7 +315,7 @@ func writeEvaluation(w http.ResponseWriter, body evaluationResponse, maxBodyByte
 	}
 	encoded, err := json.Marshal(body)
 	if err != nil || int64(len(encoded)) > maxBodyBytes {
-		tracedProblem(w, http.StatusUnprocessableEntity, "response_budget", "the evaluation response does not fit the response budget", trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
+		tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the evaluation response does not fit the response budget", trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")

@@ -64,6 +64,21 @@ func TestEvaluateRejectsOversizedProviderResponse(t *testing.T) {
 	}
 }
 
+func TestEvaluateRejectsSubstitutedModel(t *testing.T) {
+	var calls int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls++
+		_, _ = io.WriteString(w, `{"model":"jev-1.14.0","answers":{"support":{"type":"noul","noul":0.9}}}`)
+	}))
+	defer server.Close()
+	client := newForTest("test-key", server.URL)
+	client.HTTP = server.Client()
+	_, err := client.Evaluate(context.Background(), "state", map[string]any{"support": map[string]any{"type": "noul"}})
+	if err == nil || calls != 1 || strings.Contains(err.Error(), "jev-1.14.0") {
+		t.Fatalf("calls = %d err = %v", calls, err)
+	}
+}
+
 func TestEvaluateRejectsAliasAndRemoteEndpoint(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = io.WriteString(w, `{"model":"jev-latest","answers":{}}`)

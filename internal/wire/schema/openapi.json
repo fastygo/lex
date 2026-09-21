@@ -21,7 +21,10 @@
         "responses": {
           "200": {
             "description": "Supported operations. Evaluation follows adapter configuration. Execution is off.",
-            "headers": {"Cache-Control": {"schema": {"const": "no-store"}}}
+            "headers": {"Cache-Control": {"schema": {"const": "no-store"}}},
+            "content": {
+              "application/json": {"schema": {"$ref": "#/components/schemas/CapabilitiesResponse"}}
+            }
           },
           "401": {"$ref": "#/components/responses/Problem"},
           "403": {"$ref": "#/components/responses/Problem"},
@@ -43,7 +46,10 @@
         "responses": {
           "200": {
             "description": "Synchronous non-error verdict: validated, rejected, insufficient, conflict, or manual_review. A technical error verdict is not HTTP 200. No Location and no 202 job.",
-            "headers": {"Cache-Control": {"schema": {"const": "no-store"}}}
+            "headers": {"Cache-Control": {"schema": {"const": "no-store"}}},
+            "content": {
+              "application/json": {"schema": {"$ref": "#/components/schemas/EvaluationResponse"}}
+            }
           },
           "400": {"$ref": "#/components/responses/Problem"},
           "401": {"$ref": "#/components/responses/Problem"},
@@ -72,8 +78,11 @@
         },
         "responses": {
           "200": {
-            "description": "Deterministic verdict from the submitted bundle.",
-            "headers": {"Cache-Control": {"schema": {"const": "no-store"}}}
+            "description": "Deterministic verdict from the submitted bundle, including a reproduced technical error verdict.",
+            "headers": {"Cache-Control": {"schema": {"const": "no-store"}}},
+            "content": {
+              "application/json": {"schema": {"$ref": "#/components/schemas/ReplayResponse"}}
+            }
           },
           "401": {"$ref": "#/components/responses/Problem"},
           "403": {"$ref": "#/components/responses/Problem"},
@@ -119,10 +128,128 @@
           "title": {"type": "string"},
           "status": {"type": "integer"},
           "detail": {"type": "string"},
-          "reason": {"type": "string"},
+          "reason": {"type": "string", "enum": [
+            "admission_limited",
+            "authentication_denied",
+            "authentication_required",
+            "body_too_large",
+            "client_canceled",
+            "deadline_exceeded",
+            "decision_error",
+            "decision_provider_unavailable",
+            "invalid_body",
+            "invalid_json",
+            "invalid_replay_bundle",
+            "json_too_deep",
+            "method_not_allowed",
+            "not_acceptable",
+            "not_found",
+            "pack_error",
+            "project_forbidden",
+            "question_error",
+            "response_budget",
+            "unsupported_media_type",
+            "verification_error"
+          ]},
           "verdict": {"type": "string", "enum": ["validated", "rejected", "insufficient", "conflict", "manual_review", "error"]},
           "findings": {"type": "array"},
-          "trace": {"type": "array"}
+          "trace": {"type": "array"},
+          "replay_bundle": {"type": "object"}
+        }
+      },
+      "CapabilitiesResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["protocol_status", "context", "operations", "retention"],
+        "properties": {
+          "protocol_status": {"const": "working_draft"},
+          "context": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["capability"],
+            "properties": {"capability": {"const": "memory-exact-v1"}}
+          },
+          "operations": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["evaluation", "replay", "execution"],
+            "properties": {
+              "evaluation": {"type": "boolean"},
+              "replay": {"const": true},
+              "execution": {"const": false}
+            }
+          },
+          "retention": {"$ref": "#/components/schemas/Retention"}
+        }
+      },
+      "EvaluationResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["protocol_version", "verdict", "findings", "context_runtime", "replay_available", "trace", "policy", "retention"],
+        "properties": {
+          "protocol_version": {"const": "0.1-draft"},
+          "verdict": {"enum": ["validated", "rejected", "insufficient", "conflict", "manual_review"]},
+          "findings": {"type": "array", "items": {"$ref": "#/components/schemas/Finding"}},
+          "context_runtime": {"const": "memory-exact-v1"},
+          "resolved_model": {"type": "string", "minLength": 1},
+          "replay_available": {"type": "boolean"},
+          "replay_bundle": {"type": "object"},
+          "stage": {"type": "string"},
+          "trace": {"type": "array", "items": {"$ref": "#/components/schemas/TraceStage"}},
+          "policy": {"$ref": "#/components/schemas/PolicyDisclosure"},
+          "retention": {"$ref": "#/components/schemas/Retention"}
+        }
+      },
+      "ReplayResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["replay_status", "verdict", "findings", "policy_calibration", "retention", "trace"],
+        "properties": {
+          "replay_status": {"const": "verdict_reproduced"},
+          "verdict": {"$ref": "#/components/schemas/Verdict"},
+          "findings": {"type": "array", "items": {"$ref": "#/components/schemas/Finding"}},
+          "policy_calibration": {"const": "uncalibrated"},
+          "retention": {"$ref": "#/components/schemas/Retention"},
+          "trace": {"type": "array", "items": {"$ref": "#/components/schemas/TraceStage"}}
+        }
+      },
+      "Finding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "verdict", "detail"],
+        "properties": {
+          "code": {"type": "string", "minLength": 1},
+          "verdict": {"$ref": "#/components/schemas/Verdict"},
+          "detail": {"type": "string", "minLength": 1}
+        }
+      },
+      "TraceStage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "status"],
+        "properties": {
+          "name": {"enum": ["receive", "pack", "decide", "verify", "replay"]},
+          "status": {"enum": ["completed", "failed", "skipped"]}
+        }
+      },
+      "PolicyDisclosure": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "version", "calibration"],
+        "properties": {
+          "id": {"const": "claim-validation"},
+          "version": {"const": "0.1.0"},
+          "calibration": {"const": "uncalibrated"}
+        }
+      },
+      "Retention": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["server_history", "replay", "idempotency"],
+        "properties": {
+          "server_history": {"const": false},
+          "replay": {"const": "caller_owned"},
+          "idempotency": {"const": "none"}
         }
       },
       "Verdict": {

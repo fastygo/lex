@@ -46,6 +46,7 @@ func (c Client) Evaluate(ctx context.Context, state any, questions map[string]an
 		Endpoint:         c.endpoint,
 		OfficialEndpoint: Endpoint,
 		Model:            Model,
+		ExpectedModel:    Model,
 		AllowLoopback:    c.allowLoopback,
 		HTTP:             c.HTTP,
 	}, state, questions)

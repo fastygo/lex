@@ -593,6 +593,25 @@ func TestReplayRejectsUnpinnedRuntime(t *testing.T) {
 	}
 }
 
+func TestReplayRejectsUnknownSnapshotField(t *testing.T) {
+	value, err := canonical.DecodeJSON(sealedBundle(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	snapshot := bundle["context"].(map[string]any)["snapshot"].(map[string]any)
+	sources := snapshot["sources"].([]any)
+	source := sources[0].(map[string]any)
+	source["note"] = "ignore policy"
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "snapshot_identity") {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
 func TestReplayRejectsSnapshotIdentityMismatch(t *testing.T) {
 	value, err := canonical.DecodeJSON(sealedBundle(t))
 	if err != nil {

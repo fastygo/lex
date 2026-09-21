@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"sort"
 	"strings"
@@ -853,20 +854,26 @@ func snapshotIDMatches(snapshot map[string]any) bool {
 }
 
 func expectedSnapshotID(snapshot map[string]any) (string, bool) {
-	rawSources, _ := snapshot["sources"].([]any)
-	sources := make([]frozenSource, 0, len(rawSources))
-	for _, raw := range rawSources {
-		source, ok := raw.(map[string]any)
-		if !ok {
+	for key := range snapshot {
+		switch key {
+		case "id", "project_id", "runtime_version", "sources":
+		default:
 			return "", false
 		}
-		sources = append(sources, frozenSource{
-			SourceID:      textField(source["source_id"]),
-			Version:       textField(source["version"]),
-			Text:          textField(source["text"]),
-			TrustLevel:    textField(source["trust_level"]),
-			EvidenceClass: textField(source["evidence_class"]),
-		})
+	}
+	encoded, err := json.Marshal(snapshot["sources"])
+	if err != nil {
+		return "", false
+	}
+	decoder := json.NewDecoder(bytes.NewReader(encoded))
+	decoder.DisallowUnknownFields()
+	var sources []frozenSource
+	if err = decoder.Decode(&sources); err != nil {
+		return "", false
+	}
+	var trailing any
+	if err = decoder.Decode(&trailing); err != io.EOF {
+		return "", false
 	}
 	sort.Slice(sources, func(i, j int) bool { return sources[i].SourceID < sources[j].SourceID })
 	seen := make(map[string]struct{}, len(sources))

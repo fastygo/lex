@@ -8,11 +8,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/fastygo/lex/internal/canonical"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
 func TestHandlerCapabilitiesRequiresBearerToken(t *testing.T) {
@@ -187,6 +191,149 @@ func TestReplayReproducesEvaluationVerdict(t *testing.T) {
 	}
 }
 
+func TestProblemReasonCatalogMatchesOpenAPI(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "wire", "schema", "openapi.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := canonical.DecodeJSON(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	document := value.(map[string]any)
+	components := document["components"].(map[string]any)
+	schemas := components["schemas"].(map[string]any)
+	problem := schemas["Problem"].(map[string]any)
+	properties := problem["properties"].(map[string]any)
+	reason := properties["reason"].(map[string]any)
+	published := reason["enum"].([]any)
+	if len(published) != len(problemReasons()) {
+		t.Fatalf("schema lists %d reasons, code lists %d", len(published), len(problemReasons()))
+	}
+	seen := map[string]bool{}
+	for _, item := range published {
+		seen[item.(string)] = true
+	}
+	for _, code := range problemReasons() {
+		if !seen[code] {
+			t.Fatalf("schema omits %s", code)
+		}
+	}
+}
+
+func TestLiveResponsesMatchOpenAPI(t *testing.T) {
+	evaluationSchema := openAPISchema(t, "EvaluationResponse")
+	replaySchema := openAPISchema(t, "ReplayResponse")
+	problemSchema := openAPISchema(t, "Problem")
+	capabilitiesSchema := openAPISchema(t, "CapabilitiesResponse")
+	handler := mustHandlerWithDecider(t, &scriptedDecider{answers: []byte(passingAnswers)})
+
+	enabled := httptest.NewRequest(http.MethodGet, "/v1/capabilities", nil)
+	enabled.Header.Set("Authorization", "Bearer test-token")
+	enabledRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(enabledRecorder, enabled)
+	if enabledRecorder.Code != http.StatusOK {
+		t.Fatalf("capabilities status = %d body = %s", enabledRecorder.Code, enabledRecorder.Body)
+	}
+	if err := capabilitiesSchema.Validate(strictJSON(t, enabledRecorder.Body.Bytes())); err != nil {
+		t.Fatalf("capabilities response: %v", err)
+	}
+	disabled := httptest.NewRequest(http.MethodGet, "/v1/capabilities", nil)
+	disabled.Header.Set("Authorization", "Bearer test-token")
+	disabledRecorder := httptest.NewRecorder()
+	mustHandler(t).ServeHTTP(disabledRecorder, disabled)
+	if err := capabilitiesSchema.Validate(strictJSON(t, disabledRecorder.Body.Bytes())); err != nil {
+		t.Fatalf("capabilities without evaluation: %v", err)
+	}
+
+	validated := postJSON(t, handler, "/v1/evaluations", evaluationBody)
+	if validated.Code != http.StatusOK {
+		t.Fatalf("evaluation status = %d body = %s", validated.Code, validated.Body)
+	}
+	if err := evaluationSchema.Validate(strictJSON(t, validated.Body.Bytes())); err != nil {
+		t.Fatalf("evaluation response: %v", err)
+	}
+
+	miss := strings.Replace(evaluationBody, `"query":"account"`, `"query":"missing-phrase"`, 1)
+	insufficient := postJSON(t, handler, "/v1/evaluations", miss)
+	if insufficient.Code != http.StatusOK {
+		t.Fatalf("miss status = %d body = %s", insufficient.Code, insufficient.Body)
+	}
+	if err := evaluationSchema.Validate(strictJSON(t, insufficient.Body.Bytes())); err != nil {
+		t.Fatalf("insufficient response: %v", err)
+	}
+
+	var response struct {
+		ReplayBundle json.RawMessage `json:"replay_bundle"`
+	}
+	if err := json.Unmarshal(validated.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	replayed := postJSON(t, handler, "/v1/replays", string(response.ReplayBundle))
+	if replayed.Code != http.StatusOK {
+		t.Fatalf("replay status = %d body = %s", replayed.Code, replayed.Body)
+	}
+	if err := replaySchema.Validate(strictJSON(t, replayed.Body.Bytes())); err != nil {
+		t.Fatalf("replay response: %v", err)
+	}
+
+	errorHandler := mustHandlerWithDecider(t, &scriptedDecider{answers: []byte(`{"support":{"type":"noul","noul":0.9}}`)})
+	failed := postJSON(t, errorHandler, "/v1/evaluations", evaluationBody)
+	if failed.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("error status = %d body = %s", failed.Code, failed.Body)
+	}
+	if err := problemSchema.Validate(strictJSON(t, failed.Body.Bytes())); err != nil {
+		t.Fatalf("error problem: %v", err)
+	}
+}
+
+func postJSON(t *testing.T, handler http.Handler, path, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	return recorder
+}
+
+func openAPISchema(t *testing.T, name string) *jsonschema.Schema {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join("..", "wire", "schema", "openapi.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := canonical.DecodeJSON(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compiler := jsonschema.NewCompiler()
+	compiler.DefaultDraft(jsonschema.Draft2020)
+	if err := compiler.AddResource("https://lex.fastygo.dev/openapi.json", value); err != nil {
+		t.Fatal(err)
+	}
+	checkID := "https://lex.fastygo.dev/schema/v0.1/check-" + name
+	if err := compiler.AddResource(checkID, map[string]any{
+		"$ref": "https://lex.fastygo.dev/openapi.json#/components/schemas/" + name,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	schema, err := compiler.Compile(checkID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return schema
+}
+
+func strictJSON(t *testing.T, raw []byte) any {
+	t.Helper()
+	value, err := canonical.DecodeJSON(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return value
+}
+
 func TestProviderFailureDoesNotEchoSecrets(t *testing.T) {
 	const secret = "sk-test-secret-must-not-leak"
 	handler := mustHandlerWithDecider(t, secretDecider{secret: secret})
@@ -243,6 +390,20 @@ func TestTechnicalVerdictIsNotHTTPSuccess(t *testing.T) {
 
 	if recorder.Code != http.StatusUnprocessableEntity || !strings.Contains(recorder.Body.String(), `"verdict":"error"`) || !strings.Contains(recorder.Body.String(), `"name":"verify","status":"completed"`) {
 		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
+	}
+	var response struct {
+		ReplayBundle json.RawMessage `json:"replay_bundle"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	replay := httptest.NewRequest(http.MethodPost, "/v1/replays", bytes.NewReader(response.ReplayBundle))
+	replay.Header.Set("Authorization", "Bearer test-token")
+	replay.Header.Set("Content-Type", "application/json")
+	replayRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(replayRecorder, replay)
+	if replayRecorder.Code != http.StatusOK || !strings.Contains(replayRecorder.Body.String(), `"verdict":"error"`) || !strings.Contains(replayRecorder.Body.String(), `"replay_status":"verdict_reproduced"`) {
+		t.Fatalf("replay status = %d body = %s", replayRecorder.Code, replayRecorder.Body)
 	}
 }
 

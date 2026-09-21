@@ -183,10 +183,12 @@ The protocol schemas, OpenAPI description, and conformance suite remain work in 
 
 The local handler exposes `GET /healthz`, authenticated `GET /v1/capabilities`,
 `POST /v1/evaluations`, and `POST /v1/replays`. Evaluation accepts a project,
-entity, exact-phrase query, and versioned source texts. The server assigns
-source trust and evidence class, freezes the pack, and applies the embedded
-`claim-validation` policy. That policy is explicitly uncalibrated. An empty
-exact retrieval returns `insufficient` and does not call a provider.
+an entity of type `claim` with schema `0.1`, an exact-phrase query, and
+versioned source texts. The server assigns source trust and evidence class,
+freezes the pack, and applies the embedded `claim-validation` policy. That
+policy is explicitly uncalibrated. An empty exact retrieval returns
+`insufficient` and does not call a provider. A technical `error` verdict is
+HTTP 422 and still returns the sealed replay bundle.
 
 Configure bearer tokens outside version control. Set one decision credential,
 or set `LEX_DECISION_ADAPTER` to `direct` or `hosted` when both are present:

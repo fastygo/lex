@@ -23,6 +23,7 @@ type Call struct {
 	Endpoint         string
 	OfficialEndpoint string
 	Model            string
+	ExpectedModel    string
 	AllowLoopback    bool
 	HTTP             *http.Client
 }
@@ -90,6 +91,9 @@ func Evaluate(ctx context.Context, call Call, state any, questions map[string]an
 	}
 	if decoded.Model == "" || strings.Contains(decoded.Model, "latest") || len(decoded.Answers) == 0 {
 		return Decision{}, fmt.Errorf("decision response lacks a resolved model or answers")
+	}
+	if call.ExpectedModel != "" && decoded.Model != call.ExpectedModel {
+		return Decision{}, fmt.Errorf("decision response model does not match the pinned request model")
 	}
 	return Decision{ResolvedModel: decoded.Model, Answers: decoded.Answers, Usage: decoded.Usage}, nil
 }

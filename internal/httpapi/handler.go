@@ -49,7 +49,7 @@ func withKnownRoutes(next http.Handler) http.Handler {
 		case "/healthz", "/v1/capabilities", "/v1/evaluations", "/v1/replays":
 			next.ServeHTTP(w, request)
 		default:
-			writeProblem(w, http.StatusNotFound, "not_found", "the route is not provided")
+			writeProblem(w, http.StatusNotFound, reasonNotFound, "the route is not provided")
 		}
 	})
 }
@@ -58,28 +58,28 @@ func withRequestLimits(next http.Handler, config Config, gate *admission) http.H
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		if request.URL.Path != "/healthz" {
 			if !gate.acquire() {
-				writeProblem(w, http.StatusServiceUnavailable, "admission_limited", "too many requests are already running in this process")
+				writeProblem(w, http.StatusServiceUnavailable, reasonAdmissionLimited, "too many requests are already running in this process")
 				return
 			}
 			defer gate.release()
 		}
 		if request.ContentLength > config.MaxBodyBytes {
-			writeProblem(w, http.StatusRequestEntityTooLarge, "body_too_large", "request body exceeds the configured limit")
+			writeProblem(w, http.StatusRequestEntityTooLarge, reasonBodyTooLarge, "request body exceeds the configured limit")
 			return
 		}
 		request.Body = http.MaxBytesReader(w, request.Body, config.MaxBodyBytes)
 		if request.Body != nil && request.ContentLength != 0 {
 			raw, err := io.ReadAll(request.Body)
 			if err != nil {
-				writeProblem(w, http.StatusRequestEntityTooLarge, "body_too_large", "request body exceeds the configured limit")
+				writeProblem(w, http.StatusRequestEntityTooLarge, reasonBodyTooLarge, "request body exceeds the configured limit")
 				return
 			}
 			if !utf8.Valid(raw) {
-				writeProblem(w, http.StatusBadRequest, "invalid_json", "request body must be valid UTF-8")
+				writeProblem(w, http.StatusBadRequest, reasonInvalidJSON, "request body must be valid UTF-8")
 				return
 			}
 			if jsonDepth(raw) > maxJSONDepth {
-				writeProblem(w, http.StatusBadRequest, "json_too_deep", "JSON nesting exceeds the configured limit")
+				writeProblem(w, http.StatusBadRequest, reasonJSONTooDeep, "JSON nesting exceeds the configured limit")
 				return
 			}
 			request.Body = io.NopCloser(strings.NewReader(string(raw)))
@@ -138,12 +138,12 @@ func authenticated(config Config, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		token, ok := bearerToken(request.Header.Get("Authorization"))
 		if !ok {
-			writeProblem(w, http.StatusUnauthorized, "authentication_required", "a bearer token is required")
+			writeProblem(w, http.StatusUnauthorized, reasonAuthenticationRequired, "a bearer token is required")
 			return
 		}
 		projects, ok := authorizedProjects(token, config.BearerTokens)
 		if !ok {
-			writeProblem(w, http.StatusForbidden, "authentication_denied", "the bearer token is not authorized")
+			writeProblem(w, http.StatusForbidden, reasonAuthenticationDenied, "the bearer token is not authorized")
 			return
 		}
 		next.ServeHTTP(w, request.WithContext(context.WithValue(request.Context(), projectsKey{}, projects)))
@@ -204,11 +204,11 @@ func authorizedProjects(token string, tokens map[string][]string) ([]string, boo
 func capabilities(w http.ResponseWriter, request *http.Request, evaluationEnabled bool) {
 	if request.Method != http.MethodGet {
 		w.Header().Set("Allow", http.MethodGet)
-		writeProblem(w, http.StatusMethodNotAllowed, "method_not_allowed", "only GET is supported")
+		writeProblem(w, http.StatusMethodNotAllowed, reasonMethodNotAllowed, "only GET is supported")
 		return
 	}
 	if !acceptsJSON(request.Header.Get("Accept")) {
-		writeProblem(w, http.StatusNotAcceptable, "not_acceptable", "Accept must allow application/json")
+		writeProblem(w, http.StatusNotAcceptable, reasonNotAcceptable, "Accept must allow application/json")
 		return
 	}
 
@@ -231,25 +231,25 @@ func capabilities(w http.ResponseWriter, request *http.Request, evaluationEnable
 func replay(w http.ResponseWriter, request *http.Request) {
 	if request.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
-		writeProblem(w, http.StatusMethodNotAllowed, "method_not_allowed", "only POST is supported")
+		writeProblem(w, http.StatusMethodNotAllowed, reasonMethodNotAllowed, "only POST is supported")
 		return
 	}
 	if !acceptsJSON(request.Header.Get("Accept")) {
-		writeProblem(w, http.StatusNotAcceptable, "not_acceptable", "Accept must allow application/json")
+		writeProblem(w, http.StatusNotAcceptable, reasonNotAcceptable, "Accept must allow application/json")
 		return
 	}
 	contentType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
 	if err != nil || contentType != "application/json" {
-		writeProblem(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Content-Type must be application/json")
+		writeProblem(w, http.StatusUnsupportedMediaType, reasonUnsupportedMediaType, "Content-Type must be application/json")
 		return
 	}
 	raw, err := io.ReadAll(request.Body)
 	if err != nil {
 		if errors.Is(err, http.ErrBodyReadAfterClose) {
-			writeProblem(w, http.StatusBadRequest, "invalid_body", "request body is unavailable")
+			writeProblem(w, http.StatusBadRequest, reasonInvalidBody, "request body is unavailable")
 			return
 		}
-		writeProblem(w, http.StatusRequestEntityTooLarge, "body_too_large", "request body exceeds the configured limit")
+		writeProblem(w, http.StatusRequestEntityTooLarge, reasonBodyTooLarge, "request body exceeds the configured limit")
 		return
 	}
 	if writeRequestStop(w, request.Context().Err(), replayTraceStatus("failed")) {
@@ -257,7 +257,7 @@ func replay(w http.ResponseWriter, request *http.Request) {
 	}
 	report, err := wire.Replay(raw)
 	if err != nil {
-		writeProblem(w, http.StatusUnprocessableEntity, "invalid_replay_bundle", "replay bundle failed deterministic structural validation")
+		writeProblem(w, http.StatusUnprocessableEntity, reasonInvalidReplayBundle, "replay bundle failed deterministic structural validation")
 		return
 	}
 
@@ -287,18 +287,35 @@ func writeProblem(w http.ResponseWriter, status int, reason, detail string) {
 	writeProblemBody(w, status, reason, detail, nil)
 }
 
-func writeVerdictProblem(w http.ResponseWriter, status int, reason, detail string, report wire.Report) {
-	writeProblemBody(w, status, reason, detail, map[string]any{
-		"verdict":  report.Verdict,
-		"findings": report.Findings,
-		"trace":    trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "completed"),
+func writeVerdictProblem(w http.ResponseWriter, status int, reason, detail string, report wire.Report, bundle []byte, maxBodyBytes int64) {
+	encoded, err := encodeProblem(status, reason, detail, map[string]any{
+		"verdict":       report.Verdict,
+		"findings":      report.Findings,
+		"trace":         trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "completed"),
+		"replay_bundle": json.RawMessage(bundle),
 	})
-}
-
-func writeProblemBody(w http.ResponseWriter, status int, reason, detail string, extra map[string]any) {
+	if err != nil || int64(len(encoded)) > maxBodyBytes {
+		tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the evaluation response does not fit the response budget", trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
+		return
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", problemMediaType)
 	w.WriteHeader(status)
+	_, _ = w.Write(encoded)
+}
+
+func writeProblemBody(w http.ResponseWriter, status int, reason, detail string, extra map[string]any) {
+	encoded, err := encodeProblem(status, reason, detail, extra)
+	if err != nil {
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", problemMediaType)
+	w.WriteHeader(status)
+	_, _ = w.Write(encoded)
+}
+
+func encodeProblem(status int, reason, detail string, extra map[string]any) ([]byte, error) {
 	title := http.StatusText(status)
 	if title == "" {
 		title = "Client Closed Request"
@@ -313,5 +330,5 @@ func writeProblemBody(w http.ResponseWriter, status int, reason, detail string, 
 	for key, value := range extra {
 		body[key] = value
 	}
-	_ = json.NewEncoder(w).Encode(body)
+	return json.Marshal(body)
 }
