@@ -1,6 +1,7 @@
 package wire
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -784,6 +785,18 @@ func addressableSnapshot() map[string]any {
 	}
 	snapshot["id"] = identifier
 	return snapshot
+}
+
+func TestReplayLeavesTheSavedBundleUnchanged(t *testing.T) {
+	raw := sealedBundle(t)
+	before := append([]byte(nil), raw...)
+	report, err := Replay(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "validated" || !bytes.Equal(raw, before) {
+		t.Fatalf("verdict = %s rewritten = %v", report.Verdict, !bytes.Equal(raw, before))
+	}
 }
 
 func TestReplayDoesNotUseNetwork(t *testing.T) {

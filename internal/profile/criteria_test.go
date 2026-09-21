@@ -1,6 +1,7 @@
 package profile
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/fastygo/lex/internal/canonical"
@@ -28,6 +29,25 @@ func TestReproducibleModelPinsAdapterIdentity(t *testing.T) {
 	}
 }
 
+func TestQuestionsNameTheFrozenState(t *testing.T) {
+	if QuestionSetVersion != "0.1.1" {
+		t.Fatalf("question set version = %s", QuestionSetVersion)
+	}
+	for id, raw := range ProviderQuestions() {
+		question, _ := raw.(map[string]any)
+		instructions, _ := question["instructions"].(string)
+		if !strings.Contains(instructions, "`claim`") || !strings.Contains(instructions, "`evidence`") {
+			t.Fatalf("%s instructions = %q", id, instructions)
+		}
+		if question["type"] == "noul" {
+			criteria, _ := question["criteria"].(map[string]any)
+			if criteria["true"] == nil || criteria["false"] == nil {
+				t.Fatalf("%s criteria = %#v", id, criteria)
+			}
+		}
+	}
+}
+
 func TestCriteriaChangeProducesNewQuestionSetHash(t *testing.T) {
 	changed := questionSet
 	questions := make(map[string]question, len(questionSet.Questions))
@@ -46,7 +66,7 @@ func TestCriteriaChangeProducesNewQuestionSetHash(t *testing.T) {
 	if hash == QuestionSetHash() || QuestionSetHash() == "" {
 		t.Fatalf("question set hash = %s changed = %s", QuestionSetHash(), hash)
 	}
-	const questionSetHashPin = "1a68013416ed51e5eec91c165eabd2d3c534a8fc3351d836a75b17fc26a41a6b"
+	const questionSetHashPin = "4026ad3baf55334fccf0cb3008a01af913355adfeb9a2b0ac4f3bb4e4f1ae308"
 	const policyHashPin = "9ebb4842264e82d65390762b94d10664c9d03445ad1d0550c6baf379a277ebcc"
 	if QuestionSetHash() != questionSetHashPin || PolicyHash() != policyHashPin {
 		t.Fatalf("question set hash = %s policy hash = %s", QuestionSetHash(), PolicyHash())

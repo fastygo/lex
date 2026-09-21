@@ -10,6 +10,7 @@ import hashlib
 import json
 import math
 import pathlib
+import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "internal" / "canonical" / "testdata" / "jcs-vectors.json"
@@ -79,6 +80,14 @@ def reject_vector(name, raw):
     return {"name": name, "kind": "reject", "input": raw}
 
 
+def bundle_digest(raw):
+    value = parse_json(raw)
+    if not isinstance(value, dict) or "bundle_hash" not in value:
+        raise SystemExit("bundle_hash missing")
+    del value["bundle_hash"]
+    return digest(canonical(value))
+
+
 def main():
     for form, expected in ANCHORS.items():
         actual = digest(form)
@@ -116,4 +125,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if "--bundle" in sys.argv:
+        print(bundle_digest(sys.stdin.read()))
+    else:
+        main()

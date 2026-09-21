@@ -13,7 +13,7 @@ const (
 	// QuestionSetID identifies the embedded claim-validation questions.
 	QuestionSetID = "claim-validation"
 	// QuestionSetVersion changes when question criteria change.
-	QuestionSetVersion = "0.1.0"
+	QuestionSetVersion = "0.1.1"
 	// PolicyID identifies the embedded threshold policy.
 	PolicyID = "claim-validation"
 	// PolicyVersion changes when thresholds change.
@@ -82,27 +82,43 @@ var (
 		Questions: map[string]question{
 			questionSupport: {
 				Type:         "noul",
-				Instructions: "Does admissible frozen evidence directly support the claim?",
+				Instructions: "Does the frozen source text in `evidence` directly support the proposition in `claim`?",
+				Criteria: map[string]string{
+					"true":  "At least one `evidence` surface states the proposition in `claim`.",
+					"false": "The `evidence` surfaces do not state the proposition in `claim`.",
+				},
 			},
 			questionEstablish: {
 				Type:         "noul",
-				Instructions: "Do the frozen evidence items meet the sufficiency and coherence requirements for establishing the claim?",
+				Instructions: "Do the frozen items in `evidence` meet the sufficiency and coherence requirements for establishing `claim`?",
+				Criteria: map[string]string{
+					"true":  "The `evidence` surfaces are sufficient and coherent to establish `claim`.",
+					"false": "The `evidence` surfaces are missing, too weak, or not coherent enough to establish `claim`.",
+				},
 			},
 			questionConflict: {
 				Type:         "noul",
-				Instructions: "Does admissible frozen evidence support a conclusion incompatible with the claim?",
+				Instructions: "Does any frozen item in `evidence` support a conclusion incompatible with `claim`?",
+				Criteria: map[string]string{
+					"true":  "An `evidence` surface supports a conclusion that cannot hold together with `claim`.",
+					"false": "No `evidence` surface supports a conclusion incompatible with `claim`.",
+				},
 			},
 			questionSafety: {
 				Type:         "noul",
-				Instructions: "Is the frozen evidence semantically safe to accept without human review?",
+				Instructions: "Is the frozen text in `evidence` semantically safe to accept for `claim` without human review?",
+				Criteria: map[string]string{
+					"true":  "`evidence` can be accepted for `claim` without a person reading it first.",
+					"false": "`evidence` needs a person before it is accepted for `claim`.",
+				},
 			},
 			questionAction: {
 				Type:         "choice",
-				Instructions: "Which operational disposition follows from the frozen evidence alone?",
+				Instructions: "Which disposition follows from `claim` and `evidence` alone? This choice is not permission to act.",
 				Criteria: map[string]string{
-					"proceed":       "Accept the claim because support, establishment, and safety all hold",
-					"reject":        "Reject the claim because admissible evidence establishes that it is not supported",
-					"manual_review": "Send the claim to a person because the evidence is weak, unsafe, or incomplete",
+					"proceed":       "The frozen evidence is sufficient to accept the claim without review",
+					"reject":        "The frozen evidence shows that the claim is not supported",
+					"manual_review": "A person should review the claim because the evidence is weak, unsafe, or incomplete",
 					"other":         "None of the listed dispositions fit",
 				},
 			},

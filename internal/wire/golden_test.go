@@ -1,8 +1,12 @@
 package wire
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/fastygo/lex/internal/canonical"
@@ -18,14 +22,14 @@ func TestGoldenReplayAgreesOnVerdictAndHash(t *testing.T) {
 	t.Cleanup(func() { http.DefaultTransport = previous })
 
 	cases := []goldenCase{
-		{name: "validated-direct", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "proceed"), verdict: "validated", hash: "1ab63c5b2c0066780b334ec027b879b64aab1d96933061058040e840efa47781"},
-		{name: "validated-hosted", adapter: "hosted-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "proceed"), verdict: "validated", hash: "d0e4c1798985344d90734d98df66266ee14699117c5deb507bb7ed146818a1f0"},
-		{name: "rejected", adapter: "direct-systemone", answers: goldenAnswers(0.1, 0.9, 0.1, 0.9, "reject"), verdict: "rejected", finding: "negative_result", hash: "4938e79045aa6254828f4e1a7f366e1975e6f051b763f68d8ba8afd71e9e271a"},
-		{name: "insufficient", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.1, 0.1, 0.9, "proceed"), verdict: "insufficient", finding: "establishment_below_threshold", hash: "20469b1ee001e3837501856afe49c6ab53040a6934e3f31c489b41c6202f7dc3"},
-		{name: "conflict", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.9, 0.1, "proceed"), verdict: "conflict", finding: "evidence_conflict", hash: "c9e48cbf8bbe070489a887434120251f4a0cb21d272752ad90c8055fe21c539f"},
-		{name: "manual-review", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "manual_review"), verdict: "manual_review", finding: "review_required", hash: "4aeda624e0d412f9a11b4535b25fd59dd2a8115e9700da6644d549d3fd52c941"},
-		{name: "error", adapter: "direct-systemone", answers: []byte(`{"support":{"type":"noul","noul":2}}`), verdict: "error", finding: "invalid_noul:support", hash: "5b5fe4ecb0ea73e2654f8eeec83095d0230f9b146448495889a3901f8704160a"},
-		{name: "inference-only", adapter: "direct-systemone", inference: true, answers: goldenAnswers(0.99, 0.99, 0.01, 0.99, "proceed"), verdict: "insufficient", finding: "inference_only", hash: "d3aa46b7b8fb8fb3d8797e47e1a222dfe120fd287ae85c943dc5f79ae3f5b0f5"},
+		{name: "validated-direct", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "proceed"), verdict: "validated", hash: "a16adca26c13d7ddf23dce68564255d25c03d32a04ca6a174ccc6a879f392743"},
+		{name: "validated-hosted", adapter: "hosted-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "proceed"), verdict: "validated", hash: "794ca4065ef98b45febb49645fe6557269d44063b45a462e237055d9bbf2e15f"},
+		{name: "rejected", adapter: "direct-systemone", answers: goldenAnswers(0.1, 0.9, 0.1, 0.9, "reject"), verdict: "rejected", finding: "negative_result", hash: "aeb277fa59acd8ac118a5f5a1b1876546b826332147735707c2e975fce699cb3"},
+		{name: "insufficient", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.1, 0.1, 0.9, "proceed"), verdict: "insufficient", finding: "establishment_below_threshold", hash: "1b7ad52d8bfbc5aa052961c7fdca35a2de32fcf0bb499738c3712bda6fc4e6ea"},
+		{name: "conflict", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.9, 0.1, "proceed"), verdict: "conflict", finding: "evidence_conflict", hash: "8873ba2c22fff4a739227dd5dae91d49e5281c10608abb3e6a3d52414db16af2"},
+		{name: "manual-review", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "manual_review"), verdict: "manual_review", finding: "review_required", hash: "1739bf74c97c9398b66b722372d9c7c4fc51de35edd3cfb08be8b88565b6b1c9"},
+		{name: "error", adapter: "direct-systemone", answers: []byte(`{"support":{"type":"noul","noul":2}}`), verdict: "error", finding: "invalid_noul:support", hash: "71ad1d941125c76741e786ebcbd9a8546ade53c22a56277738c9606b1b520b1c"},
+		{name: "inference-only", adapter: "direct-systemone", inference: true, answers: goldenAnswers(0.99, 0.99, 0.01, 0.99, "proceed"), verdict: "insufficient", finding: "inference_only", hash: "050d81aeeafe347c272874993e10d26b34f4a3b168369a70cd6615d518f25d32"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -102,4 +106,33 @@ func choiceWeight(choice, name string) float64 {
 		return 1
 	}
 	return 0
+}
+
+func TestPythonAgreesOnValidatedBundleSelfHash(t *testing.T) {
+	raw := goldenBundle(t, goldenCase{
+		adapter: "direct-systemone",
+		answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "proceed"),
+	})
+	script := filepath.Join("..", "..", "scripts", "jcs_vectors.py")
+	command := exec.Command("python", script, "--bundle")
+	command.Stdin = bytes.NewReader(raw)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("python canonicalizer: %v", err)
+	}
+	pythonHash := strings.TrimSpace(string(output))
+	value, err := canonical.DecodeJSON(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	declared, _ := bundle["bundle_hash"].(string)
+	delete(bundle, "bundle_hash")
+	goHash, err := canonical.HashValue(bundle)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pythonHash != goHash || pythonHash != declared {
+		t.Fatalf("python = %s go = %s declared = %s", pythonHash, goHash, declared)
+	}
 }

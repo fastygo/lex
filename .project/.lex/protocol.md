@@ -186,7 +186,9 @@ extension. Cancellation is operation status, not a seventh verdict.
 
 Deterministic replay uses the saved entity, pack, profiles, QuestionSet,
 PolicySnapshot, raw DecisionSet, approval evidence, and pinned verifier version.
-It MUST NOT perform retrieval, call a decision provider, or execute side effects.
+It MUST NOT contact a retrieval service, call a decision provider, or execute side effects.
+It MUST compare a recomputation from the frozen snapshot and pack request with the saved pack.
+The saved pack MUST NOT be replaced.
 It reproduces deterministic findings and verdict under the same defined rules.
 
 A fresh model call is a new evaluation even with the same resolved model.

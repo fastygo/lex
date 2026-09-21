@@ -53,8 +53,8 @@ Score requires an ordered rubric. Execution is outside this first slice.
    sources, compound questions, overlapping criteria, injection, and provider failures.
 7. Calibrate by entity type, resolved model, provider path, and policy; report
    corpus limits and measured error rates.
-8. Replay caller-supplied frozen inputs and DecisionSet without retrieval, model calls, or
-   side effects; reproduce verifier results under a pinned verifier version.
+8. Replay caller-supplied frozen inputs and DecisionSet without a retrieval service, model calls, or
+   side effects; recompute the pack from the frozen snapshot only to compare it with the saved pack.
 9. Run common fixtures through at least two decision-provider adapters.
    Separately prove independent message producers and consumers agree on
    schemas, hashes, and verdict semantics.

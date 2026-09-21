@@ -14,8 +14,10 @@ REST caller: entity + intent + versioned source texts + profile references
   -> Verdict + VerificationReport + EvaluationTrace + replay bundle
 ```
 
-Replay uses a separate path from a caller-retained frozen pack and DecisionSet;
-it does not reconstruct evidence or call a provider.
+Replay uses the caller-retained bundle. It does not contact a retrieval service
+or a decision provider. It recomputes the Context pack from the frozen snapshot
+and pack request in the bundle and compares that result with the saved pack.
+The saved pack is not replaced.
 
 Core logic uses Go domain types and explicit ports. Framework owns HTTP
 composition. Context public types and compatibility checks stay in the evidence

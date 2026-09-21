@@ -43,8 +43,9 @@ The fixed first implementation profile is:
 Context v0.1.0 and Framework v0.3.0 are pinned. The local service freezes a
 Context pack, requests one embedded question set through a direct or hosted
 System One adapter, applies an uncalibrated policy, and returns a verdict plus
-a caller-owned replay bundle. Replay reproduces that verdict without retrieval
-or a provider call. A draft OpenAPI document and local adversarial tests exist.
+a caller-owned replay bundle. Replay reproduces that verdict without contacting
+a retrieval service or a provider. It recomputes the Context pack from the
+frozen snapshot already in the bundle and does not replace the saved pack. A draft OpenAPI document and local adversarial tests exist.
 Calibration, a 28-day SLO, race evidence on a supported runner, and proof of
 the latest deployment revision remain open. No conformance certification is claimed.
 
@@ -60,8 +61,9 @@ EntityEnvelope + ValidationIntent
   -> Verdict + VerificationReport + EvaluationTrace + replay bundle
 ```
 
-Replay consumes a caller-retained frozen bundle. It does not retrieve evidence
-or invoke a decision provider.
+Replay consumes a caller-retained frozen bundle. It does not contact a retrieval
+service or invoke a decision provider. A recomputation from the frozen snapshot
+checks the saved pack and does not replace it.
 
 Controlled execution is deliberately outside the first slice. A validation
 verdict does not prove that an operation occurred.
