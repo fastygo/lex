@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -38,7 +39,7 @@ func Evaluate(ctx context.Context, call Call, state any, questions map[string]an
 	if strings.TrimSpace(call.APIKey) == "" {
 		return Decision{}, fmt.Errorf("decision credential is not configured")
 	}
-	if call.Endpoint != call.OfficialEndpoint && !(call.AllowLoopback && strings.HasPrefix(call.Endpoint, "http://127.0.0.1:")) {
+	if !endpointAllowed(call) {
 		return Decision{}, fmt.Errorf("decision endpoint is not allowlisted")
 	}
 	payload, err := json.Marshal(map[string]any{"model": call.Model, "state": state, "questions": questions})
@@ -57,7 +58,11 @@ func Evaluate(ctx context.Context, call Call, state any, questions map[string]an
 	if client == nil {
 		client = &http.Client{Timeout: 12 * time.Second}
 	}
-	response, err := client.Do(request)
+	limited := *client
+	limited.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return fmt.Errorf("decision endpoint redirect is not allowed")
+	}
+	response, err := limited.Do(request)
 	if err != nil {
 		return Decision{}, fmt.Errorf("decision transport: %w", err)
 	}
@@ -87,4 +92,18 @@ func Evaluate(ctx context.Context, call Call, state any, questions map[string]an
 		return Decision{}, fmt.Errorf("decision response lacks a resolved model or answers")
 	}
 	return Decision{ResolvedModel: decoded.Model, Answers: decoded.Answers, Usage: decoded.Usage}, nil
+}
+
+func endpointAllowed(call Call) bool {
+	if call.Endpoint == call.OfficialEndpoint {
+		return true
+	}
+	if !call.AllowLoopback {
+		return false
+	}
+	parsed, err := url.Parse(call.Endpoint)
+	if err != nil || parsed.User != nil || parsed.Scheme != "http" || parsed.Hostname() != "127.0.0.1" || parsed.Port() == "" {
+		return false
+	}
+	return true
 }

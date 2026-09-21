@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
+	"strings"
 
 	jsoncanonicalizer "github.com/cyberphone/json-canonicalization/go/src/webpki.org/jsoncanonicalizer"
 )
@@ -58,6 +60,33 @@ func DecodeJSON(raw []byte) (any, error) {
 	return value, nil
 }
 
+func finiteNumber(number json.Number) error {
+	value, err := number.Float64()
+	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) || (value == 0 && !zeroLiteral(string(number))) {
+		return fmt.Errorf("JSON number is outside the finite IEEE-754 range")
+	}
+	return nil
+}
+
+func zeroLiteral(raw string) bool {
+	if strings.HasPrefix(raw, "-") || strings.HasPrefix(raw, "+") {
+		raw = raw[1:]
+	}
+	significand := raw
+	if index := strings.IndexAny(raw, "eE"); index >= 0 {
+		significand = raw[:index]
+	}
+	if !strings.Contains(significand, "0") {
+		return false
+	}
+	for _, char := range significand {
+		if char != '0' && char != '.' {
+			return false
+		}
+	}
+	return true
+}
+
 func validateSingleJSON(raw []byte) error {
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.UseNumber()
@@ -82,6 +111,11 @@ func validateValue(decoder *json.Decoder, topLevel bool) error {
 	if !ok {
 		if topLevel {
 			return fmt.Errorf("top-level JSON value must be an object or array")
+		}
+		if number, ok := token.(json.Number); ok {
+			if err := finiteNumber(number); err != nil {
+				return err
+			}
 		}
 		return nil
 	}

@@ -86,6 +86,17 @@ func TestCanonicalizeRejectsDuplicateKeys(t *testing.T) {
 	}
 }
 
+func TestCanonicalizeRejectsNonFiniteNumbers(t *testing.T) {
+	for _, raw := range []string{`{"n":1e309}`, `{"n":-1e309}`, `{"n":1e-400}`} {
+		if _, err := Canonicalize([]byte(raw)); err == nil {
+			t.Fatalf("Canonicalize(%s) accepted a non-finite number", raw)
+		}
+	}
+	if _, err := Canonicalize([]byte(`{"n":1e-10}`)); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestCanonicalizeRejectsTrailingValue(t *testing.T) {
 	if _, err := Canonicalize([]byte(`{"id":"one"} {"id":"two"}`)); err == nil {
 		t.Fatal("Canonicalize() accepted trailing JSON value")

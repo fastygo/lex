@@ -286,6 +286,44 @@ func TestReplayRejectsInadmissibleFrozenSource(t *testing.T) {
 	}
 }
 
+func TestReplayRejectsSnapshotFromAnotherProject(t *testing.T) {
+	value, err := canonical.DecodeJSON(sealedBundle(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	contextBody := bundle["context"].(map[string]any)
+	snapshot := contextBody["snapshot"].(map[string]any)
+	snapshot["project_id"] = "other-project"
+	rebindFrozenIdentities(t, bundle)
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "project_binding") {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
+func TestReplayRejectsUnpinnedRuntime(t *testing.T) {
+	value, err := canonical.DecodeJSON(sealedBundle(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	contextBody := bundle["context"].(map[string]any)
+	snapshot := contextBody["snapshot"].(map[string]any)
+	snapshot["runtime_version"] = "other-runtime"
+	rebindFrozenIdentities(t, bundle)
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "project_binding") {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
 func TestReplayRejectsSnapshotIdentityMismatch(t *testing.T) {
 	value, err := canonical.DecodeJSON(sealedBundle(t))
 	if err != nil {

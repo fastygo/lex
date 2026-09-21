@@ -1,0 +1,145 @@
+{
+  "producer": "scripts/jcs_vectors.py",
+  "vectors": [
+    {
+      "name": "key-order",
+      "kind": "jcs",
+      "input": "{\"b\":2,\"a\":1}",
+      "canonical": "{\"a\":1,\"b\":2}",
+      "sha256": "43258cff783fe7036d8a43033f830adfc60ec037382473548ac742b888292777"
+    },
+    {
+      "name": "nested-key-order",
+      "kind": "jcs",
+      "input": "{\"z\":1,\"a\":[true,null]}",
+      "canonical": "{\"a\":[true,null],\"z\":1}",
+      "sha256": "ca6da02fba3343778761e7785f2b55f7fb17b36ce16eee3492dc392fa7c9deaa"
+    },
+    {
+      "name": "unicode-cafe",
+      "kind": "jcs",
+      "input": "{\"cafe\":\"caf\u00e9\"}",
+      "canonical": "{\"cafe\":\"caf\u00e9\"}",
+      "sha256": "801a86b42bae9df69aecb1337a75a6988bcb5d6c0b54bb54c4425e3dc1514369"
+    },
+    {
+      "name": "unicode-cafe-escaped",
+      "kind": "jcs",
+      "input": "{\"cafe\":\"caf\\u00e9\"}",
+      "canonical": "{\"cafe\":\"caf\u00e9\"}",
+      "sha256": "801a86b42bae9df69aecb1337a75a6988bcb5d6c0b54bb54c4425e3dc1514369"
+    },
+    {
+      "name": "unicode-euro",
+      "kind": "jcs",
+      "input": "{\"name\":\"\\u20ac\"}",
+      "canonical": "{\"name\":\"\u20ac\"}",
+      "sha256": "080466493ecc711eb2010d0339912c06fcc8d7921c380aecbfb4f0b86ed18b69"
+    },
+    {
+      "name": "negative-zero",
+      "kind": "jcs",
+      "input": "{\"n\":-0}",
+      "canonical": "{\"n\":0}",
+      "sha256": "f3013f933b9fb80ab6d995e7ad9da36f683837ba1d81e950c943d40111eac2f0"
+    },
+    {
+      "name": "fractional-zero",
+      "kind": "jcs",
+      "input": "{\"n\":0.0}",
+      "canonical": "{\"n\":0}",
+      "sha256": "f3013f933b9fb80ab6d995e7ad9da36f683837ba1d81e950c943d40111eac2f0"
+    },
+    {
+      "name": "negative-fractional-zero",
+      "kind": "jcs",
+      "input": "{\"n\":-0.0}",
+      "canonical": "{\"n\":0}",
+      "sha256": "f3013f933b9fb80ab6d995e7ad9da36f683837ba1d81e950c943d40111eac2f0"
+    },
+    {
+      "name": "integral-float",
+      "kind": "jcs",
+      "input": "{\"n\":1.0}",
+      "canonical": "{\"n\":1}",
+      "sha256": "2bfd14f43d17fc7cea24e0917a8879b4b2f880b8baeec1b9d90fbaad655e71bd"
+    },
+    {
+      "name": "exponent",
+      "kind": "jcs",
+      "input": "{\"n\":1e2}",
+      "canonical": "{\"n\":100}",
+      "sha256": "b39022c4ed96525c42cd0e7ce55308533962a655f1c19d5dac2f03e9dd995b2c"
+    },
+    {
+      "name": "trailing-fraction-zeros",
+      "kind": "jcs",
+      "input": "{\"n\":1.2300}",
+      "canonical": "{\"n\":1.23}",
+      "sha256": "c2f4a8099bdaf483ac3f465590b90ae2156f94d0d32c194bfbb06ca2289ad25f"
+    },
+    {
+      "name": "solidus-not-escaped",
+      "kind": "jcs",
+      "input": "{\"url\":\"https://example.com/a\"}",
+      "canonical": "{\"url\":\"https://example.com/a\"}",
+      "sha256": "200c18939d89b08a9ec1aa013ae28ae51a0382943733a3aad1b0cd3928485eb4"
+    },
+    {
+      "name": "controls-escaped",
+      "kind": "jcs",
+      "input": "{\"text\":\"line\\nnext\"}",
+      "canonical": "{\"text\":\"line\\nnext\"}",
+      "sha256": "d11827db580981255ac9d94897c44ead54e7c6dc8c673d141db9d42859a061e1"
+    },
+    {
+      "name": "array-order",
+      "kind": "jcs",
+      "input": "{\"items\":[\"b\",\"a\"]}",
+      "canonical": "{\"items\":[\"b\",\"a\"]}",
+      "sha256": "013fc18f10321db7541276a147c99e8086d59ebb77cf34ed55bbbe2b7015995c"
+    },
+    {
+      "name": "without-self-hash",
+      "kind": "jcs",
+      "input": "{\"id\":\"claim-1\",\"protocol_version\":\"0.1-draft\"}",
+      "canonical": "{\"id\":\"claim-1\",\"protocol_version\":\"0.1-draft\"}",
+      "sha256": "4668880632b04f5cbb20fcbe4c3386fe717df33c41e41bb3d6d6c6cbc70ecd4b"
+    },
+    {
+      "name": "with-self-hash",
+      "kind": "jcs",
+      "input": "{\"bundle_hash\":\"0000\",\"id\":\"claim-1\",\"protocol_version\":\"0.1-draft\"}",
+      "canonical": "{\"bundle_hash\":\"0000\",\"id\":\"claim-1\",\"protocol_version\":\"0.1-draft\"}",
+      "sha256": "e766d60b9cda8e225d3433d6bb592483c6d281b4a77d63418f0300a3777c9699"
+    },
+    {
+      "name": "source-bytes",
+      "kind": "source_bytes",
+      "input": "The account is locked.",
+      "sha256": "2eec372ca787c87fc8896273990f83d824ab250093814547099825c1ef99cdf2"
+    },
+    {
+      "name": "source-bytes-one-edit",
+      "kind": "source_bytes",
+      "input": "The account is lockd.",
+      "sha256": "1ed7f44022ea5602de60218ed88b4fd9bc4488d3fbd78af8161d5de64fceea8c"
+    },
+    {
+      "name": "source-bytes-unicode",
+      "kind": "source_bytes",
+      "input": "caf\u00e9",
+      "sha256": "850f7dc43910ff890f8879c0ed26fe697c93a067ad93a7d50f466a7028a9bf4e"
+    },
+    {
+      "name": "duplicate-key",
+      "kind": "reject",
+      "input": "{\"id\":\"first\",\"id\":\"second\"}"
+    },
+    {
+      "name": "trailing-value",
+      "kind": "reject",
+      "input": "{\"id\":\"one\"} {\"id\":\"two\"}"
+    }
+  ]
+}

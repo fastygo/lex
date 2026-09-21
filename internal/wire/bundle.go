@@ -15,6 +15,7 @@ import (
 )
 
 const protocolVersion = "0.1-draft"
+const pinnedRuntime = "memory-exact-v1"
 
 // Entity is the caller-supplied object bound into a replay bundle.
 type Entity struct {
@@ -367,6 +368,9 @@ func provenanceFinding(bundle map[string]any, item map[string]any) (verify.Findi
 	snapshot, _ := contextBody["snapshot"].(map[string]any)
 	if !snapshotIDMatches(snapshot) {
 		return verify.Finding{Code: "snapshot_identity", Verdict: verify.VerdictError, Detail: "frozen snapshot identity does not match its sources"}, true
+	}
+	if snapshot["project_id"] != entity["project_id"] || snapshot["runtime_version"] != pinnedRuntime {
+		return verify.Finding{Code: "project_binding", Verdict: verify.VerdictError, Detail: "frozen snapshot is not bound to the entity project and pinned runtime"}, true
 	}
 	pack, _ := contextBody["pack"].(map[string]any)
 	request, _ := contextBody["pack_request"].(map[string]any)

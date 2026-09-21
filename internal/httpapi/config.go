@@ -1,11 +1,12 @@
 package httpapi
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/fastygo/lex/internal/canonical"
 )
 
 const (
@@ -36,9 +37,11 @@ func LoadConfig() (Config, error) {
 	if rawTokens == "" {
 		return Config{}, fmt.Errorf("LEX_BEARER_TOKENS is required")
 	}
-	if err := json.Unmarshal([]byte(rawTokens), &config.BearerTokens); err != nil {
-		return Config{}, fmt.Errorf("parse LEX_BEARER_TOKENS: %w", err)
+	tokens, err := parseBearerTokens(rawTokens)
+	if err != nil {
+		return Config{}, err
 	}
+	config.BearerTokens = tokens
 	if err := config.validate(); err != nil {
 		return Config{}, err
 	}
@@ -80,4 +83,32 @@ func (c *Config) validate() error {
 		return fmt.Errorf("body limit must be between one and %d bytes", defaultMaxBodyBytes)
 	}
 	return nil
+}
+
+func parseBearerTokens(raw string) (map[string][]string, error) {
+	value, err := canonical.DecodeJSON([]byte(raw))
+	if err != nil {
+		return nil, fmt.Errorf("LEX_BEARER_TOKENS must be one JSON object")
+	}
+	object, ok := value.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("LEX_BEARER_TOKENS must be one JSON object")
+	}
+	tokens := make(map[string][]string, len(object))
+	for token, rawProjects := range object {
+		projects, ok := rawProjects.([]any)
+		if !ok {
+			return nil, fmt.Errorf("LEX_BEARER_TOKENS values must be project arrays")
+		}
+		allowed := make([]string, 0, len(projects))
+		for _, rawProject := range projects {
+			projectID, ok := rawProject.(string)
+			if !ok {
+				return nil, fmt.Errorf("LEX_BEARER_TOKENS project ids must be strings")
+			}
+			allowed = append(allowed, projectID)
+		}
+		tokens[token] = allowed
+	}
+	return tokens, nil
 }
