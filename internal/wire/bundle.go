@@ -233,6 +233,11 @@ func bindingFindings(bundle map[string]any) []verify.Finding {
 		findings = append(findings, errorFinding("binding_mismatch"))
 	}
 	entity, _ := bundle["entity"].(map[string]any)
+	entityType, _ := entity["type"].(string)
+	schemaVersion, _ := entity["schema_version"].(string)
+	if entityType != profile.EntityType || schemaVersion != profile.EntitySchemaVersion {
+		findings = append(findings, errorFinding("unpinned_entity"))
+	}
 	if !entityChecksumMatches(entity) {
 		findings = append(findings, errorFinding("entity_checksum_mismatch"))
 	}
@@ -283,6 +288,11 @@ func evidenceFindings(bundle map[string]any) []verify.Finding {
 	}
 	if len(findings) > 0 {
 		return findings
+	}
+	if admissible > 0 {
+		if finding, failed := selectionFinding(bundle); failed {
+			return []verify.Finding{finding}
+		}
 	}
 	if admissible == 0 && inference > 0 {
 		return []verify.Finding{{Code: "inference_only", Verdict: verify.VerdictInsufficient, Detail: "model inference cannot establish a factual claim"}}
@@ -377,6 +387,9 @@ func provenanceFinding(bundle map[string]any, item map[string]any) (verify.Findi
 	if !packRequestIDMatches(snapshot, pack, request) {
 		return verify.Finding{Code: "pack_request_identity", Verdict: verify.VerdictError, Detail: "frozen pack identity does not match the pack request"}, true
 	}
+	if !focusPinned(request, textField(entity["project_id"])) {
+		return verify.Finding{Code: "unpinned_focus", Verdict: verify.VerdictError, Detail: "frozen pack request does not use the embedded focus"}, true
+	}
 	sum := sha256.Sum256([]byte(surface))
 	if hex.EncodeToString(sum[:]) != checksum {
 		return verify.Finding{Code: "checksum_mismatch", Verdict: verify.VerdictError, Detail: "evidence surface does not match its source checksum"}, true
@@ -409,6 +422,38 @@ func provenanceFinding(bundle map[string]any, item map[string]any) (verify.Findi
 	return verify.Finding{Code: "missing_provenance", Verdict: verify.VerdictError, Detail: "admissible evidence does not resolve to a frozen source"}, true
 }
 
+func selectionFinding(bundle map[string]any) (verify.Finding, bool) {
+	contextBody, _ := bundle["context"].(map[string]any)
+	request, _ := contextBody["pack_request"].(map[string]any)
+	req, ok := decodePackRequest(request)
+	if !ok {
+		return verify.Finding{Code: "unpinned_focus", Verdict: verify.VerdictError, Detail: "frozen pack request does not use the embedded focus"}, true
+	}
+	query := strings.TrimSpace(req.Query)
+	pack, _ := contextBody["pack"].(map[string]any)
+	rawItems, _ := pack["evidence_items"].([]any)
+	count := 0
+	total := 0
+	for _, raw := range rawItems {
+		item, _ := raw.(map[string]any)
+		class, _ := item["class"].(string)
+		trust, _ := item["trust_level"].(string)
+		if class != "source_text" || trust != "project" {
+			continue
+		}
+		surface, _ := item["surface"].(string)
+		if query == "" || !strings.Contains(surface, query) {
+			return verify.Finding{Code: "query_mismatch", Verdict: verify.VerdictError, Detail: "admissible evidence does not contain the frozen exact phrase"}, true
+		}
+		count++
+		total += len(surface)
+	}
+	if count > profile.FocusMaxItems || total > profile.FocusMaxChars {
+		return verify.Finding{Code: "focus_budget", Verdict: verify.VerdictError, Detail: "admissible evidence exceeds the embedded focus budget"}, true
+	}
+	return verify.Finding{}, false
+}
+
 func packRequestIDMatches(snapshot, pack, request map[string]any) bool {
 	expected, ok := expectedPackID(snapshot, request)
 	declared, _ := pack["id"].(string)
@@ -416,14 +461,8 @@ func packRequestIDMatches(snapshot, pack, request map[string]any) bool {
 }
 
 func expectedPackID(snapshot, request map[string]any) (string, bool) {
-	encoded, err := json.Marshal(request)
-	if err != nil {
-		return "", false
-	}
-	var req frozenPackRequest
-	decoder := json.NewDecoder(bytes.NewReader(encoded))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&req); err != nil {
+	req, ok := decodePackRequest(request)
+	if !ok {
 		return "", false
 	}
 	raw, err := json.Marshal(struct {
@@ -435,6 +474,34 @@ func expectedPackID(snapshot, request map[string]any) (string, bool) {
 	}
 	sum := sha256.Sum256(append([]byte("context/memory-pack-request/v1\x00"), raw...))
 	return "pack_" + hex.EncodeToString(sum[:]), true
+}
+
+func focusPinned(request map[string]any, projectID string) bool {
+	req, ok := decodePackRequest(request)
+	if !ok {
+		return false
+	}
+	if req.ProjectID != projectID || req.Query == "" || req.TaskID != "" || len(req.Instructions) > 0 || len(req.PolicyRefs) > 0 || len(req.VerificationRequirements) > 0 {
+		return false
+	}
+	if req.Focus.ID != profile.FocusID || req.Focus.Objective != profile.FocusObjective || req.Focus.RequiredTrustLevel != profile.FocusTrust {
+		return false
+	}
+	return req.Focus.Budget.MaxItems == profile.FocusMaxItems && req.Focus.Budget.MaxChars == profile.FocusMaxChars && req.Focus.Budget.MaxTokensEstimate == 0
+}
+
+func decodePackRequest(request map[string]any) (frozenPackRequest, bool) {
+	encoded, err := json.Marshal(request)
+	if err != nil {
+		return frozenPackRequest{}, false
+	}
+	var req frozenPackRequest
+	decoder := json.NewDecoder(bytes.NewReader(encoded))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
+		return frozenPackRequest{}, false
+	}
+	return req, true
 }
 
 type frozenPackRequest struct {

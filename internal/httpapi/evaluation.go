@@ -118,9 +118,9 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		Query:     body.Query,
 		Focus: contextmemory.Focus{
 			ID:                 profile.FocusID,
-			Objective:          "Select admissible source text for the stated claim.",
-			RequiredTrustLevel: "project",
-			Budget:             contextmemory.Budget{MaxItems: 8, MaxChars: 65536},
+			Objective:          profile.FocusObjective,
+			RequiredTrustLevel: profile.FocusTrust,
+			Budget:             contextmemory.Budget{MaxItems: profile.FocusMaxItems, MaxChars: profile.FocusMaxChars},
 		},
 	}
 	for i, source := range body.Sources {
@@ -352,6 +352,9 @@ type ineligibleError struct{}
 func (ineligibleError) Error() string { return "ineligible evidence" }
 
 func validEntity(entity entityRequest) bool {
+	if entity.Type != profile.EntityType || entity.SchemaVersion != profile.EntitySchemaVersion {
+		return false
+	}
 	for _, field := range []string{entity.ID, entity.Type, entity.SchemaVersion, entity.Version} {
 		if field == "" || len(field) > 256 {
 			return false

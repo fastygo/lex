@@ -25,6 +25,18 @@ const (
 	Calibration = "uncalibrated"
 	// FocusID is the embedded Context focus for this question set.
 	FocusID = "claim-validation-v1"
+	// FocusObjective is the only focus objective sent to Context for this profile.
+	FocusObjective = "Select admissible source text for the stated claim."
+	// FocusTrust is the only trust level this focus admits.
+	FocusTrust = "project"
+	// FocusMaxItems is the embedded evidence-item budget.
+	FocusMaxItems = 8
+	// FocusMaxChars is the embedded evidence-character budget.
+	FocusMaxChars = 65536
+	// EntityType is the only entity type this question set evaluates.
+	EntityType = "claim"
+	// EntitySchemaVersion is the only entity schema this question set evaluates.
+	EntitySchemaVersion = "0.1"
 )
 
 const (

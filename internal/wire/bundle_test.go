@@ -21,8 +21,8 @@ func TestReplayAcceptsEscapedContextSnapshot(t *testing.T) {
 	request := contextmemory.PackRequest{
 		ProjectID: "project-test", Query: "account",
 		Focus: contextmemory.Focus{
-			ID: profile.FocusID, Objective: "Select admissible source text.",
-			RequiredTrustLevel: "project", Budget: contextmemory.Budget{MaxItems: 8, MaxChars: 65536},
+			ID: profile.FocusID, Objective: profile.FocusObjective,
+			RequiredTrustLevel: profile.FocusTrust, Budget: contextmemory.Budget{MaxItems: profile.FocusMaxItems, MaxChars: profile.FocusMaxChars},
 		},
 	}
 	result, err := evidence.BuildPack(
@@ -70,7 +70,7 @@ func TestBuildBundleReplaysValidatedClaim(t *testing.T) {
 		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
 		Pack:           addressablePack(),
 		Snapshot:       addressableSnapshot(),
-		PackRequest:    map[string]any{"query": "account"},
+		PackRequest:    addressableRequest(),
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
 		ResolvedModel:  "fixture-v1",
@@ -124,7 +124,7 @@ func sealedBundle(t *testing.T) []byte {
 		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
 		Pack:           addressablePack(),
 		Snapshot:       addressableSnapshot(),
-		PackRequest:    map[string]any{"query": "account"},
+		PackRequest:    addressableRequest(),
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
 		ResolvedModel:  "fixture-v1",
@@ -197,6 +197,23 @@ func hasFinding(report Report, code string) bool {
 	return false
 }
 
+func TestReplayRejectsEntityOutsideEmbeddedProfile(t *testing.T) {
+	value, err := canonical.DecodeJSON(sealedBundle(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	entity := bundle["entity"].(map[string]any)
+	entity["schema_version"] = "9.9"
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "unpinned_entity") {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
 func TestReplayRejectsPackHashThatDoesNotMatchContent(t *testing.T) {
 	value, err := canonical.DecodeJSON(sealedBundle(t))
 	if err != nil {
@@ -228,6 +245,46 @@ func TestReplayRejectsEntityIdentityThatBreaksChecksum(t *testing.T) {
 		t.Fatal(err)
 	}
 	if report.Verdict != "error" || !hasFinding(report, "entity_checksum_mismatch") {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
+func TestReplayRejectsFocusOutsideEmbeddedProfile(t *testing.T) {
+	value, err := canonical.DecodeJSON(sealedBundle(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	contextBody := bundle["context"].(map[string]any)
+	request := contextBody["pack_request"].(map[string]any)
+	focus := request["focus"].(map[string]any)
+	budget := focus["context_budget"].(map[string]any)
+	budget["max_items"] = 1
+	rebindFrozenIdentities(t, bundle)
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "unpinned_focus") {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
+func TestReplayRejectsQueryThatEvidenceDoesNotContain(t *testing.T) {
+	value, err := canonical.DecodeJSON(sealedBundle(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	contextBody := bundle["context"].(map[string]any)
+	request := contextBody["pack_request"].(map[string]any)
+	request["query"] = "missing-phrase"
+	rebindFrozenIdentities(t, bundle)
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "query_mismatch") {
 		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
 	}
 }
@@ -405,11 +462,27 @@ func TestReplayRejectsSurfaceThatBreaksChecksum(t *testing.T) {
 
 const evidenceText = "The account is locked."
 
+func addressableRequest() map[string]any {
+	return map[string]any{
+		"project_id": "project-test",
+		"query":      "account",
+		"focus": map[string]any{
+			"id":                   profile.FocusID,
+			"objective":            profile.FocusObjective,
+			"required_trust_level": profile.FocusTrust,
+			"context_budget": map[string]any{
+				"max_items": profile.FocusMaxItems,
+				"max_chars": profile.FocusMaxChars,
+			},
+		},
+	}
+}
+
 func addressablePack() []byte {
 	sum := sha256.Sum256([]byte(evidenceText))
 	checksum := hex.EncodeToString(sum[:])
 	snapshot := addressableSnapshot()
-	request := map[string]any{"query": "account"}
+	request := addressableRequest()
 	identifier, ok := expectedPackID(snapshot, request)
 	if !ok {
 		panic("pack identity")
@@ -438,7 +511,7 @@ func TestReplayDoesNotUseNetwork(t *testing.T) {
 		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
 		Pack:           addressablePack(),
 		Snapshot:       addressableSnapshot(),
-		PackRequest:    map[string]any{"query": "account"},
+		PackRequest:    addressableRequest(),
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
 		ResolvedModel:  "fixture-v1",
@@ -478,7 +551,7 @@ func TestReplayRejectsUnpinnedPolicyWithoutProviderCall(t *testing.T) {
 		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
 		Pack:           addressablePack(),
 		Snapshot:       addressableSnapshot(),
-		PackRequest:    map[string]any{"query": "account"},
+		PackRequest:    addressableRequest(),
 		AdapterID:      "hosted-systemone",
 		AdapterVersion: "0.1.0",
 		ResolvedModel:  "fixture-v1",

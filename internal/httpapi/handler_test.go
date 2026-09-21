@@ -950,6 +950,20 @@ func TestNoExecutionRoute(t *testing.T) {
 	}
 }
 
+func TestEvaluationRejectsEntityOutsideEmbeddedProfile(t *testing.T) {
+	decider := &scriptedDecider{answers: []byte(passingAnswers)}
+	handler := mustHandlerWithDecider(t, decider)
+	body := strings.Replace(evaluationBody, `"type":"claim"`, `"type":"invoice"`, 1)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusBadRequest || decider.calls != 0 || !strings.Contains(recorder.Body.String(), `"reason":"invalid_json"`) {
+		t.Fatalf("status = %d calls = %d body = %s", recorder.Code, decider.calls, recorder.Body)
+	}
+}
+
 func TestEvaluationRejectsUnboundedQuery(t *testing.T) {
 	decider := &scriptedDecider{answers: []byte(passingAnswers)}
 	handler := mustHandlerWithDecider(t, decider)
