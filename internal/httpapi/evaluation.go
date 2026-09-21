@@ -12,6 +12,7 @@ import (
 	contextmemory "github.com/fastygo/context/pkg/contextkit/runtime"
 	"github.com/fastygo/lex/internal/canonical"
 	"github.com/fastygo/lex/internal/evidence"
+	"github.com/fastygo/lex/internal/lifecycle"
 	"github.com/fastygo/lex/internal/profile"
 	"github.com/fastygo/lex/internal/verify"
 	"github.com/fastygo/lex/internal/wire"
@@ -259,11 +260,26 @@ func tracedProblem(w http.ResponseWriter, status int, reason, detail string, sta
 }
 
 func trace(pairs ...string) []traceStage {
-	stages := make([]traceStage, 0, len(pairs)/2)
+	events := make([]lifecycle.Event, 0, len(pairs)/2)
 	for i := 0; i+1 < len(pairs); i += 2 {
-		stages = append(stages, traceStage{Name: pairs[i], Status: pairs[i+1]})
+		events = append(events, lifecycle.Event{Name: pairs[i], Status: pairs[i+1]})
+	}
+	if err := lifecycle.Run(lifecycle.Evaluation, events); err != nil {
+		panic(err)
+	}
+	stages := make([]traceStage, 0, len(events))
+	for _, event := range events {
+		stages = append(stages, traceStage{Name: event.Name, Status: event.Status})
 	}
 	return stages
+}
+
+func replayTrace() []traceStage {
+	event := lifecycle.Event{Name: "replay", Status: "completed"}
+	if err := lifecycle.Run(lifecycle.Replay, []lifecycle.Event{event}); err != nil {
+		panic(err)
+	}
+	return []traceStage{{Name: event.Name, Status: event.Status}}
 }
 
 func writeEvaluation(w http.ResponseWriter, body evaluationResponse, maxBodyBytes int64) {
