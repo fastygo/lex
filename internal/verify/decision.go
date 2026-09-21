@@ -3,6 +3,7 @@ package verify
 import (
 	"fmt"
 	"math"
+	"sort"
 )
 
 // QuestionType is a provider-neutral typed-decision primitive.
@@ -33,7 +34,13 @@ type Answer struct {
 // ValidateAnswers verifies completeness, answer types, and numeric domains.
 func ValidateAnswers(questions map[string]Question, answers map[string]Answer) []Finding {
 	findings := make([]Finding, 0)
-	for id, question := range questions {
+	ids := make([]string, 0, len(questions))
+	for id := range questions {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		question := questions[id]
 		answer, ok := answers[id]
 		if !ok {
 			findings = append(findings, errorFinding(CodePrefixMissingAnswer, id))
@@ -60,10 +67,15 @@ func ValidateAnswers(questions map[string]Question, answers map[string]Answer) [
 			findings = append(findings, errorFinding(CodePrefixUnsupportedQuestion, id))
 		}
 	}
+	extra := make([]string, 0)
 	for id := range answers {
 		if _, ok := questions[id]; !ok {
-			findings = append(findings, errorFinding(CodePrefixUnexpectedAnswer, id))
+			extra = append(extra, id)
 		}
+	}
+	sort.Strings(extra)
+	for _, id := range extra {
+		findings = append(findings, errorFinding(CodePrefixUnexpectedAnswer, id))
 	}
 	return findings
 }

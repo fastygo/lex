@@ -214,6 +214,165 @@ func TestEvaluationKeepsInjectedSourceTextOutOfQuestions(t *testing.T) {
 	}
 }
 
+func TestEvaluationTrimsSourcesToTheFocusItemBudget(t *testing.T) {
+	const sources = profile.FocusMaxItems + 1
+	decider := &capturingDecider{answers: []byte(passingAnswers)}
+	handler := mustHandlerWithDecider(t, decider)
+	var documents strings.Builder
+	for i := 1; i <= sources; i++ {
+		if i > 1 {
+			documents.WriteByte(',')
+		}
+		documents.WriteString(`{"id":"source-` + strconv.Itoa(i) + `","version":"v1","text":"The account is ` + strconv.Itoa(i) + `."}`)
+	}
+	body := `{"project_id":"project-test","entity":{"id":"claim-1","type":"claim","schema_version":"0.1","version":"1"},"query":"account","sources":[` + documents.String() + `]}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"verdict":"validated"`) || !strings.Contains(recorder.Body.String(), `"budget_trim"`) {
+		t.Fatalf("status = %d body has budget_trim = %v", recorder.Code, strings.Contains(recorder.Body.String(), `"budget_trim"`))
+	}
+	var sent struct {
+		Evidence []struct {
+			SourceID string `json:"source_id"`
+		} `json:"evidence"`
+	}
+	encoded, err := json.Marshal(decider.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(encoded, &sent); err != nil {
+		t.Fatal(err)
+	}
+	if len(sent.Evidence) != profile.FocusMaxItems {
+		t.Fatalf("provider evidence = %d", len(sent.Evidence))
+	}
+	for _, item := range sent.Evidence {
+		if item.SourceID == "source-9" {
+			t.Fatal("trimmed source was sent to the provider")
+		}
+	}
+	var response struct {
+		ReplayBundle json.RawMessage `json:"replay_bundle"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	var bundle struct {
+		Context struct {
+			Pack struct {
+				EvidenceItems []struct {
+					SourceRef struct {
+						SourceID string `json:"source_id"`
+					} `json:"source_ref"`
+				} `json:"evidence_items"`
+				RejectedItems []struct {
+					SourceRef struct {
+						SourceID string `json:"source_id"`
+					} `json:"source_ref"`
+					RejectionReason string `json:"rejection_reason"`
+				} `json:"rejected_items"`
+			} `json:"pack"`
+		} `json:"context"`
+	}
+	if err := json.Unmarshal(response.ReplayBundle, &bundle); err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range bundle.Context.Pack.EvidenceItems {
+		if item.SourceRef.SourceID == "source-9" {
+			t.Fatal("trimmed source remained admissible")
+		}
+	}
+	trimmed := false
+	for _, item := range bundle.Context.Pack.RejectedItems {
+		if item.SourceRef.SourceID == "source-9" && item.RejectionReason == "budget_trim" {
+			trimmed = true
+		}
+	}
+	if !trimmed {
+		t.Fatalf("rejected = %#v", bundle.Context.Pack.RejectedItems)
+	}
+	replay := httptest.NewRequest(http.MethodPost, "/v1/replays", bytes.NewReader(response.ReplayBundle))
+	replay.Header.Set("Authorization", "Bearer test-token")
+	replay.Header.Set("Content-Type", "application/json")
+	replayRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(replayRecorder, replay)
+	if replayRecorder.Code != http.StatusOK || !strings.Contains(replayRecorder.Body.String(), `"verdict":"validated"`) {
+		t.Fatalf("replay status = %d", replayRecorder.Code)
+	}
+}
+
+func TestEvaluationKeepsALaterSourceThatFitsTheCharacterBudget(t *testing.T) {
+	decider := &capturingDecider{answers: []byte(passingAnswers)}
+	handler := mustHandlerWithDecider(t, decider)
+	large := "account " + strings.Repeat("x", profile.FocusMaxChars)
+	body := `{"project_id":"project-test","entity":{"id":"claim-1","type":"claim","schema_version":"0.1","version":"1"},"query":"account","sources":[{"id":"source-a","version":"v1","text":"` + large + `"},{"id":"source-b","version":"v1","text":"The account is locked."}]}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"verdict":"validated"`) {
+		t.Fatalf("status = %d", recorder.Code)
+	}
+	var sent struct {
+		Evidence []struct {
+			SourceID string `json:"source_id"`
+			Surface  string `json:"surface"`
+		} `json:"evidence"`
+	}
+	encoded, err := json.Marshal(decider.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(encoded, &sent); err != nil {
+		t.Fatal(err)
+	}
+	if len(sent.Evidence) != 1 || sent.Evidence[0].SourceID != "source-b" || sent.Evidence[0].Surface != "The account is locked." {
+		t.Fatalf("provider evidence = %#v", sent.Evidence)
+	}
+	var response struct {
+		ReplayBundle json.RawMessage `json:"replay_bundle"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	var bundle struct {
+		Context struct {
+			Pack struct {
+				RejectedItems []struct {
+					SourceRef struct {
+						SourceID string `json:"source_id"`
+					} `json:"source_ref"`
+					RejectionReason string `json:"rejection_reason"`
+				} `json:"rejected_items"`
+			} `json:"pack"`
+		} `json:"context"`
+	}
+	if err := json.Unmarshal(response.ReplayBundle, &bundle); err != nil {
+		t.Fatal(err)
+	}
+	trimmed := false
+	for _, item := range bundle.Context.Pack.RejectedItems {
+		if item.SourceRef.SourceID == "source-a" && item.RejectionReason == "budget_trim" {
+			trimmed = true
+		}
+	}
+	if !trimmed {
+		t.Fatalf("rejected = %#v", bundle.Context.Pack.RejectedItems)
+	}
+	replay := httptest.NewRequest(http.MethodPost, "/v1/replays", bytes.NewReader(response.ReplayBundle))
+	replay.Header.Set("Authorization", "Bearer test-token")
+	replay.Header.Set("Content-Type", "application/json")
+	replayRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(replayRecorder, replay)
+	if replayRecorder.Code != http.StatusOK || !strings.Contains(replayRecorder.Body.String(), `"verdict":"validated"`) {
+		t.Fatalf("replay status = %d", replayRecorder.Code)
+	}
+}
+
 func TestReplayReproducesEvaluationVerdict(t *testing.T) {
 	handler := mustHandlerWithDecider(t, &scriptedDecider{answers: []byte(passingAnswers)})
 	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(evaluationBody))

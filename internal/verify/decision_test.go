@@ -37,3 +37,48 @@ func TestValidateAnswersReportsMalformedAnswers(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateAnswersOrdersFindingsByIdentifier(t *testing.T) {
+	questions := map[string]Question{
+		"support":     {Type: QuestionNoul},
+		"established": {Type: QuestionNoul},
+	}
+	answers := map[string]Answer{
+		"zebra": {Type: QuestionNoul},
+		"extra": {Type: QuestionNoul},
+	}
+	var first []string
+	for range 32 {
+		findings := ValidateAnswers(questions, answers)
+		got := make([]string, len(findings))
+		for i, finding := range findings {
+			got[i] = finding.Code
+		}
+		if first == nil {
+			first = got
+			continue
+		}
+		if len(got) != len(first) {
+			t.Fatalf("finding count changed: %v", got)
+		}
+		for i := range got {
+			if got[i] != first[i] {
+				t.Fatalf("finding order changed: %v", got)
+			}
+		}
+	}
+	want := []string{
+		"missing_answer:established",
+		"missing_answer:support",
+		"unexpected_answer:extra",
+		"unexpected_answer:zebra",
+	}
+	if len(first) != len(want) {
+		t.Fatalf("findings = %v", first)
+	}
+	for i := range want {
+		if first[i] != want[i] {
+			t.Fatalf("findings = %v", first)
+		}
+	}
+}
