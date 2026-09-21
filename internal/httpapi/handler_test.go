@@ -114,6 +114,54 @@ func TestEvaluationUsesFrozenContextAndInjectedDecider(t *testing.T) {
 	if sealed.ReplayBundle.Context.Pack.Checksum == "" || sealed.ReplayBundle.Context.Pack.Checksum == sealed.ReplayBundle.Context.PackHash {
 		t.Fatalf("upstream checksum = %q pack hash = %q", sealed.ReplayBundle.Context.Pack.Checksum, sealed.ReplayBundle.Context.PackHash)
 	}
+	if strings.Contains(recorder.Body.String(), `"adapter_metadata"`) {
+		t.Fatal("omitted provider metadata was fabricated")
+	}
+}
+
+func TestAdapterMetadataStaysOutOfTheReplayBundle(t *testing.T) {
+	elapsed := 12.5
+	decider := &scriptedDecider{
+		answers:        []byte(passingAnswers),
+		requestID:      "req-1",
+		evaluationTime: &elapsed,
+		usage:          []byte(`{"input_tokens":3,"output_tokens":1}`),
+	}
+	handler := mustHandlerWithDecider(t, decider)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(evaluationBody))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
+	}
+	var response struct {
+		AdapterMetadata map[string]any  `json:"adapter_metadata"`
+		ReplayBundle    json.RawMessage `json:"replay_bundle"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if response.AdapterMetadata["request_id"] != "req-1" || response.AdapterMetadata["evaluation_time_ms"] != 12.5 {
+		t.Fatalf("metadata = %#v", response.AdapterMetadata)
+	}
+	usage, _ := response.AdapterMetadata["usage"].(map[string]any)
+	if usage["input_tokens"] != float64(3) || strings.Contains(string(response.ReplayBundle), "req-1") || strings.Contains(string(response.ReplayBundle), "input_tokens") {
+		t.Fatalf("metadata leaked into replay material: %s", response.ReplayBundle)
+	}
+	if err := openAPISchema(t, "EvaluationResponse").Validate(strictJSON(t, recorder.Body.Bytes())); err != nil {
+		t.Fatal(err)
+	}
+	assertNoTimestamps(t, strictJSON(t, recorder.Body.Bytes()))
+	replay := httptest.NewRequest(http.MethodPost, "/v1/replays", bytes.NewReader(response.ReplayBundle))
+	replay.Header.Set("Authorization", "Bearer test-token")
+	replay.Header.Set("Content-Type", "application/json")
+	replayRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(replayRecorder, replay)
+	if replayRecorder.Code != http.StatusOK || strings.Contains(replayRecorder.Body.String(), `"adapter_metadata"`) || strings.Contains(replayRecorder.Body.String(), "req-1") {
+		t.Fatalf("replay status = %d body = %s", replayRecorder.Code, replayRecorder.Body)
+	}
 }
 
 func TestEvaluationSkipsProviderWhenRetrievalIsEmpty(t *testing.T) {
@@ -557,6 +605,26 @@ func TestAdmissionRejectsOverflowAndKeepsHealthOpen(t *testing.T) {
 	}()
 	<-entered
 
+	anonymous := &readProbe{}
+	anonymousRequest := httptest.NewRequest(http.MethodPost, "/v1/evaluations", nil)
+	anonymousRequest.Body = anonymous
+	anonymousRequest.ContentLength = 32
+	anonymousRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(anonymousRecorder, anonymousRequest)
+	if anonymousRecorder.Code != http.StatusUnauthorized || anonymous.reads != 0 || !strings.Contains(anonymousRecorder.Body.String(), `"reason":"authentication_required"`) {
+		t.Fatalf("anonymous status = %d reads = %d body = %s", anonymousRecorder.Code, anonymous.reads, anonymousRecorder.Body)
+	}
+	denied := &readProbe{}
+	deniedRequest := httptest.NewRequest(http.MethodPost, "/v1/evaluations", nil)
+	deniedRequest.Body = denied
+	deniedRequest.ContentLength = 32
+	deniedRequest.Header.Set("Authorization", "Bearer wrong-token")
+	deniedRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(deniedRecorder, deniedRequest)
+	if deniedRecorder.Code != http.StatusForbidden || denied.reads != 0 || !strings.Contains(deniedRecorder.Body.String(), `"reason":"authentication_denied"`) {
+		t.Fatalf("denied status = %d reads = %d body = %s", deniedRecorder.Code, denied.reads, deniedRecorder.Body)
+	}
+
 	overflow := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(evaluationBody))
 	overflow.Header.Set("Authorization", "Bearer test-token")
 	overflow.Header.Set("Content-Type", "application/json")
@@ -576,6 +644,15 @@ func TestAdmissionRejectsOverflowAndKeepsHealthOpen(t *testing.T) {
 		t.Fatalf("held evaluation status = %d", code)
 	}
 }
+
+type readProbe struct{ reads int }
+
+func (probe *readProbe) Read([]byte) (int, error) {
+	probe.reads++
+	return 0, errors.New("body was read")
+}
+
+func (probe *readProbe) Close() error { return nil }
 
 func TestJSONDepthLimit(t *testing.T) {
 	handler := mustHandler(t)
@@ -825,9 +902,12 @@ func TestEvaluationRejectsAnotherProject(t *testing.T) {
 }
 
 type scriptedDecider struct {
-	mu      sync.Mutex
-	answers []byte
-	calls   int
+	mu             sync.Mutex
+	answers        []byte
+	calls          int
+	requestID      string
+	evaluationTime *float64
+	usage          json.RawMessage
 }
 
 func (decider *scriptedDecider) AdapterID() string      { return "direct-systemone" }
@@ -837,7 +917,10 @@ func (decider *scriptedDecider) Evaluate(context.Context, any, map[string]any) (
 	decider.mu.Lock()
 	decider.calls++
 	decider.mu.Unlock()
-	return Decision{ResolvedModel: profile.DirectModel, Answers: decider.answers}, nil
+	return Decision{
+		ResolvedModel: profile.DirectModel, Answers: decider.answers,
+		RequestID: decider.requestID, EvaluationTimeMS: decider.evaluationTime, Usage: decider.usage,
+	}, nil
 }
 
 type capturingDecider struct {

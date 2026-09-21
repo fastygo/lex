@@ -31,7 +31,7 @@ func TestEvaluatePreservesRawAnswers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Evaluate() error = %v", err)
 	}
-	if decision.ResolvedModel != Model || !strings.Contains(string(decision.Answers), `"noul":0.9`) {
+	if decision.ResolvedModel != Model || !strings.Contains(string(decision.Answers), `"noul":0.9`) || !strings.Contains(string(decision.Usage), `"input_tokens":1`) || decision.RequestID != "" || decision.EvaluationTimeMS != nil {
 		t.Fatalf("decision = %#v", decision)
 	}
 }
@@ -86,7 +86,7 @@ func TestEvaluateRejectsAliasAndRemoteEndpoint(t *testing.T) {
 	defer server.Close()
 	client := newForTest("test-key", server.URL)
 	client.HTTP = server.Client()
-	if _, err := client.Evaluate(context.Background(), "state", map[string]any{}); err == nil {
+	if _, err := client.Evaluate(context.Background(), "state", map[string]any{"support": map[string]any{"type": "noul"}}); err == nil {
 		t.Fatal("accepted alias response")
 	}
 	if _, err := newForTest("test-key", "https://example.invalid/systemone").Evaluate(context.Background(), "state", nil); err == nil {

@@ -27,7 +27,10 @@ func (port typesafePort) Evaluate(ctx context.Context, state any, questions map[
 	if err != nil {
 		return httpapi.Decision{}, err
 	}
-	return httpapi.Decision{ResolvedModel: decision.ResolvedModel, Answers: decision.Answers}, nil
+	return httpapi.Decision{
+		ResolvedModel: decision.ResolvedModel, Answers: decision.Answers,
+		RequestID: decision.RequestID, EvaluationTimeMS: decision.EvaluationTimeMS, Usage: decision.Usage,
+	}, nil
 }
 
 type openrouterPort struct{ client openrouter.Client }
@@ -40,7 +43,10 @@ func (port openrouterPort) Evaluate(ctx context.Context, state any, questions ma
 	if err != nil {
 		return httpapi.Decision{}, err
 	}
-	return httpapi.Decision{ResolvedModel: decision.ResolvedModel, Answers: decision.Answers}, nil
+	return httpapi.Decision{
+		ResolvedModel: decision.ResolvedModel, Answers: decision.Answers,
+		RequestID: decision.RequestID, EvaluationTimeMS: decision.EvaluationTimeMS, Usage: decision.Usage,
+	}, nil
 }
 
 func selectDecider() (httpapi.Decider, error) {

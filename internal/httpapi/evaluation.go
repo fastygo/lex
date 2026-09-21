@@ -26,9 +26,13 @@ type Decider interface {
 }
 
 // Decision preserves provider output without interpreting it as authority.
+// Metadata stays empty when the provider omits it.
 type Decision struct {
-	ResolvedModel string
-	Answers       json.RawMessage
+	ResolvedModel    string
+	Answers          json.RawMessage
+	RequestID        string
+	EvaluationTimeMS *float64
+	Usage            json.RawMessage
 }
 
 type evaluationRequest struct {
@@ -210,7 +214,7 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		return
 	}
 	if report.Verdict == verify.VerdictError {
-		writeVerdictProblem(w, http.StatusUnprocessableEntity, reasonDecisionError, "typed answers failed deterministic checks", report, bundle, maxBodyBytes)
+		writeVerdictProblem(w, http.StatusUnprocessableEntity, reasonDecisionError, "typed answers failed deterministic checks", report, bundle, adapterMetadata(decision), maxBodyBytes)
 		return
 	}
 	writeEvaluation(w, evaluationResponse{
@@ -224,6 +228,7 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		Trace:           trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "completed"),
 		Policy:          policyDisclosure(),
 		Retention:       retentionDisclosure(),
+		AdapterMetadata: adapterMetadata(decision),
 	}, maxBodyBytes)
 }
 
@@ -239,6 +244,7 @@ type evaluationResponse struct {
 	Trace           []traceStage         `json:"trace"`
 	Policy          policyDisclosureView `json:"policy"`
 	Retention       retentionView        `json:"retention"`
+	AdapterMetadata map[string]any       `json:"adapter_metadata,omitempty"`
 }
 
 type traceStage struct {
@@ -254,6 +260,27 @@ type policyDisclosureView struct {
 
 func policyDisclosure() policyDisclosureView {
 	return policyDisclosureView{ID: profile.PolicyID, Version: profile.PolicyVersion, Calibration: profile.Calibration}
+}
+
+func adapterMetadata(decision Decision) map[string]any {
+	if decision.RequestID == "" && decision.EvaluationTimeMS == nil && len(decision.Usage) == 0 {
+		return nil
+	}
+	view := map[string]any{}
+	if decision.RequestID != "" {
+		view["request_id"] = decision.RequestID
+	}
+	if decision.EvaluationTimeMS != nil {
+		view["evaluation_time_ms"] = *decision.EvaluationTimeMS
+	}
+	if len(decision.Usage) > 0 {
+		var usage any
+		if err := json.Unmarshal(decision.Usage, &usage); err != nil {
+			return nil
+		}
+		view["usage"] = usage
+	}
+	return view
 }
 
 func tracedProblem(w http.ResponseWriter, status int, reason, detail string, stages []traceStage) {

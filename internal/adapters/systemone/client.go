@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"strings"
@@ -16,6 +17,9 @@ import (
 )
 
 const maxResponseBytes = 2 << 20
+
+// maxProviderQuestions is the published question limit checked before a call.
+const maxProviderQuestions = 64
 
 // Call is one bounded provider request. It never retries or changes model.
 type Call struct {
@@ -28,11 +32,14 @@ type Call struct {
 	HTTP             *http.Client
 }
 
-// Decision preserves the raw provider payload.
+// Decision preserves the raw provider payload. Metadata fields stay empty when
+// the provider omits them.
 type Decision struct {
-	ResolvedModel string
-	Answers       json.RawMessage
-	Usage         json.RawMessage
+	ResolvedModel    string
+	Answers          json.RawMessage
+	RequestID        string
+	EvaluationTimeMS *float64
+	Usage            json.RawMessage
 }
 
 // Evaluate posts one frozen state and question map.
@@ -42,6 +49,9 @@ func Evaluate(ctx context.Context, call Call, state any, questions map[string]an
 	}
 	if !endpointAllowed(call) {
 		return Decision{}, fmt.Errorf("decision endpoint is not allowlisted")
+	}
+	if !questionsSupported(questions) {
+		return Decision{}, fmt.Errorf("decision questions are outside the declared capabilities")
 	}
 	payload, err := json.Marshal(map[string]any{"model": call.Model, "state": state, "questions": questions})
 	if err != nil {
@@ -82,9 +92,11 @@ func Evaluate(ctx context.Context, call Call, state any, questions map[string]an
 		return Decision{}, fmt.Errorf("decode decision response: %w", err)
 	}
 	var decoded struct {
-		Model   string          `json:"model"`
-		Answers json.RawMessage `json:"answers"`
-		Usage   json.RawMessage `json:"usage"`
+		Model            string          `json:"model"`
+		Answers          json.RawMessage `json:"answers"`
+		Usage            json.RawMessage `json:"usage"`
+		RequestID        string          `json:"request_id"`
+		EvaluationTimeMS *float64        `json:"evaluation_time_ms"`
 	}
 	if err := json.Unmarshal(body, &decoded); err != nil {
 		return Decision{}, fmt.Errorf("decode decision response: %w", err)
@@ -95,7 +107,61 @@ func Evaluate(ctx context.Context, call Call, state any, questions map[string]an
 	if call.ExpectedModel != "" && decoded.Model != call.ExpectedModel {
 		return Decision{}, fmt.Errorf("decision response model does not match the pinned request model")
 	}
-	return Decision{ResolvedModel: decoded.Model, Answers: decoded.Answers, Usage: decoded.Usage}, nil
+	usage, err := usableMetadata(call.APIKey, decoded.RequestID, decoded.EvaluationTimeMS, decoded.Usage)
+	if err != nil {
+		return Decision{}, err
+	}
+	return Decision{
+		ResolvedModel:    decoded.Model,
+		Answers:          decoded.Answers,
+		RequestID:        decoded.RequestID,
+		EvaluationTimeMS: decoded.EvaluationTimeMS,
+		Usage:            usage,
+	}, nil
+}
+
+func questionsSupported(questions map[string]any) bool {
+	if len(questions) == 0 || len(questions) > maxProviderQuestions {
+		return false
+	}
+	for _, raw := range questions {
+		question, ok := raw.(map[string]any)
+		if !ok {
+			return false
+		}
+		switch question["type"] {
+		case "noul", "choice", "score":
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func usableMetadata(secret, requestID string, elapsed *float64, usage json.RawMessage) (json.RawMessage, error) {
+	if requestID != "" && (len(requestID) > 256 || strings.Contains(requestID, secret) || strings.ContainsAny(requestID, "\r\n")) {
+		return nil, fmt.Errorf("decision response metadata is not usable")
+	}
+	if elapsed != nil && (math.IsNaN(*elapsed) || math.IsInf(*elapsed, 0) || *elapsed < 0) {
+		return nil, fmt.Errorf("decision response metadata is not usable")
+	}
+	if len(usage) == 0 || string(usage) == "null" {
+		return nil, nil
+	}
+	if strings.Contains(string(usage), secret) {
+		return nil, fmt.Errorf("decision response metadata is not usable")
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(usage, &fields); err != nil {
+		return nil, fmt.Errorf("decision response metadata is not usable")
+	}
+	for _, value := range fields {
+		number, ok := value.(float64)
+		if !ok || math.IsNaN(number) || math.IsInf(number, 0) || number < 0 {
+			return nil, fmt.Errorf("decision response metadata is not usable")
+		}
+	}
+	return usage, nil
 }
 
 func endpointAllowed(call Call) bool {

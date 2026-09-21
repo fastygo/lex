@@ -57,6 +57,17 @@ func withKnownRoutes(next http.Handler) http.Handler {
 func withRequestLimits(next http.Handler, config Config, gate *admission) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		if request.URL.Path != "/healthz" {
+			token, ok := bearerToken(request.Header.Get("Authorization"))
+			if !ok {
+				writeProblem(w, http.StatusUnauthorized, reasonAuthenticationRequired, "a bearer token is required")
+				return
+			}
+			projects, ok := authorizedProjects(token, config.BearerTokens)
+			if !ok {
+				writeProblem(w, http.StatusForbidden, reasonAuthenticationDenied, "the bearer token is not authorized")
+				return
+			}
+			request = request.WithContext(context.WithValue(request.Context(), projectsKey{}, projects))
 			if !gate.acquire() {
 				writeProblem(w, http.StatusServiceUnavailable, reasonAdmissionLimited, "too many requests are already running in this process")
 				return
@@ -287,13 +298,17 @@ func writeProblem(w http.ResponseWriter, status int, reason, detail string) {
 	writeProblemBody(w, status, reason, detail, nil)
 }
 
-func writeVerdictProblem(w http.ResponseWriter, status int, reason, detail string, report wire.Report, bundle []byte, maxBodyBytes int64) {
-	encoded, err := encodeProblem(status, reason, detail, map[string]any{
+func writeVerdictProblem(w http.ResponseWriter, status int, reason, detail string, report wire.Report, bundle []byte, meta map[string]any, maxBodyBytes int64) {
+	body := map[string]any{
 		"verdict":       report.Verdict,
 		"findings":      report.Findings,
 		"trace":         trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "completed"),
 		"replay_bundle": json.RawMessage(bundle),
-	})
+	}
+	if meta != nil {
+		body["adapter_metadata"] = meta
+	}
+	encoded, err := encodeProblem(status, reason, detail, body)
 	if err != nil || int64(len(encoded)) > maxBodyBytes {
 		tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the evaluation response does not fit the response budget", trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
 		return
