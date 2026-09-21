@@ -126,7 +126,9 @@ GET  /healthz
 The wire profile uses JSON Schema 2020-12, RFC 8785 JCS with SHA-256 for LeX
 canonical hashes, and RFC 9457 Problem Details. A draft OpenAPI 3.1.1 document
 is at `internal/wire/schema/openapi.json`. The handler enforces that evaluation
-schema. Routes are not a released protocol until the ADRs are accepted.
+schema. `GET /v1/capabilities` reports exact-phrase retrieval, the uncalibrated
+policy, and the configured body, deadline, focus, and per-process admission
+limits. Routes are not a released protocol until the ADRs are accepted.
 
 ## Delivery path
 

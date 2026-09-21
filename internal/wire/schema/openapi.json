@@ -145,6 +145,7 @@
             "not_acceptable",
             "not_found",
             "pack_error",
+            "policy_error",
             "project_forbidden",
             "provider_unavailable",
             "question_error",
@@ -162,14 +163,17 @@
       "CapabilitiesResponse": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["protocol_status", "context", "operations", "retention"],
+        "required": ["protocol_status", "context", "operations", "policy", "limits", "retention"],
         "properties": {
           "protocol_status": {"const": "working_draft"},
           "context": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["capability"],
-            "properties": {"capability": {"const": "memory-exact-v1"}}
+            "required": ["capability", "retrieval"],
+            "properties": {
+              "capability": {"const": "memory-exact-v1"},
+              "retrieval": {"const": "exact_phrase"}
+            }
           },
           "operations": {
             "type": "object",
@@ -179,6 +183,21 @@
               "evaluation": {"type": "boolean"},
               "replay": {"const": true},
               "execution": {"const": false}
+            }
+          },
+          "policy": {"$ref": "#/components/schemas/PolicyDisclosure"},
+          "limits": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "process_admission is the maximum number of requests running in this process, not a global quota.",
+            "required": ["max_sources", "max_body_bytes", "focus_max_items", "focus_max_chars", "request_timeout_ms", "process_admission"],
+            "properties": {
+              "max_sources": {"const": 128},
+              "max_body_bytes": {"type": "integer", "minimum": 1, "maximum": 2097152},
+              "focus_max_items": {"const": 8},
+              "focus_max_chars": {"const": 65536},
+              "request_timeout_ms": {"type": "integer", "minimum": 1, "maximum": 20000},
+              "process_admission": {"type": "integer", "minimum": 1, "maximum": 4}
             }
           },
           "retention": {"$ref": "#/components/schemas/Retention"}

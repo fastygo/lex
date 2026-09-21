@@ -65,7 +65,9 @@ a broken policy evaluator. Verification cannot create missing provenance.
 The report MUST preserve all material epistemic and policy findings.
 A review recommendation must not erase an established conflict. The primary
 verdict precedence is `error > conflict > insufficient > manual_review >
-rejected > validated`. Policy-denial reason codes remain a release blocker.
+rejected > validated`. A policy denial is one of `safety_gate`,
+`review_required`, or `action_inconsistent`. An evaluator that cannot apply
+its thresholds is `policy_error`, not one of those denials.
 The precedence order does not erase lower-priority findings.
 
 ## Failure stages

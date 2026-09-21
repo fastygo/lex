@@ -1,5 +1,10 @@
 package verify
 
+import (
+	"errors"
+	"math"
+)
+
 // Thresholds are explicit policy gates. They are not a universal calibration.
 type Thresholds struct {
 	SupportMin   float64
@@ -8,8 +13,15 @@ type Thresholds struct {
 	SafetyMin    float64
 }
 
+// ErrUnusablePolicy means the policy evaluator cannot apply its thresholds.
+// It is not a denial finding.
+var ErrUnusablePolicy = errors.New("policy thresholds are not usable")
+
 // Interpret applies answer-domain checks and policy gates, then selects a verdict.
 func Interpret(questions map[string]Question, thresholds Thresholds, answers map[string]Answer) (Verdict, []Finding, error) {
+	if !ThresholdsUsable(thresholds) {
+		return "", nil, ErrUnusablePolicy
+	}
 	findings := ValidateAnswers(questions, answers)
 	findings = append(findings, policyFindings(thresholds, answers)...)
 	verdict, err := ResolveVerdict(findings)
@@ -20,6 +32,15 @@ func Interpret(questions map[string]Question, thresholds Thresholds, answers map
 		findings = []Finding{}
 	}
 	return verdict, findings, nil
+}
+
+// ThresholdsUsable reports whether every gate is a finite probability.
+func ThresholdsUsable(thresholds Thresholds) bool {
+	return unitInterval(thresholds.SupportMin) && unitInterval(thresholds.EstablishMin) && unitInterval(thresholds.ConflictMin) && unitInterval(thresholds.SafetyMin)
+}
+
+func unitInterval(value float64) bool {
+	return !math.IsNaN(value) && !math.IsInf(value, 0) && value >= 0 && value <= 1
 }
 
 func policyFindings(thresholds Thresholds, answers map[string]Answer) []Finding {

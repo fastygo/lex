@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -17,6 +18,7 @@ import (
 
 	"github.com/fastygo/lex/internal/canonical"
 	"github.com/fastygo/lex/internal/profile"
+	"github.com/fastygo/lex/internal/verify"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
@@ -49,7 +51,7 @@ func TestHandlerCapabilitiesReturnsNoStore(t *testing.T) {
 	if cacheControl := recorder.Header().Get("Cache-Control"); cacheControl != "no-store" {
 		t.Fatalf("Cache-Control = %q, want no-store", cacheControl)
 	}
-	if got := recorder.Body.String(); !strings.Contains(got, `"replay":true`) || !strings.Contains(got, `"evaluation":false`) || !strings.Contains(got, `"server_history":false`) || !strings.Contains(got, `"replay":"caller_owned"`) || !strings.Contains(got, `"idempotency":"none"`) {
+	if got := recorder.Body.String(); !strings.Contains(got, `"replay":true`) || !strings.Contains(got, `"evaluation":false`) || !strings.Contains(got, `"server_history":false`) || !strings.Contains(got, `"replay":"caller_owned"`) || !strings.Contains(got, `"idempotency":"none"`) || !strings.Contains(got, `"retrieval":"exact_phrase"`) || !strings.Contains(got, `"calibration":"uncalibrated"`) || !strings.Contains(got, `"focus_max_items":8`) || !strings.Contains(got, `"process_admission":4`) {
 		t.Fatalf("body = %s", got)
 	}
 }
@@ -429,6 +431,17 @@ func TestProblemReasonCatalogMatchesOpenAPI(t *testing.T) {
 	}
 }
 
+func TestUnusablePolicyIsNotADenial(t *testing.T) {
+	status, reason, detail := replayFailure(verify.ErrUnusablePolicy)
+	if status != http.StatusInternalServerError || reason != reasonPolicyError || strings.Contains(detail, "safety") {
+		t.Fatalf("status = %d reason = %s", status, reason)
+	}
+	status, reason, _ = replayFailure(errors.New("verifier failed"))
+	if reason != reasonVerificationError {
+		t.Fatalf("reason = %s", reason)
+	}
+}
+
 func TestLiveResponsesMatchOpenAPI(t *testing.T) {
 	evaluationSchema := openAPISchema(t, "EvaluationResponse")
 	replaySchema := openAPISchema(t, "ReplayResponse")
@@ -446,6 +459,7 @@ func TestLiveResponsesMatchOpenAPI(t *testing.T) {
 	if err := capabilitiesSchema.Validate(strictJSON(t, enabledRecorder.Body.Bytes())); err != nil {
 		t.Fatalf("capabilities response: %v", err)
 	}
+	assertNoTimestamps(t, strictJSON(t, enabledRecorder.Body.Bytes()))
 	disabled := httptest.NewRequest(http.MethodGet, "/v1/capabilities", nil)
 	disabled.Header.Set("Authorization", "Bearer test-token")
 	disabledRecorder := httptest.NewRecorder()
@@ -1139,6 +1153,80 @@ func TestEvaluationClassifiesContradictoryEvidence(t *testing.T) {
 	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"verdict":"conflict"`) || !strings.Contains(recorder.Body.String(), "The account is open.") {
 		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
 	}
+}
+
+func TestEvaluationReturnsEveryNonErrorVerdict(t *testing.T) {
+	cases := []struct {
+		name    string
+		answers string
+		verdict string
+		finding string
+		also    string
+	}{
+		{
+			name:    "rejected",
+			answers: typedAnswers(0.2, 0.9, 0.1, 0.9, "reject"),
+			verdict: "rejected",
+			finding: "negative_result",
+		},
+		{
+			name:    "manual-review",
+			answers: typedAnswers(0.9, 0.9, 0.1, 0.9, "manual_review"),
+			verdict: "manual_review",
+			finding: "review_required",
+		},
+		{
+			name:    "safety-gate",
+			answers: typedAnswers(0.9, 0.9, 0.1, 0.2, "proceed"),
+			verdict: "manual_review",
+			finding: "safety_gate",
+		},
+		{
+			name:    "insufficient-keeps-review",
+			answers: typedAnswers(0.2, 0.2, 0.1, 0.9, "manual_review"),
+			verdict: "insufficient",
+			finding: "support_below_threshold",
+			also:    "review_required",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			decider := &scriptedDecider{answers: []byte(tc.answers)}
+			handler := mustHandlerWithDecider(t, decider)
+			request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(evaluationBody))
+			request.Header.Set("Authorization", "Bearer test-token")
+			request.Header.Set("Content-Type", "application/json")
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(recorder, request)
+			if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"verdict":"`+tc.verdict+`"`) || !strings.Contains(recorder.Body.String(), tc.finding) || (tc.also != "" && !strings.Contains(recorder.Body.String(), tc.also)) {
+				t.Fatalf("status = %d", recorder.Code)
+			}
+			var response struct {
+				ReplayBundle json.RawMessage `json:"replay_bundle"`
+			}
+			if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+				t.Fatal(err)
+			}
+			replay := httptest.NewRequest(http.MethodPost, "/v1/replays", bytes.NewReader(response.ReplayBundle))
+			replay.Header.Set("Authorization", "Bearer test-token")
+			replay.Header.Set("Content-Type", "application/json")
+			replayRecorder := httptest.NewRecorder()
+			handler.ServeHTTP(replayRecorder, replay)
+			if replayRecorder.Code != http.StatusOK || !strings.Contains(replayRecorder.Body.String(), `"verdict":"`+tc.verdict+`"`) || decider.calls != 1 {
+				t.Fatalf("replay status = %d calls = %d", replayRecorder.Code, decider.calls)
+			}
+		})
+	}
+}
+
+func typedAnswers(support, established, conflict, safety float64, action string) string {
+	probabilities := map[string]int{"proceed": 0, "reject": 0, "manual_review": 0, "other": 0}
+	probabilities[action] = 1
+	raw, err := json.Marshal(probabilities)
+	if err != nil {
+		panic(err)
+	}
+	return fmt.Sprintf(`{"support":{"type":"noul","noul":%g},"established":{"type":"noul","noul":%g},"conflict":{"type":"noul","noul":%g},"safe_to_auto_act":{"type":"noul","noul":%g},"action":{"type":"choice","choice":%q,"probabilities":%s}}`, support, established, conflict, safety, action, raw)
 }
 
 func TestSourceByteChangeChangesPackHash(t *testing.T) {

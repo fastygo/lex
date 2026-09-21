@@ -1,6 +1,10 @@
 package verify
 
-import "testing"
+import (
+	"errors"
+	"math"
+	"testing"
+)
 
 func TestInterpretKeepsConflictAheadOfInsufficient(t *testing.T) {
 	verdict, findings, err := Interpret(claimQuestions(), Thresholds{
@@ -144,4 +148,12 @@ func choiceAnswer(choice string) Answer {
 	probabilities := map[string]float64{"proceed": 0, "reject": 0, "manual_review": 0, "other": 0}
 	probabilities[choice] = 1
 	return Answer{Type: QuestionChoice, Choice: choice, Probabilities: probabilities}
+}
+
+func TestInterpretRejectsUnusablePolicy(t *testing.T) {
+	thresholds := Thresholds{SupportMin: math.NaN(), EstablishMin: 0.8, ConflictMin: 0.5, SafetyMin: 0.8}
+	verdict, findings, err := Interpret(claimQuestions(), thresholds, passingAnswers())
+	if verdict != "" || findings != nil || !errors.Is(err, ErrUnusablePolicy) {
+		t.Fatalf("verdict = %s findings = %#v err = %v", verdict, findings, err)
+	}
 }

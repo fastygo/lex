@@ -13,6 +13,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	contextmemory "github.com/fastygo/context/pkg/contextkit/runtime"
 	frameworkapp "github.com/fastygo/framework/pkg/app"
 	"github.com/fastygo/framework/pkg/web/security"
 	"github.com/fastygo/lex/internal/profile"
@@ -33,7 +34,7 @@ func NewHandler(config Config) (http.Handler, error) {
 		WithHealthEndpoints("/healthz", "")
 	mux := builder.Mux()
 	mux.Handle("/v1/capabilities", authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		capabilities(w, request, config.Decider != nil)
+		capabilities(w, request, config)
 	})))
 	mux.Handle("/v1/evaluations", authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		evaluate(w, request, config.Decider, config.MaxBodyBytes)
@@ -212,7 +213,7 @@ func authorizedProjects(token string, tokens map[string][]string) ([]string, boo
 	return projects, matched == 1
 }
 
-func capabilities(w http.ResponseWriter, request *http.Request, evaluationEnabled bool) {
+func capabilities(w http.ResponseWriter, request *http.Request, config Config) {
 	if request.Method != http.MethodGet {
 		w.Header().Set("Allow", http.MethodGet)
 		writeProblem(w, http.StatusMethodNotAllowed, reasonMethodNotAllowed, "only GET is supported")
@@ -229,11 +230,21 @@ func capabilities(w http.ResponseWriter, request *http.Request, evaluationEnable
 		"protocol_status": "working_draft",
 		"context": map[string]string{
 			"capability": "memory-exact-v1",
+			"retrieval":  "exact_phrase",
 		},
 		"operations": map[string]bool{
-			"evaluation": evaluationEnabled,
+			"evaluation": config.Decider != nil,
 			"replay":     true,
 			"execution":  false,
+		},
+		"policy": policyDisclosure(),
+		"limits": map[string]int64{
+			"max_sources":        int64(contextmemory.MaxSources),
+			"max_body_bytes":     config.MaxBodyBytes,
+			"focus_max_items":    int64(profile.FocusMaxItems),
+			"focus_max_chars":    int64(profile.FocusMaxChars),
+			"request_timeout_ms": config.RequestTimeout.Milliseconds(),
+			"process_admission":  int64(config.MaxInFlight),
 		},
 		"retention": retentionDisclosure(),
 	})

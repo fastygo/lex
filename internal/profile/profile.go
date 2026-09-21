@@ -147,6 +147,9 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	if !verify.ThresholdsUsable(Thresholds()) {
+		panic("embedded policy thresholds are not usable")
+	}
 }
 
 // ReproducibleModel reports whether a sealed model identity can support replay

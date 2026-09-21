@@ -214,7 +214,8 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 	}
 	report, err := wire.Replay(bundle)
 	if err != nil {
-		tracedProblem(w, http.StatusInternalServerError, reasonVerificationError, "the sealed bundle could not be verified", trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
+		status, reason, detail := replayFailure(err)
+		tracedProblem(w, status, reason, detail, trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
 		return
 	}
 	if report.Verdict == verify.VerdictError {
@@ -336,6 +337,13 @@ type providerRetryable interface {
 func retryableProvider(err error) bool {
 	var retryable providerRetryable
 	return errors.As(err, &retryable) && retryable.ProviderRetryable()
+}
+
+func replayFailure(err error) (int, string, string) {
+	if errors.Is(err, verify.ErrUnusablePolicy) {
+		return http.StatusInternalServerError, reasonPolicyError, "the policy evaluator could not apply its thresholds"
+	}
+	return http.StatusInternalServerError, reasonVerificationError, "the sealed bundle could not be verified"
 }
 
 func requestStopped(err error) (int, string, string, bool) {

@@ -18,6 +18,7 @@ const (
 	reasonNotAcceptable               = "not_acceptable"
 	reasonNotFound                    = "not_found"
 	reasonPackError                   = "pack_error"
+	reasonPolicyError                 = "policy_error"
 	reasonProjectForbidden            = "project_forbidden"
 	reasonProviderUnavailable         = "provider_unavailable"
 	reasonQuestionError               = "question_error"
@@ -44,6 +45,7 @@ func problemReasons() []string {
 		reasonNotAcceptable,
 		reasonNotFound,
 		reasonPackError,
+		reasonPolicyError,
 		reasonProjectForbidden,
 		reasonProviderUnavailable,
 		reasonQuestionError,
