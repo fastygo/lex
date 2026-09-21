@@ -1,6 +1,8 @@
 package wire
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -221,8 +223,12 @@ func bindingFindings(bundle map[string]any) []verify.Finding {
 	if policyRef["id"] != profile.PolicyID || policyRef["version"] != profile.PolicyVersion || policyRef["hash"] != profile.PolicyHash() {
 		findings = append(findings, errorFinding("unpinned_policy"))
 	}
-	if decision["question_set_hash"] != questionSet["hash"] || decision["policy_hash"] != policyRef["hash"] || decision["context_pack_hash"] != contextBody["pack_hash"] {
+	if decision["question_set_hash"] != questionSet["hash"] || decision["policy_hash"] != policyRef["hash"] || decision["context_pack_hash"] != contextBody["pack_hash"] || !packHashMatches(contextBody) {
 		findings = append(findings, errorFinding("binding_mismatch"))
+	}
+	entity, _ := bundle["entity"].(map[string]any)
+	if !entityChecksumMatches(entity) {
+		findings = append(findings, errorFinding("entity_checksum_mismatch"))
 	}
 	model, _ := decision["resolved_model"].(string)
 	if model == "" || strings.Contains(model, "latest") {
@@ -256,9 +262,14 @@ func evidenceFindings(bundle map[string]any) []verify.Finding {
 		case "model_inference":
 			inference++
 		case "source_text":
-			if trust == "project" {
-				admissible++
+			if trust != "project" {
+				break
 			}
+			if finding, failed := provenanceFinding(bundle, item); failed {
+				findings = append(findings, finding)
+				break
+			}
+			admissible++
 		}
 	}
 	if len(findings) > 0 {
@@ -300,6 +311,29 @@ func parseAnswers(bundle map[string]any) (map[string]verify.Answer, []verify.Fin
 	return answers, nil
 }
 
+func packHashMatches(contextBody map[string]any) bool {
+	hash, err := canonical.HashValue(contextBody["pack"])
+	declared, _ := contextBody["pack_hash"].(string)
+	return err == nil && hash == declared
+}
+
+func entityChecksumMatches(entity map[string]any) bool {
+	id, _ := entity["id"].(string)
+	projectID, _ := entity["project_id"].(string)
+	entityType, _ := entity["type"].(string)
+	schemaVersion, _ := entity["schema_version"].(string)
+	version, _ := entity["version"].(string)
+	hash, err := canonical.HashValue(struct {
+		ID            string `json:"id"`
+		ProjectID     string `json:"project_id"`
+		Type          string `json:"type"`
+		SchemaVersion string `json:"schema_version"`
+		Version       string `json:"version"`
+	}{id, projectID, entityType, schemaVersion, version})
+	declared, _ := entity["checksum"].(string)
+	return err == nil && hash == declared
+}
+
 func questionContentPinned(questionSet map[string]any) bool {
 	id, _ := questionSet["id"].(string)
 	version, _ := questionSet["version"].(string)
@@ -309,6 +343,68 @@ func questionContentPinned(questionSet map[string]any) bool {
 		Questions any    `json:"questions"`
 	}{ID: id, Version: version, Questions: questionSet["questions"]})
 	return err == nil && hash == profile.QuestionSetHash() && questionSet["hash"] == hash
+}
+
+func provenanceFinding(bundle map[string]any, item map[string]any) (verify.Finding, bool) {
+	surface, _ := item["surface"].(string)
+	sourceRef, _ := item["source_ref"].(map[string]any)
+	checksum, _ := sourceRef["checksum"].(string)
+	sourceID, _ := sourceRef["source_id"].(string)
+	projectID, _ := sourceRef["project_id"].(string)
+	entity, _ := bundle["entity"].(map[string]any)
+	if surface == "" || sourceID == "" || checksum == "" || projectID == "" || projectID != entity["project_id"] {
+		return verify.Finding{Code: "missing_provenance", Verdict: verify.VerdictError, Detail: "admissible evidence has no complete source identity"}, true
+	}
+	sum := sha256.Sum256([]byte(surface))
+	if hex.EncodeToString(sum[:]) != checksum {
+		return verify.Finding{Code: "checksum_mismatch", Verdict: verify.VerdictError, Detail: "evidence surface does not match its source checksum"}, true
+	}
+	contextBody, _ := bundle["context"].(map[string]any)
+	snapshot, _ := contextBody["snapshot"].(map[string]any)
+	sources, _ := snapshot["sources"].([]any)
+	for _, raw := range sources {
+		source, _ := raw.(map[string]any)
+		if source["source_id"] != sourceID {
+			continue
+		}
+		version, _ := source["version"].(string)
+		text, _ := source["text"].(string)
+		if version == "" {
+			continue
+		}
+		excerpt := text
+		if span, ok := sourceRef["span"].(map[string]any); ok {
+			start, startOK := nonNegative(span["start"])
+			end, endOK := nonNegative(span["end"])
+			if !startOK || !endOK || start > end || end > uint64(len(text)) {
+				return verify.Finding{Code: "checksum_mismatch", Verdict: verify.VerdictError, Detail: "evidence span does not fit the frozen source"}, true
+			}
+			excerpt = text[start:end]
+		}
+		if excerpt != surface {
+			return verify.Finding{Code: "checksum_mismatch", Verdict: verify.VerdictError, Detail: "evidence surface does not match the frozen source"}, true
+		}
+		return verify.Finding{}, false
+	}
+	return verify.Finding{Code: "missing_provenance", Verdict: verify.VerdictError, Detail: "admissible evidence does not resolve to a frozen source"}, true
+}
+
+func nonNegative(value any) (uint64, bool) {
+	switch number := value.(type) {
+	case json.Number:
+		parsed, err := number.Int64()
+		if err != nil || parsed < 0 {
+			return 0, false
+		}
+		return uint64(parsed), true
+	case float64:
+		if number < 0 || number != float64(uint64(number)) {
+			return 0, false
+		}
+		return uint64(number), true
+	default:
+		return 0, false
+	}
 }
 
 func errorFinding(code string) verify.Finding {

@@ -1,8 +1,11 @@
 package wire
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -13,8 +16,8 @@ import (
 func TestBuildBundleReplaysValidatedClaim(t *testing.T) {
 	raw, err := BuildBundle(BundleInput{
 		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
-		Pack:           []byte(`{"evidence_items":[{"id":"chunk_0000","class":"source_text","trust_level":"project"}]}`),
-		Snapshot:       map[string]any{"id": "snapshot-1"},
+		Pack:           addressablePack(),
+		Snapshot:       addressableSnapshot(),
 		PackRequest:    map[string]any{"query": "account"},
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
@@ -67,8 +70,8 @@ func sealedBundle(t *testing.T) []byte {
 	t.Helper()
 	raw, err := BuildBundle(BundleInput{
 		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
-		Pack:           []byte(`{"evidence_items":[{"id":"chunk_0000","class":"source_text","trust_level":"project"}]}`),
-		Snapshot:       map[string]any{"id": "snapshot-1"},
+		Pack:           addressablePack(),
+		Snapshot:       addressableSnapshot(),
 		PackRequest:    map[string]any{"query": "account"},
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
@@ -111,11 +114,84 @@ func hasFinding(report Report, code string) bool {
 	return false
 }
 
+func TestReplayRejectsPackHashThatDoesNotMatchContent(t *testing.T) {
+	value, err := canonical.DecodeJSON(sealedBundle(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	contextBody := bundle["context"].(map[string]any)
+	pack := contextBody["pack"].(map[string]any)
+	pack["note"] = "changed after sealing"
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "binding_mismatch") {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
+func TestReplayRejectsEntityIdentityThatBreaksChecksum(t *testing.T) {
+	value, err := canonical.DecodeJSON(sealedBundle(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	entity := bundle["entity"].(map[string]any)
+	entity["id"] = "claim-2"
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "entity_checksum_mismatch") {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
+func TestReplayRejectsSurfaceThatBreaksChecksum(t *testing.T) {
+	value, err := canonical.DecodeJSON(sealedBundle(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	contextBody := bundle["context"].(map[string]any)
+	pack := contextBody["pack"].(map[string]any)
+	items := pack["evidence_items"].([]any)
+	item := items[0].(map[string]any)
+	item["surface"] = "The account is open."
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "checksum_mismatch") {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
+const evidenceText = "The account is locked."
+
+func addressablePack() []byte {
+	sum := sha256.Sum256([]byte(evidenceText))
+	checksum := hex.EncodeToString(sum[:])
+	return []byte(fmt.Sprintf(`{"evidence_items":[{"id":"chunk_0000","class":"source_text","trust_level":"project","surface":%q,"source_ref":{"project_id":"project-test","source_id":"source-1","span":{"start":0,"end":%d},"checksum":%q}}]}`, evidenceText, len(evidenceText), checksum))
+}
+
+func addressableSnapshot() map[string]any {
+	return map[string]any{
+		"id": "snapshot-1", "project_id": "project-test",
+		"sources": []any{map[string]any{
+			"source_id": "source-1", "version": "v1", "text": evidenceText,
+			"trust_level": "project", "evidence_class": "source_text",
+		}},
+	}
+}
+
 func TestReplayDoesNotUseNetwork(t *testing.T) {
 	raw, err := BuildBundle(BundleInput{
 		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
-		Pack:           []byte(`{"evidence_items":[{"id":"chunk_0000","class":"source_text","trust_level":"project"}]}`),
-		Snapshot:       map[string]any{"id": "snapshot-1"},
+		Pack:           addressablePack(),
+		Snapshot:       addressableSnapshot(),
 		PackRequest:    map[string]any{"query": "account"},
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
@@ -154,8 +230,8 @@ func (transport roundTripper) RoundTrip(request *http.Request) (*http.Response, 
 func TestReplayRejectsUnpinnedPolicyWithoutProviderCall(t *testing.T) {
 	raw, err := BuildBundle(BundleInput{
 		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
-		Pack:           []byte(`{"evidence_items":[{"id":"chunk_0000","class":"source_text","trust_level":"project"}]}`),
-		Snapshot:       map[string]any{"id": "snapshot-1"},
+		Pack:           addressablePack(),
+		Snapshot:       addressableSnapshot(),
 		PackRequest:    map[string]any{"query": "account"},
 		AdapterID:      "hosted-systemone",
 		AdapterVersion: "0.1.0",
