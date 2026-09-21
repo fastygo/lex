@@ -9,7 +9,9 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	frameworkapp "github.com/fastygo/framework/pkg/app"
 	"github.com/fastygo/framework/pkg/web/security"
@@ -59,6 +61,10 @@ func withRequestLimits(next http.Handler, config Config, gate *admission) http.H
 			raw, err := io.ReadAll(request.Body)
 			if err != nil {
 				writeProblem(w, http.StatusRequestEntityTooLarge, "body_too_large", "request body exceeds the configured limit")
+				return
+			}
+			if !utf8.Valid(raw) {
+				writeProblem(w, http.StatusBadRequest, "invalid_json", "request body must be valid UTF-8")
 				return
 			}
 			if jsonDepth(raw) > maxJSONDepth {
@@ -144,6 +150,34 @@ func bearerToken(header string) (string, bool) {
 
 type projectsKey struct{}
 
+func acceptsJSON(header string) bool {
+	if strings.TrimSpace(header) == "" {
+		return true
+	}
+	for _, part := range strings.Split(header, ",") {
+		media, params, err := mime.ParseMediaType(strings.TrimSpace(part))
+		if err != nil {
+			return false
+		}
+		quality := 1.0
+		if raw, ok := params["q"]; ok {
+			parsed, err := strconv.ParseFloat(raw, 64)
+			if err != nil || parsed < 0 || parsed > 1 {
+				return false
+			}
+			quality = parsed
+		}
+		if quality == 0 {
+			continue
+		}
+		switch media {
+		case "*/*", "application/*", "application/json", "application/problem+json":
+			return true
+		}
+	}
+	return false
+}
+
 func authorizedProjects(token string, tokens map[string][]string) ([]string, bool) {
 	var projects []string
 	matched := 0
@@ -160,6 +194,10 @@ func capabilities(w http.ResponseWriter, request *http.Request, evaluationEnable
 	if request.Method != http.MethodGet {
 		w.Header().Set("Allow", http.MethodGet)
 		writeProblem(w, http.StatusMethodNotAllowed, "method_not_allowed", "only GET is supported")
+		return
+	}
+	if !acceptsJSON(request.Header.Get("Accept")) {
+		writeProblem(w, http.StatusNotAcceptable, "not_acceptable", "Accept must allow application/json")
 		return
 	}
 
@@ -183,6 +221,10 @@ func replay(w http.ResponseWriter, request *http.Request) {
 	if request.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
 		writeProblem(w, http.StatusMethodNotAllowed, "method_not_allowed", "only POST is supported")
+		return
+	}
+	if !acceptsJSON(request.Header.Get("Accept")) {
+		writeProblem(w, http.StatusNotAcceptable, "not_acceptable", "Accept must allow application/json")
 		return
 	}
 	contentType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))

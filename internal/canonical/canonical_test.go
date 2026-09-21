@@ -50,6 +50,36 @@ func TestHashJSONMatchesIndependentUnicodeDigests(t *testing.T) {
 	}
 }
 
+func TestCanonicalizeNormalizesNumericEdges(t *testing.T) {
+	vectors := []struct {
+		raw  string
+		form string
+		hash string
+	}{
+		{raw: `{"n":-0}`, form: `{"n":0}`, hash: "f3013f933b9fb80ab6d995e7ad9da36f683837ba1d81e950c943d40111eac2f0"},
+		{raw: `{"n":0.0}`, form: `{"n":0}`, hash: "f3013f933b9fb80ab6d995e7ad9da36f683837ba1d81e950c943d40111eac2f0"},
+		{raw: `{"n":1.0}`, form: `{"n":1}`, hash: "2bfd14f43d17fc7cea24e0917a8879b4b2f880b8baeec1b9d90fbaad655e71bd"},
+		{raw: `{"n":1e2}`, form: `{"n":100}`, hash: "b39022c4ed96525c42cd0e7ce55308533962a655f1c19d5dac2f03e9dd995b2c"},
+		{raw: `{"n":1.2300}`, form: `{"n":1.23}`, hash: "c2f4a8099bdaf483ac3f465590b90ae2156f94d0d32c194bfbb06ca2289ad25f"},
+	}
+	for _, vector := range vectors {
+		got, err := Canonicalize([]byte(vector.raw))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(got) != vector.form {
+			t.Fatalf("canonical %s = %s, want %s", vector.raw, got, vector.form)
+		}
+		hash, err := HashJSON([]byte(vector.raw))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if hash != vector.hash {
+			t.Fatalf("hash(%s) = %s, want %s", vector.raw, hash, vector.hash)
+		}
+	}
+}
+
 func TestCanonicalizeRejectsDuplicateKeys(t *testing.T) {
 	if _, err := Canonicalize([]byte(`{"id":"first","id":"second"}`)); err == nil {
 		t.Fatal("Canonicalize() accepted duplicate key")

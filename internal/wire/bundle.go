@@ -215,7 +215,7 @@ func bindingFindings(bundle map[string]any) []verify.Finding {
 	policyRef, _ := bundle["policy"].(map[string]any)
 	decision, _ := bundle["decision_set"].(map[string]any)
 	contextBody, _ := bundle["context"].(map[string]any)
-	if questionSet["id"] != profile.QuestionSetID || questionSet["version"] != profile.QuestionSetVersion || questionSet["hash"] != profile.QuestionSetHash() {
+	if questionSet["id"] != profile.QuestionSetID || questionSet["version"] != profile.QuestionSetVersion || questionSet["hash"] != profile.QuestionSetHash() || !questionContentPinned(questionSet) {
 		findings = append(findings, errorFinding("unpinned_question_set"))
 	}
 	if policyRef["id"] != profile.PolicyID || policyRef["version"] != profile.PolicyVersion || policyRef["hash"] != profile.PolicyHash() {
@@ -298,6 +298,17 @@ func parseAnswers(bundle map[string]any) (map[string]verify.Answer, []verify.Fin
 		answers[id] = parsed
 	}
 	return answers, nil
+}
+
+func questionContentPinned(questionSet map[string]any) bool {
+	id, _ := questionSet["id"].(string)
+	version, _ := questionSet["version"].(string)
+	hash, err := canonical.HashValue(struct {
+		ID        string `json:"id"`
+		Version   string `json:"version"`
+		Questions any    `json:"questions"`
+	}{ID: id, Version: version, Questions: questionSet["questions"]})
+	return err == nil && hash == profile.QuestionSetHash() && questionSet["hash"] == hash
 }
 
 func errorFinding(code string) verify.Finding {

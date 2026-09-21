@@ -43,6 +43,9 @@ func TestOpenAPIMatchesSynchronousContract(t *testing.T) {
 	if _, exists := responses["504"]; !exists {
 		t.Fatal("evaluation lacks a deadline response")
 	}
+	if _, exists := responses["406"]; !exists {
+		t.Fatal("evaluation lacks an Accept negotiation response")
+	}
 
 	components, _ := document["components"].(map[string]any)
 	schemas, _ := components["schemas"].(map[string]any)

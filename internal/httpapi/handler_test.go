@@ -7,6 +7,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -564,6 +566,145 @@ func (decider *capturingDecider) Evaluate(_ context.Context, state any, question
 	decider.mu.Unlock()
 	return Decision{ResolvedModel: "fixture-v1", Answers: decider.answers}, nil
 }
+
+func TestEvaluationClassifiesContradictoryEvidence(t *testing.T) {
+	const conflictAnswers = `{"support":{"type":"noul","noul":0.9},"established":{"type":"noul","noul":0.9},"conflict":{"type":"noul","noul":0.9},"safe_to_auto_act":{"type":"noul","noul":0.9},"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}}`
+	handler := mustHandlerWithDecider(t, &scriptedDecider{answers: []byte(conflictAnswers)})
+	body := `{"project_id":"project-test","entity":{"id":"claim-1","type":"claim","schema_version":"0.1","version":"1"},"query":"account","sources":[{"id":"source-1","version":"v1","text":"The account is locked."},{"id":"source-2","version":"v1","text":"The account is open."}]}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"verdict":"conflict"`) || !strings.Contains(recorder.Body.String(), "The account is open.") {
+		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
+	}
+}
+
+func TestSourceByteChangeChangesPackHash(t *testing.T) {
+	first := evaluatePackHash(t, evaluationBody)
+	second := evaluatePackHash(t, strings.Replace(evaluationBody, "locked.", "locked!", 1))
+	if first == "" || first == second {
+		t.Fatalf("pack hashes = %s and %s", first, second)
+	}
+}
+
+func TestEvaluationDoesNotWriteRelativeFiles(t *testing.T) {
+	directory := t.TempDir()
+	t.Chdir(directory)
+	handler := mustHandlerWithDecider(t, &scriptedDecider{answers: []byte(passingAnswers)})
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(evaluationBody))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
+	}
+	entries, err := os.ReadDir(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("evaluation wrote %d files", len(entries))
+	}
+}
+
+func evaluatePackHash(t *testing.T, body string) string {
+	t.Helper()
+	handler := mustHandlerWithDecider(t, &scriptedDecider{answers: []byte(passingAnswers)})
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
+	}
+	var sealed struct {
+		ReplayBundle struct {
+			Context struct {
+				PackHash string `json:"pack_hash"`
+			} `json:"context"`
+		} `json:"replay_bundle"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &sealed); err != nil {
+		t.Fatal(err)
+	}
+	return sealed.ReplayBundle.Context.PackHash
+}
+
+func TestEvaluationRejectsCallerPolicy(t *testing.T) {
+	decider := &scriptedDecider{answers: []byte(passingAnswers)}
+	handler := mustHandlerWithDecider(t, decider)
+	body := strings.Replace(evaluationBody, `"query":"account"`, `"query":"account","policy":{"support_min":0}`, 1)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest || decider.calls != 0 || !strings.Contains(recorder.Body.String(), `"reason":"invalid_json"`) {
+		t.Fatalf("status = %d calls = %d body = %s", recorder.Code, decider.calls, recorder.Body)
+	}
+}
+
+func TestNegotiationRejectsMethodAndAccept(t *testing.T) {
+	handler := mustHandler(t)
+	method := httptest.NewRequest(http.MethodPost, "/v1/capabilities", nil)
+	method.Header.Set("Authorization", "Bearer test-token")
+	methodRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(methodRecorder, method)
+	if methodRecorder.Code != http.StatusMethodNotAllowed || methodRecorder.Header().Get("Allow") != http.MethodGet || methodRecorder.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("status = %d allow = %q body = %s", methodRecorder.Code, methodRecorder.Header().Get("Allow"), methodRecorder.Body)
+	}
+
+	accept := httptest.NewRequest(http.MethodGet, "/v1/capabilities", nil)
+	accept.Header.Set("Authorization", "Bearer test-token")
+	accept.Header.Set("Accept", "text/html, application/json;q=0")
+	acceptRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(acceptRecorder, accept)
+	if acceptRecorder.Code != http.StatusNotAcceptable || !strings.Contains(acceptRecorder.Body.String(), `"reason":"not_acceptable"`) {
+		t.Fatalf("status = %d body = %s", acceptRecorder.Code, acceptRecorder.Body)
+	}
+}
+
+func TestEvaluationRejectsInvalidUTF8AndTooManySources(t *testing.T) {
+	decider := &scriptedDecider{answers: []byte(passingAnswers)}
+	handler := mustHandlerWithDecider(t, decider)
+	raw := []byte(evaluationBody)
+	raw[bytes.Index(raw, []byte("account"))] = 0xff
+	invalid := httptest.NewRequest(http.MethodPost, "/v1/evaluations", bytes.NewReader(raw))
+	invalid.Header.Set("Authorization", "Bearer test-token")
+	invalid.Header.Set("Content-Type", "application/json")
+	invalidRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(invalidRecorder, invalid)
+	if invalidRecorder.Code != http.StatusBadRequest || decider.calls != 0 {
+		t.Fatalf("status = %d calls = %d body = %s", invalidRecorder.Code, decider.calls, invalidRecorder.Body)
+	}
+
+	var sources strings.Builder
+	for i := range contextmemoryMaxSources() + 1 {
+		if i > 0 {
+			sources.WriteByte(',')
+		}
+		sources.WriteString(`{"id":"source-` + strconv.Itoa(i) + `","version":"v1","text":"x"}`)
+	}
+	body := `{"project_id":"project-test","entity":{"id":"claim-1","type":"claim","schema_version":"0.1","version":"1"},"query":"account","sources":[` + sources.String() + `]}`
+	overflow := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(body))
+	overflow.Header.Set("Authorization", "Bearer test-token")
+	overflow.Header.Set("Content-Type", "application/json")
+	overflowRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(overflowRecorder, overflow)
+	if overflowRecorder.Code != http.StatusUnprocessableEntity || decider.calls != 0 || !strings.Contains(overflowRecorder.Body.String(), `"reason":"question_error"`) {
+		t.Fatalf("status = %d calls = %d body = %s", overflowRecorder.Code, decider.calls, overflowRecorder.Body)
+	}
+}
+
+func contextmemoryMaxSources() int { return 128 }
 
 func TestReplayRejectsMalformedBundle(t *testing.T) {
 	handler := mustHandler(t)

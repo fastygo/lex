@@ -67,6 +67,10 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		writeProblem(w, http.StatusMethodNotAllowed, "method_not_allowed", "only POST is supported")
 		return
 	}
+	if !acceptsJSON(request.Header.Get("Accept")) {
+		writeProblem(w, http.StatusNotAcceptable, "not_acceptable", "Accept must allow application/json")
+		return
+	}
 	contentType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
 	if err != nil || contentType != "application/json" {
 		writeProblem(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Content-Type must be application/json")
@@ -95,6 +99,10 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 	}
 	if !validEntity(body.Entity) || body.Query == "" || len(body.Sources) == 0 {
 		writeProblem(w, http.StatusUnprocessableEntity, "question_error", "entity, query, and at least one source are required")
+		return
+	}
+	if len(body.Sources) > contextmemory.MaxSources {
+		writeProblem(w, http.StatusUnprocessableEntity, "question_error", "a request can include at most 128 sources")
 		return
 	}
 
