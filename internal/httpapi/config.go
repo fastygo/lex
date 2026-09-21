@@ -11,6 +11,8 @@ import (
 const (
 	defaultRequestTimeout = 20 * time.Second
 	defaultMaxBodyBytes   = 2 << 20
+	defaultMaxInFlight    = 4
+	maxJSONDepth          = 32
 )
 
 // Config contains deployment-owned settings for the HTTP boundary.
@@ -18,6 +20,7 @@ type Config struct {
 	BearerTokens   map[string][]string
 	RequestTimeout time.Duration
 	MaxBodyBytes   int64
+	MaxInFlight    int
 	Decider        Decider
 }
 
@@ -41,7 +44,13 @@ func LoadConfig() (Config, error) {
 	return config, nil
 }
 
-func (c Config) validate() error {
+func (c *Config) validate() error {
+	if c.MaxInFlight == 0 {
+		c.MaxInFlight = defaultMaxInFlight
+	}
+	if c.MaxInFlight < 1 || c.MaxInFlight > defaultMaxInFlight {
+		return fmt.Errorf("in-flight limit must be between 1 and %d", defaultMaxInFlight)
+	}
 	if len(c.BearerTokens) == 0 {
 		return fmt.Errorf("at least one bearer token is required")
 	}

@@ -38,20 +38,83 @@ func NewHandler(config Config) (http.Handler, error) {
 	})))
 	mux.Handle("/v1/replays", authenticated(config, http.HandlerFunc(replay)))
 
-	return withRequestLimits(builder.Build().Handler(), config), nil
+	return withRequestLimits(builder.Build().Handler(), config, newAdmission(config.MaxInFlight)), nil
 }
 
-func withRequestLimits(next http.Handler, config Config) http.Handler {
+func withRequestLimits(next http.Handler, config Config, gate *admission) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/healthz" {
+			if !gate.acquire() {
+				writeProblem(w, http.StatusServiceUnavailable, "admission_limited", "too many requests are already running in this process")
+				return
+			}
+			defer gate.release()
+		}
 		if request.ContentLength > config.MaxBodyBytes {
 			writeProblem(w, http.StatusRequestEntityTooLarge, "body_too_large", "request body exceeds the configured limit")
 			return
 		}
 		request.Body = http.MaxBytesReader(w, request.Body, config.MaxBodyBytes)
+		if request.Body != nil && request.ContentLength != 0 {
+			raw, err := io.ReadAll(request.Body)
+			if err != nil {
+				writeProblem(w, http.StatusRequestEntityTooLarge, "body_too_large", "request body exceeds the configured limit")
+				return
+			}
+			if jsonDepth(raw) > maxJSONDepth {
+				writeProblem(w, http.StatusBadRequest, "json_too_deep", "JSON nesting exceeds the configured limit")
+				return
+			}
+			request.Body = io.NopCloser(strings.NewReader(string(raw)))
+		}
 		ctx, cancel := context.WithTimeout(request.Context(), config.RequestTimeout)
 		defer cancel()
 		next.ServeHTTP(w, request.WithContext(ctx))
 	})
+}
+
+type admission struct{ slots chan struct{} }
+
+func newAdmission(limit int) *admission {
+	return &admission{slots: make(chan struct{}, limit)}
+}
+
+func (gate *admission) acquire() bool {
+	select {
+	case gate.slots <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
+func (gate *admission) release() { <-gate.slots }
+
+func jsonDepth(raw []byte) int {
+	if len(raw) == 0 {
+		return 0
+	}
+	decoder := json.NewDecoder(strings.NewReader(string(raw)))
+	decoder.UseNumber()
+	depth := 0
+	maxDepth := 0
+	for {
+		token, err := decoder.Token()
+		if err != nil {
+			return maxDepth
+		}
+		switch token {
+		case json.Delim('{'), json.Delim('['):
+			depth++
+			if depth > maxDepth {
+				maxDepth = depth
+			}
+		case json.Delim('}'), json.Delim(']'):
+			if depth > 0 {
+				depth--
+			}
+		}
+	}
 }
 
 func authenticated(config Config, next http.Handler) http.Handler {

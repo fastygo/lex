@@ -31,6 +31,25 @@ func TestHashJSONIgnoresObjectKeyOrder(t *testing.T) {
 	}
 }
 
+func TestHashJSONMatchesIndependentUnicodeDigests(t *testing.T) {
+	vectors := []struct {
+		raw  string
+		hash string
+	}{
+		{raw: "{\"cafe\":\"caf\u00e9\"}", hash: "801a86b42bae9df69aecb1337a75a6988bcb5d6c0b54bb54c4425e3dc1514369"},
+		{raw: "{\"name\":\"\u20ac\"}", hash: "080466493ecc711eb2010d0339912c06fcc8d7921c380aecbfb4f0b86ed18b69"},
+	}
+	for _, vector := range vectors {
+		got, err := HashJSON([]byte(vector.raw))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != vector.hash {
+			t.Fatalf("hash(%s) = %s, want %s", vector.raw, got, vector.hash)
+		}
+	}
+}
+
 func TestCanonicalizeRejectsDuplicateKeys(t *testing.T) {
 	if _, err := Canonicalize([]byte(`{"id":"first","id":"second"}`)); err == nil {
 		t.Fatal("Canonicalize() accepted duplicate key")

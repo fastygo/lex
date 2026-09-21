@@ -234,7 +234,7 @@ func TestConcurrentProjectsStayIsolated(t *testing.T) {
 	}
 	var wg sync.WaitGroup
 	errors := make(chan string, 8)
-	for range 4 {
+	for range 2 {
 		wg.Add(2)
 		go func() {
 			defer wg.Done()
@@ -264,6 +264,80 @@ func evaluateProject(handler http.Handler, token, projectID, phrase string) (int
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 	return recorder.Code, recorder.Body.String()
+}
+
+func TestAdmissionRejectsOverflowAndKeepsHealthOpen(t *testing.T) {
+	entered := make(chan struct{})
+	release := make(chan struct{})
+	handler, err := NewHandler(Config{
+		BearerTokens:   map[string][]string{"test-token": {"project-test"}},
+		RequestTimeout: defaultRequestTimeout,
+		MaxBodyBytes:   defaultMaxBodyBytes,
+		MaxInFlight:    1,
+		Decider:        holdDecider{entered: entered, release: release, answers: []byte(passingAnswers)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan int, 1)
+	go func() {
+		request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(evaluationBody))
+		request.Header.Set("Authorization", "Bearer test-token")
+		request.Header.Set("Content-Type", "application/json")
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
+		done <- recorder.Code
+	}()
+	<-entered
+
+	overflow := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(evaluationBody))
+	overflow.Header.Set("Authorization", "Bearer test-token")
+	overflow.Header.Set("Content-Type", "application/json")
+	overflowRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(overflowRecorder, overflow)
+	if overflowRecorder.Code != http.StatusServiceUnavailable || !strings.Contains(overflowRecorder.Body.String(), `"reason":"admission_limited"`) {
+		t.Fatalf("overflow status = %d body = %s", overflowRecorder.Code, overflowRecorder.Body)
+	}
+
+	health := httptest.NewRecorder()
+	handler.ServeHTTP(health, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	if health.Code != http.StatusOK {
+		t.Fatalf("health status = %d", health.Code)
+	}
+	close(release)
+	if code := <-done; code != http.StatusOK {
+		t.Fatalf("held evaluation status = %d", code)
+	}
+}
+
+func TestJSONDepthLimit(t *testing.T) {
+	handler := mustHandler(t)
+	body := strings.Repeat(`{"nested":`, maxJSONDepth+1) + `1` + strings.Repeat(`}`, maxJSONDepth+1)
+	request := httptest.NewRequest(http.MethodPost, "/v1/replays", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), `"reason":"json_too_deep"`) {
+		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
+	}
+}
+
+type holdDecider struct {
+	entered chan struct{}
+	release chan struct{}
+	answers []byte
+}
+
+func (holdDecider) AdapterID() string      { return "direct-systemone" }
+func (holdDecider) AdapterVersion() string { return "0.1.0" }
+
+func (decider holdDecider) Evaluate(context.Context, any, map[string]any) (Decision, error) {
+	decider.entered <- struct{}{}
+	<-decider.release
+	return Decision{ResolvedModel: "fixture-v1", Answers: decider.answers}, nil
 }
 
 func TestEvaluationRejectsAnotherProject(t *testing.T) {
