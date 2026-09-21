@@ -34,7 +34,7 @@ func NewHandler(config Config) (http.Handler, error) {
 		capabilities(w, request, config.Decider != nil)
 	})))
 	mux.Handle("/v1/evaluations", authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		evaluate(w, request, config.Decider)
+		evaluate(w, request, config.Decider, config.MaxBodyBytes)
 	})))
 	mux.Handle("/v1/replays", authenticated(config, http.HandlerFunc(replay)))
 

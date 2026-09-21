@@ -13,6 +13,7 @@ const (
 	defaultMaxBodyBytes   = 2 << 20
 	defaultMaxInFlight    = 4
 	maxJSONDepth          = 32
+	responseReserve       = 64 << 10
 )
 
 // Config contains deployment-owned settings for the HTTP boundary.

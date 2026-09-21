@@ -58,7 +58,7 @@ type evidenceView struct {
 	} `json:"evidence_items"`
 }
 
-func evaluate(w http.ResponseWriter, request *http.Request, decider Decider) {
+func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, maxBodyBytes int64) {
 	if request.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
 		writeProblem(w, http.StatusMethodNotAllowed, "method_not_allowed", "only POST is supported")
@@ -136,6 +136,15 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider) {
 	}
 	if decider == nil {
 		writeProblem(w, http.StatusServiceUnavailable, "decision_provider_unavailable", "no decision adapter is configured")
+		return
+	}
+	snapshotRaw, err := json.Marshal(pack.Snapshot)
+	if err != nil {
+		writeProblem(w, http.StatusUnprocessableEntity, "pack_error", "Context snapshot could not be measured")
+		return
+	}
+	if int64(len(pack.ContextPack)+len(snapshotRaw))+responseReserve > maxBodyBytes {
+		writeProblem(w, http.StatusUnprocessableEntity, "response_budget", "the frozen pack does not fit the response budget")
 		return
 	}
 	decision, err := decider.Evaluate(request.Context(), map[string]any{

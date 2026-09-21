@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestHandlerCapabilitiesRequiresBearerToken(t *testing.T) {
@@ -369,6 +370,64 @@ func (decider holdDecider) Evaluate(context.Context, any, map[string]any) (Decis
 	decider.entered <- struct{}{}
 	<-decider.release
 	return Decision{ResolvedModel: "fixture-v1", Answers: decider.answers}, nil
+}
+
+func TestResponseBudgetSkipsProvider(t *testing.T) {
+	decider := &scriptedDecider{answers: []byte(passingAnswers)}
+	handler, err := NewHandler(Config{
+		BearerTokens:   map[string][]string{"test-token": {"project-test"}},
+		RequestTimeout: defaultRequestTimeout,
+		MaxBodyBytes:   responseReserve + 1024,
+		MaxInFlight:    1,
+		Decider:        decider,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := strings.Replace(evaluationBody, "The account is locked.", strings.Repeat("account ", 4000), 1)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusUnprocessableEntity || !strings.Contains(recorder.Body.String(), `"reason":"response_budget"`) || decider.calls != 0 {
+		t.Fatalf("status = %d calls = %d body = %s", recorder.Code, decider.calls, recorder.Body)
+	}
+}
+
+func TestEvaluationStopsWhenRequestIsCanceled(t *testing.T) {
+	handler, err := NewHandler(Config{
+		BearerTokens:   map[string][]string{"test-token": {"project-test"}},
+		RequestTimeout: 50 * time.Millisecond,
+		MaxBodyBytes:   defaultMaxBodyBytes,
+		MaxInFlight:    1,
+		Decider:        cancelDecider{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(evaluationBody))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadGateway || !strings.Contains(recorder.Body.String(), `"reason":"decision_error"`) {
+		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
+	}
+}
+
+type cancelDecider struct{}
+
+func (cancelDecider) AdapterID() string      { return "direct-systemone" }
+func (cancelDecider) AdapterVersion() string { return "0.1.0" }
+
+func (cancelDecider) Evaluate(ctx context.Context, _ any, _ map[string]any) (Decision, error) {
+	<-ctx.Done()
+	return Decision{}, ctx.Err()
 }
 
 func TestEvaluationRejectsAnotherProject(t *testing.T) {
