@@ -72,22 +72,16 @@ func Evaluate(ctx context.Context, call Call, state any, questions map[string]an
 	}
 	limited := *client
 	limited.CheckRedirect = func(*http.Request, []*http.Request) error {
-		return fmt.Errorf("decision endpoint redirect is not allowed")
+		return errRedirectRefused
 	}
 	response, err := limited.Do(request)
 	if err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return Decision{}, err
-		}
-		return Decision{}, CallError{Retryable: true}
+		return Decision{}, transportFailure(err)
 	}
 	defer response.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(response.Body, responseLimit(ctx)+1))
 	if err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return Decision{}, err
-		}
-		return Decision{}, CallError{Retryable: true}
+		return Decision{}, transportFailure(err)
 	}
 	if int64(len(body)) > responseLimit(ctx) {
 		return Decision{}, BudgetError{}
@@ -95,8 +89,18 @@ func Evaluate(ctx context.Context, call Call, state any, questions map[string]an
 	if response.StatusCode != http.StatusOK {
 		return Decision{}, CallError{Retryable: retryableProviderStatus(response.StatusCode)}
 	}
-	if _, err := canonical.DecodeJSON(body); err != nil {
+	if bytes.Contains(body, []byte(call.APIKey)) {
+		return Decision{}, errUnusableResponse
+	}
+	decodedValue, err := canonical.DecodeJSON(body)
+	if err != nil {
+		if strings.Contains(err.Error(), call.APIKey) {
+			return Decision{}, errUnusableResponse
+		}
 		return Decision{}, fmt.Errorf("decode decision response: %w", err)
+	}
+	if jsonContains(decodedValue, call.APIKey) {
+		return Decision{}, errUnusableResponse
 	}
 	var decoded struct {
 		Model            string          `json:"model"`
@@ -106,6 +110,9 @@ func Evaluate(ctx context.Context, call Call, state any, questions map[string]an
 		EvaluationTimeMS *float64        `json:"evaluation_time_ms"`
 	}
 	if err := json.Unmarshal(body, &decoded); err != nil {
+		if strings.Contains(err.Error(), call.APIKey) {
+			return Decision{}, errUnusableResponse
+		}
 		return Decision{}, fmt.Errorf("decode decision response: %w", err)
 	}
 	if decoded.Model == "" || strings.Contains(decoded.Model, "latest") || len(decoded.Answers) == 0 {
@@ -159,6 +166,43 @@ func retryableProviderStatus(status int) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+var errRedirectRefused = errors.New("decision endpoint redirect is not allowed")
+
+var errUnusableResponse = errors.New("decision response is not usable")
+
+func jsonContains(value any, secret string) bool {
+	switch typed := value.(type) {
+	case string:
+		return strings.Contains(typed, secret)
+	case map[string]any:
+		for key, child := range typed {
+			if strings.Contains(key, secret) || jsonContains(child, secret) {
+				return true
+			}
+		}
+	case []any:
+		for _, child := range typed {
+			if jsonContains(child, secret) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func transportFailure(err error) error {
+	switch {
+	case errors.Is(err, context.Canceled):
+		return context.Canceled
+	case errors.Is(err, context.DeadlineExceeded):
+		return context.DeadlineExceeded
+	case errors.Is(err, errRedirectRefused):
+		return CallError{}
+	default:
+		return CallError{Retryable: true}
 	}
 }
 

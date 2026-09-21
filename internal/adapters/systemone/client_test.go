@@ -55,8 +55,22 @@ func TestEvaluateDoesNotFollowRedirect(t *testing.T) {
 		AllowLoopback:    true,
 		HTTP:             source.Client(),
 	}, map[string]any{}, map[string]any{"support": map[string]any{"type": "noul"}})
-	if err == nil || followed.Load() != 0 {
+	var classified CallError
+	if !errors.As(err, &classified) || classified.Retryable || followed.Load() != 0 || strings.Contains(err.Error(), target.URL) {
 		t.Fatalf("followed = %d err = %v", followed.Load(), err)
+	}
+	canceled, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = Evaluate(canceled, Call{
+		APIKey:           "test-key",
+		Endpoint:         source.URL,
+		OfficialEndpoint: "https://api.typesafe.ai/v1/systemone",
+		Model:            "jev-1.13.0",
+		AllowLoopback:    true,
+		HTTP:             source.Client(),
+	}, map[string]any{}, map[string]any{"support": map[string]any{"type": "noul"}})
+	if !errors.Is(err, context.Canceled) || strings.Contains(err.Error(), source.URL) {
+		t.Fatalf("err = %v", err)
 	}
 }
 
@@ -119,6 +133,28 @@ func TestEvaluateKeepsProviderMetadataOnlyWhenPresent(t *testing.T) {
 	_ = json.Valid([]byte(decision.Usage))
 }
 
+func TestEvaluateDropsResponsesThatEchoTheCredential(t *testing.T) {
+	const secret = "provider-credential-must-not-leak"
+	bodies := []string{
+		`{"model":"jev-1.13.0","answers":{"support":{"type":"noul","noul":0.9,"note":"` + secret + `"}}}`,
+		`{"model":"jev-1.13.0","answers":{"support":{"type":"noul","noul":0.9,"note":"\u0070rovider-credential-must-not-leak"}}}`,
+		`{"model":"` + secret + `","answers":{"support":{"type":"noul","noul":0.9}}}`,
+	}
+	for _, body := range bodies {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = io.WriteString(w, body)
+		}))
+		decision, err := Evaluate(context.Background(), Call{
+			APIKey: secret, Endpoint: server.URL, OfficialEndpoint: "https://api.typesafe.ai/v1/systemone",
+			Model: "jev-1.13.0", ExpectedModel: "jev-1.13.0", AllowLoopback: true, HTTP: server.Client(),
+		}, map[string]any{}, map[string]any{"support": map[string]any{"type": "noul"}})
+		server.Close()
+		if err == nil || strings.Contains(err.Error(), secret) || decision.ResolvedModel != "" || len(decision.Answers) != 0 {
+			t.Fatalf("body %s err = %v decision = %#v", body, err, decision)
+		}
+	}
+}
+
 func TestEvaluateClassifiesRetryableProviderStatus(t *testing.T) {
 	var calls atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -159,6 +195,21 @@ func TestEvaluateStopsReadingAtTheResponseBudget(t *testing.T) {
 	}, map[string]any{}, map[string]any{"support": map[string]any{"type": "noul"}})
 	var budget BudgetError
 	if !errors.As(err, &budget) || strings.Contains(err.Error(), marker) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestEvaluateRejectsDeepProviderJSON(t *testing.T) {
+	const marker = "DEEP-MARKER-MUST-NOT-LEAK"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"model":"jev-1.13.0","answers":`+strings.Repeat(`{"k":`, 40)+`{"type":"noul","noul":0.9,"note":"`+marker+`"}`+strings.Repeat(`}`, 40)+`}`)
+	}))
+	defer server.Close()
+	_, err := Evaluate(context.Background(), Call{
+		APIKey: "test-key", Endpoint: server.URL, OfficialEndpoint: "https://api.typesafe.ai/v1/systemone",
+		Model: "jev-1.13.0", AllowLoopback: true, HTTP: server.Client(),
+	}, map[string]any{}, map[string]any{"support": map[string]any{"type": "noul"}})
+	if err == nil || strings.Contains(err.Error(), marker) {
 		t.Fatalf("err = %v", err)
 	}
 }

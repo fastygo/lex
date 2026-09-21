@@ -1,6 +1,9 @@
 package canonical
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestCanonicalizeSortsObjectKeys(t *testing.T) {
 	got, err := Canonicalize([]byte(`{"z":1,"a":[true,null]}`))
@@ -84,6 +87,19 @@ func TestCanonicalizeRejectsDuplicateKeys(t *testing.T) {
 	if _, err := Canonicalize([]byte(`{"id":"first","id":"second"}`)); err == nil {
 		t.Fatal("Canonicalize() accepted duplicate key")
 	}
+}
+
+func TestCanonicalizeRejectsDeepNesting(t *testing.T) {
+	if _, err := Canonicalize([]byte(nestedJSON(31))); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Canonicalize([]byte(nestedJSON(32))); err == nil {
+		t.Fatal("accepted JSON deeper than 32")
+	}
+}
+
+func nestedJSON(depth int) string {
+	return strings.Repeat(`{"k":`, depth) + `{"ok":true}` + strings.Repeat(`}`, depth)
 }
 
 func TestCanonicalizeRejectsNonFiniteNumbers(t *testing.T) {

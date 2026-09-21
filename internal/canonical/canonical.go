@@ -90,7 +90,7 @@ func zeroLiteral(raw string) bool {
 func validateSingleJSON(raw []byte) error {
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.UseNumber()
-	if err := validateValue(decoder, true); err != nil {
+	if err := validateValue(decoder, true, 1); err != nil {
 		return err
 	}
 	if _, err := decoder.Token(); err != io.EOF {
@@ -102,7 +102,9 @@ func validateSingleJSON(raw []byte) error {
 	return nil
 }
 
-func validateValue(decoder *json.Decoder, topLevel bool) error {
+const maxJSONDepth = 32
+
+func validateValue(decoder *json.Decoder, topLevel bool, depth int) error {
 	token, err := decoder.Token()
 	if err != nil {
 		return err
@@ -120,6 +122,9 @@ func validateValue(decoder *json.Decoder, topLevel bool) error {
 		return nil
 	}
 
+	if depth > maxJSONDepth {
+		return fmt.Errorf("JSON nesting exceeds the limit")
+	}
 	switch delimiter {
 	case '{':
 		seen := make(map[string]struct{})
@@ -136,13 +141,13 @@ func validateValue(decoder *json.Decoder, topLevel bool) error {
 				return fmt.Errorf("duplicate JSON object key %q", key)
 			}
 			seen[key] = struct{}{}
-			if err := validateValue(decoder, false); err != nil {
+			if err := validateValue(decoder, false, depth+1); err != nil {
 				return err
 			}
 		}
 	case '[':
 		for decoder.More() {
-			if err := validateValue(decoder, false); err != nil {
+			if err := validateValue(decoder, false, depth+1); err != nil {
 				return err
 			}
 		}
