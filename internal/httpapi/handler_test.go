@@ -1539,11 +1539,37 @@ func TestNegotiationRejectsMethodAndAccept(t *testing.T) {
 
 	accept := httptest.NewRequest(http.MethodGet, "/v1/capabilities", nil)
 	accept.Header.Set("Authorization", "Bearer test-token")
-	accept.Header.Set("Accept", "text/html, application/json;q=0")
-	acceptRecorder := httptest.NewRecorder()
-	handler.ServeHTTP(acceptRecorder, accept)
-	if acceptRecorder.Code != http.StatusNotAcceptable || !strings.Contains(acceptRecorder.Body.String(), `"reason":"not_acceptable"`) {
-		t.Fatalf("status = %d body = %s", acceptRecorder.Code, acceptRecorder.Body)
+	for _, header := range []string{
+		"text/html, application/json;q=0",
+		"*/*;q=0.8, application/json;q=0",
+		"application/json;q=0, application/json;q=0",
+		"application/*;q=1, application/json;q=0",
+		"application/problem+json",
+	} {
+		accept := httptest.NewRequest(http.MethodGet, "/v1/capabilities", nil)
+		accept.Header.Set("Authorization", "Bearer test-token")
+		accept.Header.Set("Accept", header)
+		acceptRecorder := httptest.NewRecorder()
+		handler.ServeHTTP(acceptRecorder, accept)
+		if acceptRecorder.Code != http.StatusNotAcceptable || !strings.Contains(acceptRecorder.Body.String(), `"reason":"not_acceptable"`) {
+			t.Fatalf("header %q status = %d body = %s", header, acceptRecorder.Code, acceptRecorder.Body)
+		}
+	}
+	allowed := httptest.NewRequest(http.MethodGet, "/v1/capabilities", nil)
+	allowed.Header.Set("Authorization", "Bearer test-token")
+	allowed.Header.Set("Accept", "application/json;q=0, */*;q=0.1")
+	allowedRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(allowedRecorder, allowed)
+	if allowedRecorder.Code != http.StatusNotAcceptable {
+		t.Fatalf("explicit refusal was ignored: %d", allowedRecorder.Code)
+	}
+	wildcard := httptest.NewRequest(http.MethodGet, "/v1/capabilities", nil)
+	wildcard.Header.Set("Authorization", "Bearer test-token")
+	wildcard.Header.Set("Accept", "*/*;q=0, application/json;q=0, application/json;q=0.2")
+	wildcardRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(wildcardRecorder, wildcard)
+	if wildcardRecorder.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", wildcardRecorder.Code, wildcardRecorder.Body)
 	}
 }
 

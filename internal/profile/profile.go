@@ -172,11 +172,23 @@ func ReproducibleModel(adapterID, model string) bool {
 func hostedResolved(model string) bool {
 	for _, separator := range []string{"-", "."} {
 		rest, ok := strings.CutPrefix(model, HostedModel+separator)
-		if ok && rest != "" && !strings.ContainsAny(rest, "/ \t") {
+		if ok && modelSuffix(rest) {
 			return true
 		}
 	}
 	return false
+}
+
+func modelSuffix(rest string) bool {
+	if rest == "" {
+		return false
+	}
+	for _, r := range rest {
+		if r < 0x21 || r > 0x7e || r == '/' {
+			return false
+		}
+	}
+	return true
 }
 
 // QuestionSetHash is the canonical hash of the question document, excluding the wire hash field.

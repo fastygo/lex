@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestEndpointAllowlistRejectsLoopbackDisguises(t *testing.T) {
@@ -70,6 +71,23 @@ func TestEvaluateDoesNotFollowRedirect(t *testing.T) {
 		HTTP:             source.Client(),
 	}, map[string]any{}, map[string]any{"support": map[string]any{"type": "noul"}})
 	if !errors.Is(err, context.Canceled) || strings.Contains(err.Error(), source.URL) {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestEvaluateClassifiesClientTimeoutAsProviderFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		time.Sleep(200 * time.Millisecond)
+	}))
+	defer server.Close()
+	client := server.Client()
+	client.Timeout = 20 * time.Millisecond
+	_, err := Evaluate(context.Background(), Call{
+		APIKey: "test-key", Endpoint: server.URL, OfficialEndpoint: "https://api.typesafe.ai/v1/systemone",
+		Model: "jev-1.13.0", AllowLoopback: true, HTTP: client,
+	}, map[string]any{}, map[string]any{"support": map[string]any{"type": "noul"}})
+	var classified CallError
+	if !errors.As(err, &classified) || !classified.Retryable || errors.Is(err, context.DeadlineExceeded) || strings.Contains(err.Error(), server.URL) {
 		t.Fatalf("err = %v", err)
 	}
 }

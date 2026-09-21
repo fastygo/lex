@@ -76,12 +76,12 @@ func Evaluate(ctx context.Context, call Call, state any, questions map[string]an
 	}
 	response, err := limited.Do(request)
 	if err != nil {
-		return Decision{}, transportFailure(err)
+		return Decision{}, transportFailure(ctx, err)
 	}
 	defer response.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(response.Body, responseLimit(ctx)+1))
 	if err != nil {
-		return Decision{}, transportFailure(err)
+		return Decision{}, transportFailure(ctx, err)
 	}
 	if int64(len(body)) > responseLimit(ctx) {
 		return Decision{}, BudgetError{}
@@ -193,14 +193,16 @@ func jsonContains(value any, secret string) bool {
 	return false
 }
 
-func transportFailure(err error) error {
+func transportFailure(ctx context.Context, err error) error {
 	switch {
-	case errors.Is(err, context.Canceled):
-		return context.Canceled
-	case errors.Is(err, context.DeadlineExceeded):
-		return context.DeadlineExceeded
 	case errors.Is(err, errRedirectRefused):
 		return CallError{}
+	case strings.Contains(err.Error(), "Client.Timeout"):
+		return CallError{Retryable: true}
+	case errors.Is(err, context.Canceled):
+		return context.Canceled
+	case errors.Is(err, context.DeadlineExceeded) && ctx.Err() != nil:
+		return context.DeadlineExceeded
 	default:
 		return CallError{Retryable: true}
 	}

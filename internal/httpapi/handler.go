@@ -192,6 +192,8 @@ func acceptsJSON(header string) bool {
 	if strings.TrimSpace(header) == "" {
 		return true
 	}
+	bestSpecificity := 0
+	bestQuality := 0.0
 	for _, part := range strings.Split(header, ",") {
 		media, params, err := mime.ParseMediaType(strings.TrimSpace(part))
 		if err != nil {
@@ -205,15 +207,26 @@ func acceptsJSON(header string) bool {
 			}
 			quality = parsed
 		}
-		if quality == 0 {
-			continue
-		}
-		switch media {
-		case "*/*", "application/*", "application/json", "application/problem+json":
-			return true
+		specificity := jsonMediaSpecificity(media)
+		if specificity > bestSpecificity || (specificity == bestSpecificity && quality > bestQuality) {
+			bestSpecificity = specificity
+			bestQuality = quality
 		}
 	}
-	return false
+	return bestSpecificity > 0 && bestQuality > 0
+}
+
+func jsonMediaSpecificity(media string) int {
+	switch media {
+	case "application/json":
+		return 3
+	case "application/*":
+		return 2
+	case "*/*":
+		return 1
+	default:
+		return 0
+	}
 }
 
 func authorizedProjects(token string, tokens map[string][]string) ([]string, bool) {

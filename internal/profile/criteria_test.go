@@ -20,6 +20,10 @@ func TestReproducibleModelPinsAdapterIdentity(t *testing.T) {
 		{"hosted-systemone", HostedModel},
 		{"hosted-systemone", "typesafe/jev-1.130"},
 		{"hosted-systemone", HostedModel + "-latest"},
+		{"hosted-systemone", HostedModel + "-\n20260901"},
+		{"hosted-systemone", HostedModel + "-20260901\r"},
+		{"hosted-systemone", HostedModel + "-\u00a020260901"},
+		{"hosted-systemone", HostedModel + "-2026/09"},
 		{"hosted-systemone", ""},
 	}
 	for _, tc := range rejected {
