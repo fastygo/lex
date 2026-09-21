@@ -1,6 +1,7 @@
 package wire
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -384,8 +385,8 @@ func provenanceFinding(bundle map[string]any, item map[string]any) (verify.Findi
 		}
 		version, _ := source["version"].(string)
 		text, _ := source["text"].(string)
-		if version == "" {
-			continue
+		if version == "" || source["trust_level"] != "project" || source["evidence_class"] != "source_text" {
+			return verify.Finding{Code: "source_admission", Verdict: verify.VerdictError, Detail: "frozen source is not admissible project text"}, true
 		}
 		excerpt := text
 		if span, ok := sourceRef["span"].(map[string]any); ok {
@@ -416,7 +417,9 @@ func expectedPackID(snapshot, request map[string]any) (string, bool) {
 		return "", false
 	}
 	var req frozenPackRequest
-	if err := json.Unmarshal(encoded, &req); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(encoded))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
 		return "", false
 	}
 	raw, err := json.Marshal(struct {
@@ -476,6 +479,16 @@ func expectedSnapshotID(snapshot map[string]any) (string, bool) {
 		})
 	}
 	sort.Slice(sources, func(i, j int) bool { return sources[i].SourceID < sources[j].SourceID })
+	seen := make(map[string]struct{}, len(sources))
+	for _, source := range sources {
+		if source.SourceID == "" {
+			return "", false
+		}
+		if _, duplicate := seen[source.SourceID]; duplicate {
+			return "", false
+		}
+		seen[source.SourceID] = struct{}{}
+	}
 	raw, err := json.Marshal(frozenSnapshot{
 		ProjectID:      textField(snapshot["project_id"]),
 		RuntimeVersion: textField(snapshot["runtime_version"]),

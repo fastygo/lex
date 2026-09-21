@@ -17,7 +17,7 @@ import (
 )
 
 func TestReplayAcceptsEscapedContextSnapshot(t *testing.T) {
-	const text = "The account is A&B <locked>."
+	const text = "The account is A&B <locked> café."
 	request := contextmemory.PackRequest{
 		ProjectID: "project-test", Query: "account",
 		Focus: contextmemory.Focus{
@@ -142,6 +142,25 @@ func sealedBundle(t *testing.T) []byte {
 	return raw
 }
 
+func rebindFrozenIdentities(t *testing.T, bundle map[string]any) {
+	t.Helper()
+	contextBody := bundle["context"].(map[string]any)
+	snapshot := contextBody["snapshot"].(map[string]any)
+	identifier, ok := expectedSnapshotID(snapshot)
+	if !ok {
+		t.Fatal("snapshot identity")
+	}
+	snapshot["id"] = identifier
+	request := contextBody["pack_request"].(map[string]any)
+	pack := contextBody["pack"].(map[string]any)
+	packID, ok := expectedPackID(snapshot, request)
+	if !ok {
+		t.Fatal("pack identity")
+	}
+	pack["id"] = packID
+	refreshPackHash(t, bundle)
+}
+
 func refreshPackHash(t *testing.T, bundle map[string]any) {
 	t.Helper()
 	contextBody := bundle["context"].(map[string]any)
@@ -227,6 +246,42 @@ func TestReplayRejectsPackRequestIdentityMismatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	if report.Verdict != "error" || !hasFinding(report, "pack_request_identity") {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
+func TestPackRequestIdentityRejectsUnknownFields(t *testing.T) {
+	if _, ok := expectedPackID(addressableSnapshot(), map[string]any{"query": "account", "approved": true}); ok {
+		t.Fatal("accepted an unknown pack request field")
+	}
+}
+
+func TestSnapshotIdentityRejectsDuplicateSourceIDs(t *testing.T) {
+	snapshot := addressableSnapshot()
+	sources := snapshot["sources"].([]any)
+	snapshot["sources"] = append(sources, sources[0])
+	if _, ok := expectedSnapshotID(snapshot); ok {
+		t.Fatal("accepted duplicate source ids")
+	}
+}
+
+func TestReplayRejectsInadmissibleFrozenSource(t *testing.T) {
+	value, err := canonical.DecodeJSON(sealedBundle(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	contextBody := bundle["context"].(map[string]any)
+	snapshot := contextBody["snapshot"].(map[string]any)
+	sources := snapshot["sources"].([]any)
+	source := sources[0].(map[string]any)
+	source["evidence_class"] = "instruction"
+	rebindFrozenIdentities(t, bundle)
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "source_admission") {
 		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
 	}
 }
