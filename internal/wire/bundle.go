@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/fastygo/lex/internal/canonical"
@@ -217,6 +218,9 @@ func bindingFindings(bundle map[string]any) []verify.Finding {
 	policyRef, _ := bundle["policy"].(map[string]any)
 	decision, _ := bundle["decision_set"].(map[string]any)
 	contextBody, _ := bundle["context"].(map[string]any)
+	if bundle["verifier_version"] != profile.VerifierVersion {
+		findings = append(findings, errorFinding("unpinned_verifier"))
+	}
 	if questionSet["id"] != profile.QuestionSetID || questionSet["version"] != profile.QuestionSetVersion || questionSet["hash"] != profile.QuestionSetHash() || !questionContentPinned(questionSet) {
 		findings = append(findings, errorFinding("unpinned_question_set"))
 	}
@@ -236,6 +240,9 @@ func bindingFindings(bundle map[string]any) []verify.Finding {
 	}
 	switch decision["adapter_id"] {
 	case "direct-systemone", "hosted-systemone":
+		if decision["adapter_version"] != profile.AdapterVersion {
+			findings = append(findings, errorFinding("unpinned_adapter"))
+		}
 	default:
 		findings = append(findings, errorFinding("unknown_adapter"))
 	}
@@ -355,12 +362,15 @@ func provenanceFinding(bundle map[string]any, item map[string]any) (verify.Findi
 	if surface == "" || sourceID == "" || checksum == "" || projectID == "" || projectID != entity["project_id"] {
 		return verify.Finding{Code: "missing_provenance", Verdict: verify.VerdictError, Detail: "admissible evidence has no complete source identity"}, true
 	}
+	contextBody, _ := bundle["context"].(map[string]any)
+	snapshot, _ := contextBody["snapshot"].(map[string]any)
+	if !snapshotIDMatches(snapshot) {
+		return verify.Finding{Code: "snapshot_identity", Verdict: verify.VerdictError, Detail: "frozen snapshot identity does not match its sources"}, true
+	}
 	sum := sha256.Sum256([]byte(surface))
 	if hex.EncodeToString(sum[:]) != checksum {
 		return verify.Finding{Code: "checksum_mismatch", Verdict: verify.VerdictError, Detail: "evidence surface does not match its source checksum"}, true
 	}
-	contextBody, _ := bundle["context"].(map[string]any)
-	snapshot, _ := contextBody["snapshot"].(map[string]any)
 	sources, _ := snapshot["sources"].([]any)
 	for _, raw := range sources {
 		source, _ := raw.(map[string]any)
@@ -387,6 +397,61 @@ func provenanceFinding(bundle map[string]any, item map[string]any) (verify.Findi
 		return verify.Finding{}, false
 	}
 	return verify.Finding{Code: "missing_provenance", Verdict: verify.VerdictError, Detail: "admissible evidence does not resolve to a frozen source"}, true
+}
+
+func snapshotIDMatches(snapshot map[string]any) bool {
+	expected, ok := expectedSnapshotID(snapshot)
+	declared, _ := snapshot["id"].(string)
+	return ok && declared == expected
+}
+
+func expectedSnapshotID(snapshot map[string]any) (string, bool) {
+	rawSources, _ := snapshot["sources"].([]any)
+	sources := make([]frozenSource, 0, len(rawSources))
+	for _, raw := range rawSources {
+		source, ok := raw.(map[string]any)
+		if !ok {
+			return "", false
+		}
+		sources = append(sources, frozenSource{
+			SourceID:      textField(source["source_id"]),
+			Version:       textField(source["version"]),
+			Text:          textField(source["text"]),
+			TrustLevel:    textField(source["trust_level"]),
+			EvidenceClass: textField(source["evidence_class"]),
+		})
+	}
+	sort.Slice(sources, func(i, j int) bool { return sources[i].SourceID < sources[j].SourceID })
+	raw, err := json.Marshal(frozenSnapshot{
+		ProjectID:      textField(snapshot["project_id"]),
+		RuntimeVersion: textField(snapshot["runtime_version"]),
+		Sources:        sources,
+	})
+	if err != nil {
+		return "", false
+	}
+	sum := sha256.Sum256(append([]byte("context/memory-snapshot/v1\x00"), raw...))
+	return "snapshot_" + hex.EncodeToString(sum[:]), true
+}
+
+func textField(value any) string {
+	text, _ := value.(string)
+	return text
+}
+
+type frozenSnapshot struct {
+	ID             string         `json:"id"`
+	ProjectID      string         `json:"project_id"`
+	RuntimeVersion string         `json:"runtime_version"`
+	Sources        []frozenSource `json:"sources"`
+}
+
+type frozenSource struct {
+	SourceID      string `json:"source_id"`
+	Version       string `json:"version"`
+	Text          string `json:"text"`
+	TrustLevel    string `json:"trust_level"`
+	EvidenceClass string `json:"evidence_class"`
 }
 
 func nonNegative(value any) (uint64, bool) {

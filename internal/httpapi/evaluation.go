@@ -31,10 +31,11 @@ type Decision struct {
 }
 
 type evaluationRequest struct {
-	ProjectID string           `json:"project_id"`
-	Entity    entityRequest    `json:"entity"`
-	Query     string           `json:"query"`
-	Sources   []sourceDocument `json:"sources"`
+	ProjectID string            `json:"project_id"`
+	Entity    entityRequest     `json:"entity"`
+	Query     string            `json:"query"`
+	Sources   []sourceDocument  `json:"sources"`
+	Metadata  map[string]string `json:"metadata,omitempty"`
 }
 
 type entityRequest struct {

@@ -19,6 +19,8 @@ const (
 	PolicyVersion = "0.1.0"
 	// VerifierVersion pins the deterministic interpreter.
 	VerifierVersion = "0.1.0"
+	// AdapterVersion is the only typed-decision adapter contract this verifier replays.
+	AdapterVersion = "0.1.0"
 	// Calibration discloses that these thresholds are not a measured calibration.
 	Calibration = "uncalibrated"
 	// FocusID is the embedded Context focus for this question set.

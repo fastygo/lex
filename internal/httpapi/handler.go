@@ -40,7 +40,18 @@ func NewHandler(config Config) (http.Handler, error) {
 	})))
 	mux.Handle("/v1/replays", authenticated(config, http.HandlerFunc(replay)))
 
-	return withRequestLimits(builder.Build().Handler(), config, newAdmission(config.MaxInFlight)), nil
+	return withKnownRoutes(withRequestLimits(builder.Build().Handler(), config, newAdmission(config.MaxInFlight))), nil
+}
+
+func withKnownRoutes(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/healthz", "/v1/capabilities", "/v1/evaluations", "/v1/replays":
+			next.ServeHTTP(w, request)
+		default:
+			writeProblem(w, http.StatusNotFound, "not_found", "the route is not provided")
+		}
+	})
 }
 
 func withRequestLimits(next http.Handler, config Config, gate *admission) http.Handler {

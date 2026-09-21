@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/fastygo/lex/internal/adapters/systemone"
+	"github.com/fastygo/lex/internal/profile"
 )
 
 const (
@@ -15,7 +16,7 @@ const (
 	// Model is the pinned request model. The response model is recorded separately.
 	Model          = "typesafe/jev-1.13"
 	AdapterID      = "hosted-systemone"
-	AdapterVersion = "0.1.0"
+	AdapterVersion = profile.AdapterVersion
 )
 
 // Client calls one allowlisted hosted endpoint. The zero value is not usable.

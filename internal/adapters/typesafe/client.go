@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/fastygo/lex/internal/adapters/systemone"
+	"github.com/fastygo/lex/internal/profile"
 )
 
 const (
@@ -15,7 +16,7 @@ const (
 	// Model is the pinned request model. Aliases are rejected.
 	Model          = "jev-1.13.0"
 	AdapterID      = "direct-systemone"
-	AdapterVersion = "0.1.0"
+	AdapterVersion = profile.AdapterVersion
 )
 
 // Client calls one allowlisted direct endpoint. The zero value is not usable.

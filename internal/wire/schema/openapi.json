@@ -132,7 +132,13 @@
         "required": ["project_id", "entity", "query", "sources"],
         "properties": {
           "project_id": {"type": "string", "minLength": 1, "maxLength": 256},
-          "query": {"type": "string", "minLength": 1},
+          "query": {"type": "string", "minLength": 1, "maxLength": 4096},
+          "metadata": {
+            "type": "object",
+            "maxProperties": 8,
+            "propertyNames": {"pattern": "^[a-z][a-z0-9_]{0,63}$"},
+            "additionalProperties": {"type": "string", "maxLength": 256}
+          },
           "entity": {
             "type": "object",
             "additionalProperties": false,

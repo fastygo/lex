@@ -756,6 +756,118 @@ func evaluateWithKey(t *testing.T, handler http.Handler, key string) string {
 	return recorder.Body.String()
 }
 
+func TestEvaluationRejectsNULInSourceText(t *testing.T) {
+	decider := &scriptedDecider{answers: []byte(passingAnswers)}
+	handler := mustHandlerWithDecider(t, decider)
+	body := strings.Replace(evaluationBody, "locked.", "locked.\\u0000", 1)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusUnprocessableEntity || decider.calls != 0 || !strings.Contains(recorder.Body.String(), `"reason":"pack_error"`) {
+		t.Fatalf("status = %d calls = %d body = %s", recorder.Code, decider.calls, recorder.Body)
+	}
+}
+
+func TestSecurityProfileRejectsCookiesApprovalAndCORS(t *testing.T) {
+	decider := &scriptedDecider{answers: []byte(passingAnswers)}
+	handler := mustHandlerWithDecider(t, decider)
+
+	cookie := httptest.NewRequest(http.MethodGet, "/v1/capabilities", nil)
+	cookie.Header.Set("Cookie", "session=admin")
+	cookieRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(cookieRecorder, cookie)
+	if cookieRecorder.Code != http.StatusUnauthorized || cookieRecorder.Header().Get("Access-Control-Allow-Origin") != "" {
+		t.Fatalf("status = %d cors = %q body = %s", cookieRecorder.Code, cookieRecorder.Header().Get("Access-Control-Allow-Origin"), cookieRecorder.Body)
+	}
+
+	approved := strings.Replace(evaluationBody, `"query":"account"`, `"query":"account","approved":true`, 1)
+	approval := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(approved))
+	approval.Header.Set("Authorization", "Bearer test-token")
+	approval.Header.Set("Content-Type", "application/json")
+	approvalRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(approvalRecorder, approval)
+	if approvalRecorder.Code != http.StatusBadRequest || decider.calls != 0 || approvalRecorder.Header().Get("Access-Control-Allow-Origin") != "" {
+		t.Fatalf("status = %d calls = %d body = %s", approvalRecorder.Code, decider.calls, approvalRecorder.Body)
+	}
+
+	preflight := httptest.NewRequest(http.MethodOptions, "/v1/evaluations", nil)
+	preflight.Header.Set("Origin", "https://example.invalid")
+	preflight.Header.Set("Access-Control-Request-Method", "POST")
+	preflightRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(preflightRecorder, preflight)
+	if preflightRecorder.Header().Get("Access-Control-Allow-Origin") != "" {
+		t.Fatalf("preflight granted %q", preflightRecorder.Header().Get("Access-Control-Allow-Origin"))
+	}
+}
+
+func TestMetadataDoesNotChangeTheDecision(t *testing.T) {
+	decider := &capturingDecider{answers: []byte(passingAnswers)}
+	handler := mustHandlerWithDecider(t, decider)
+	body := strings.Replace(evaluationBody, `"query":"account"`, `"query":"account","metadata":{"client_ref":"do-not-forward"}`, 1)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"verdict":"validated"`) || strings.Contains(recorder.Body.String(), "do-not-forward") {
+		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
+	}
+	encoded, err := json.Marshal(decider.state)
+	if err != nil {
+		t.Fatal(err)
+	}
+	questions, err := json.Marshal(decider.questions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), "do-not-forward") || strings.Contains(string(questions), "do-not-forward") {
+		t.Fatalf("metadata reached the provider state=%s questions=%s", encoded, questions)
+	}
+}
+
+func TestNoExecutionRoute(t *testing.T) {
+	handler := mustHandlerWithDecider(t, &scriptedDecider{answers: []byte(passingAnswers)})
+	request := httptest.NewRequest(http.MethodPost, "/v1/executions", strings.NewReader(`{"approved":true}`))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusNotFound || !strings.Contains(recorder.Body.String(), `"reason":"not_found"`) || recorder.Header().Get("Content-Type") != problemMediaType {
+		t.Fatalf("execution route returned status %d body %s", recorder.Code, recorder.Body)
+	}
+}
+
+func TestEvaluationRejectsUnboundedQuery(t *testing.T) {
+	decider := &scriptedDecider{answers: []byte(passingAnswers)}
+	handler := mustHandlerWithDecider(t, decider)
+	body := `{"project_id":"project-test","entity":{"id":"claim-1","type":"claim","schema_version":"0.1","version":"1"},"query":"` + strings.Repeat("a", 4097) + `","sources":[{"id":"source-1","version":"v1","text":"account"}]}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusBadRequest || decider.calls != 0 || !strings.Contains(recorder.Body.String(), `"reason":"invalid_json"`) {
+		t.Fatalf("status = %d calls = %d body = %s", recorder.Code, decider.calls, recorder.Body)
+	}
+}
+
+func TestEvaluationSkipsProviderWhenSourceExceedsFocusBudget(t *testing.T) {
+	decider := &scriptedDecider{answers: []byte(passingAnswers)}
+	handler := mustHandlerWithDecider(t, decider)
+	text := "account " + strings.Repeat("x", 70000)
+	body := `{"project_id":"project-test","entity":{"id":"claim-1","type":"claim","schema_version":"0.1","version":"1"},"query":"account","sources":[{"id":"source-1","version":"v1","text":"` + text + `"}]}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK || decider.calls != 0 || !strings.Contains(recorder.Body.String(), `"verdict":"insufficient"`) || !strings.Contains(recorder.Body.String(), `"name":"decide","status":"skipped"`) {
+		t.Fatalf("status = %d calls = %d body = %s", recorder.Code, decider.calls, recorder.Body)
+	}
+}
+
 func TestReplayRejectsMalformedBundle(t *testing.T) {
 	handler := mustHandler(t)
 	request := httptest.NewRequest(http.MethodPost, "/v1/replays", strings.NewReader(`{"protocol_version":"0.1-draft"}`))

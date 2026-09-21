@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/fastygo/lex/internal/canonical"
 )
 
 const maxResponseBytes = 2 << 20
@@ -69,6 +71,9 @@ func Evaluate(ctx context.Context, call Call, state any, questions map[string]an
 	}
 	if response.StatusCode != http.StatusOK {
 		return Decision{}, fmt.Errorf("decision provider status %d", response.StatusCode)
+	}
+	if _, err := canonical.DecodeJSON(body); err != nil {
+		return Decision{}, fmt.Errorf("decode decision response: %w", err)
 	}
 	var decoded struct {
 		Model   string          `json:"model"`

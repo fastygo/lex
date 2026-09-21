@@ -10,8 +10,59 @@ import (
 	"strings"
 	"testing"
 
+	contextmemory "github.com/fastygo/context/pkg/contextkit/runtime"
 	"github.com/fastygo/lex/internal/canonical"
+	"github.com/fastygo/lex/internal/evidence"
+	"github.com/fastygo/lex/internal/profile"
 )
+
+func TestReplayAcceptsEscapedContextSnapshot(t *testing.T) {
+	const text = "The account is A&B <locked>."
+	result, err := evidence.BuildPack(
+		t.Context(),
+		"project-test",
+		[]contextmemory.Source{{
+			SourceID: "source-1", Version: "v1", Text: text,
+			TrustLevel: "project", EvidenceClass: "source_text",
+		}},
+		contextmemory.PackRequest{
+			ProjectID: "project-test", Query: "account",
+			Focus: contextmemory.Focus{
+				ID: profile.FocusID, Objective: "Select admissible source text.",
+				RequiredTrustLevel: "project", Budget: contextmemory.Budget{MaxItems: 8, MaxChars: 65536},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := BuildBundle(BundleInput{
+		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
+		Pack:           result.ContextPack,
+		Snapshot:       result.Snapshot,
+		PackRequest:    map[string]any{"query": "account"},
+		AdapterID:      "direct-systemone",
+		AdapterVersion: "0.1.0",
+		ResolvedModel:  "fixture-v1",
+		Answers: []byte(`{
+			"support":{"type":"noul","noul":0.9},
+			"established":{"type":"noul","noul":0.9},
+			"conflict":{"type":"noul","noul":0.1},
+			"safe_to_auto_act":{"type":"noul","noul":0.9},
+			"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}
+		}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	report, err := Replay(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "validated" {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
 
 func TestBuildBundleReplaysValidatedClaim(t *testing.T) {
 	raw, err := BuildBundle(BundleInput{
@@ -149,6 +200,64 @@ func TestReplayRejectsEntityIdentityThatBreaksChecksum(t *testing.T) {
 	}
 }
 
+func TestReplayRejectsSnapshotIdentityMismatch(t *testing.T) {
+	value, err := canonical.DecodeJSON(sealedBundle(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	contextBody := bundle["context"].(map[string]any)
+	snapshot := contextBody["snapshot"].(map[string]any)
+	snapshot["id"] = "snapshot_0000000000000000000000000000000000000000000000000000000000000000"
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "snapshot_identity") {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
+func TestReplayRejectsForeignAdapterVersion(t *testing.T) {
+	value, err := canonical.DecodeJSON(sealedBundle(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	decision := bundle["decision_set"].(map[string]any)
+	decision["adapter_version"] = "9.9.9"
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "unpinned_adapter") {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
+func TestReplayRejectsForeignVerifierVersion(t *testing.T) {
+	value, err := canonical.DecodeJSON(sealedBundle(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	bundle["verifier_version"] = "9.9.9"
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "unpinned_verifier") {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
+func TestReplayRejectsUnsupportedProtocolVersion(t *testing.T) {
+	raw := strings.Replace(string(sealedBundle(t)), `"protocol_version":"0.1-draft"`, `"protocol_version":"0.9-draft"`, 1)
+	if _, err := Replay([]byte(raw)); err == nil {
+		t.Fatal("accepted an unsupported protocol version")
+	}
+}
+
 func TestReplayRejectsSurfaceThatBreaksChecksum(t *testing.T) {
 	value, err := canonical.DecodeJSON(sealedBundle(t))
 	if err != nil {
@@ -178,13 +287,19 @@ func addressablePack() []byte {
 }
 
 func addressableSnapshot() map[string]any {
-	return map[string]any{
-		"id": "snapshot-1", "project_id": "project-test",
+	snapshot := map[string]any{
+		"project_id": "project-test", "runtime_version": "memory-exact-v1",
 		"sources": []any{map[string]any{
 			"source_id": "source-1", "version": "v1", "text": evidenceText,
 			"trust_level": "project", "evidence_class": "source_text",
 		}},
 	}
+	identifier, ok := expectedSnapshotID(snapshot)
+	if !ok {
+		panic("snapshot identity")
+	}
+	snapshot["id"] = identifier
+	return snapshot
 }
 
 func TestReplayDoesNotUseNetwork(t *testing.T) {

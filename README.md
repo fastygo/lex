@@ -44,8 +44,9 @@ Context v0.1.0 and Framework v0.3.0 are pinned. The local service freezes a
 Context pack, requests one embedded question set through a direct or hosted
 System One adapter, applies an uncalibrated policy, and returns a verdict plus
 a caller-owned replay bundle. Replay reproduces that verdict without retrieval
-or a provider call. Vercel proof of this path, OpenAPI, calibration, adversarial
-fixtures, and SLO evidence remain planned work.
+or a provider call. A draft OpenAPI document and local adversarial tests exist.
+Calibration, a 28-day SLO, race evidence on a supported runner, and proof of
+the latest deployment revision remain open. No conformance certification is claimed.
 
 ## Architecture
 
@@ -122,8 +123,8 @@ GET  /healthz
 
 The wire profile uses JSON Schema 2020-12, RFC 8785 JCS with SHA-256 for LeX
 canonical hashes, and RFC 9457 Problem Details. A draft OpenAPI 3.1.1 document
-is at `internal/wire/schema/openapi.json`. Routes and schemas remain proposals
-until promoted by accepted ADRs.
+is at `internal/wire/schema/openapi.json`. The handler enforces that evaluation
+schema. Routes are not a released protocol until the ADRs are accepted.
 
 ## Delivery path
 
