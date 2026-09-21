@@ -126,4 +126,4 @@ claim remained a conflict rather than a refutation: refuted was 0.06.
 - Embedded claim-validation questions only. Original Noul, Choice, and Score maps were not sent.
 - Exact-phrase retrieval, not hybrid Context retrieval.
 - Caller sources are labeled `source_text` / `project` by the deployment.
-- Policy is explicitly uncalibrated. This is not a calibration or SLO measurement.
+- Policy is explicitly uncalibrated. This is not a calibration or SLO measurement. The calibration procedure is [calibration.md](calibration.md).
