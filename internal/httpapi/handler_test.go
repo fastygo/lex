@@ -41,7 +41,7 @@ func TestHandlerCapabilitiesReturnsNoStore(t *testing.T) {
 	if cacheControl := recorder.Header().Get("Cache-Control"); cacheControl != "no-store" {
 		t.Fatalf("Cache-Control = %q, want no-store", cacheControl)
 	}
-	if got := recorder.Body.String(); !strings.Contains(got, `"replay":true`) || !strings.Contains(got, `"evaluation":false`) {
+	if got := recorder.Body.String(); !strings.Contains(got, `"replay":true`) || !strings.Contains(got, `"evaluation":false`) || !strings.Contains(got, `"server_history":false`) || !strings.Contains(got, `"replay":"caller_owned"`) || !strings.Contains(got, `"idempotency":"none"`) {
 		t.Fatalf("body = %s", got)
 	}
 }
@@ -204,6 +204,21 @@ func (failingDecider) AdapterID() string      { return "direct-systemone" }
 func (failingDecider) AdapterVersion() string { return "0.1.0" }
 func (failingDecider) Evaluate(context.Context, any, map[string]any) (Decision, error) {
 	return Decision{}, context.DeadlineExceeded
+}
+
+func TestEvaluationRejectsDuplicateJSONKeys(t *testing.T) {
+	handler := mustHandlerWithDecider(t, &scriptedDecider{answers: []byte(passingAnswers)})
+	body := strings.Replace(evaluationBody, `"project_id":"project-test"`, `"project_id":"project-test","project_id":"project-test"`, 1)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), `"reason":"invalid_json"`) {
+		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
+	}
 }
 
 func TestEvaluationRejectsSourceURL(t *testing.T) {

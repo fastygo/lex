@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/fastygo/lex/internal/adapters"
 	"github.com/fastygo/lex/internal/adapters/openrouter"
 	"github.com/fastygo/lex/internal/adapters/typesafe"
 	"github.com/fastygo/lex/internal/httpapi"
@@ -46,30 +46,17 @@ func (port openrouterPort) Evaluate(ctx context.Context, state any, questions ma
 func selectDecider() (httpapi.Decider, error) {
 	directKey := os.Getenv("LEX_TYPESAFE_API_KEY")
 	hostedKey := os.Getenv("LEX_OPENROUTER_API_KEY")
-	switch os.Getenv("LEX_DECISION_ADAPTER") {
-	case "direct":
-		if directKey == "" {
-			return nil, fmt.Errorf("LEX_TYPESAFE_API_KEY is required")
-		}
+	kind, err := adapters.Select(os.Getenv("LEX_DECISION_ADAPTER"), directKey != "", hostedKey != "")
+	if err != nil {
+		return nil, err
+	}
+	switch kind {
+	case adapters.KindDirect:
 		return typesafePort{client: typesafe.New(directKey)}, nil
-	case "hosted":
-		if hostedKey == "" {
-			return nil, fmt.Errorf("LEX_OPENROUTER_API_KEY is required")
-		}
+	case adapters.KindHosted:
 		return openrouterPort{client: openrouter.New(hostedKey)}, nil
-	case "":
-		switch {
-		case directKey != "" && hostedKey != "":
-			return nil, fmt.Errorf("LEX_DECISION_ADAPTER is required when both decision credentials are configured")
-		case directKey != "":
-			return typesafePort{client: typesafe.New(directKey)}, nil
-		case hostedKey != "":
-			return openrouterPort{client: openrouter.New(hostedKey)}, nil
-		default:
-			return nil, nil
-		}
 	default:
-		return nil, fmt.Errorf("LEX_DECISION_ADAPTER must be direct or hosted")
+		return nil, nil
 	}
 }
 

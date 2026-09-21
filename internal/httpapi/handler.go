@@ -175,6 +175,7 @@ func capabilities(w http.ResponseWriter, request *http.Request, evaluationEnable
 			"replay":     true,
 			"execution":  false,
 		},
+		"retention": retentionDisclosure(),
 	})
 }
 
@@ -211,10 +212,21 @@ func replay(w http.ResponseWriter, request *http.Request) {
 		"verdict":            report.Verdict,
 		"findings":           report.Findings,
 		"policy_calibration": profile.Calibration,
+		"retention":          retentionDisclosure(),
 		"trace": []traceStage{
 			{Name: "replay", Status: "completed"},
 		},
 	})
+}
+
+type retentionView struct {
+	ServerHistory bool   `json:"server_history"`
+	Replay        string `json:"replay"`
+	Idempotency   string `json:"idempotency"`
+}
+
+func retentionDisclosure() retentionView {
+	return retentionView{ServerHistory: false, Replay: "caller_owned", Idempotency: "none"}
 }
 
 func writeProblem(w http.ResponseWriter, status int, reason, detail string) {

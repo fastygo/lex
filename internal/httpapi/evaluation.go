@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 
 	contextmemory "github.com/fastygo/context/pkg/contextkit/runtime"
+	"github.com/fastygo/lex/internal/canonical"
 	"github.com/fastygo/lex/internal/evidence"
 	"github.com/fastygo/lex/internal/profile"
 	"github.com/fastygo/lex/internal/verify"
@@ -69,8 +71,17 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		writeProblem(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Content-Type must be application/json")
 		return
 	}
+	raw, err := io.ReadAll(io.LimitReader(request.Body, defaultMaxBodyBytes))
+	if err != nil {
+		writeProblem(w, http.StatusRequestEntityTooLarge, "body_too_large", "request body exceeds the configured limit")
+		return
+	}
+	if _, err = canonical.DecodeJSON(raw); err != nil {
+		writeProblem(w, http.StatusBadRequest, "invalid_json", "request body must be one evaluation object")
+		return
+	}
 	var body evaluationRequest
-	decoder := json.NewDecoder(io.LimitReader(request.Body, defaultMaxBodyBytes))
+	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	if err = decoder.Decode(&body); err != nil {
 		writeProblem(w, http.StatusBadRequest, "invalid_json", "request body must be one evaluation object")
@@ -130,7 +141,8 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 				{Name: "decide", Status: "skipped"},
 				{Name: "verify", Status: "completed"},
 			},
-			Policy: policyDisclosure(),
+			Policy:    policyDisclosure(),
+			Retention: retentionDisclosure(),
 		})
 		return
 	}
@@ -186,7 +198,8 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 			{Name: "decide", Status: "completed"},
 			{Name: "verify", Status: "completed"},
 		},
-		Policy: policyDisclosure(),
+		Policy:    policyDisclosure(),
+		Retention: retentionDisclosure(),
 	})
 }
 
@@ -201,6 +214,7 @@ type evaluationResponse struct {
 	Stage           string               `json:"stage,omitempty"`
 	Trace           []traceStage         `json:"trace"`
 	Policy          policyDisclosureView `json:"policy"`
+	Retention       retentionView        `json:"retention"`
 }
 
 type traceStage struct {
