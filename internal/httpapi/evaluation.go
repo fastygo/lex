@@ -117,12 +117,12 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 	}
 	pack, err := evidence.BuildPack(request.Context(), body.ProjectID, sources, packRequest)
 	if err != nil {
-		writeProblem(w, http.StatusUnprocessableEntity, "pack_error", "Context could not freeze the supplied sources")
+		tracedProblem(w, http.StatusUnprocessableEntity, "pack_error", "Context could not freeze the supplied sources", trace("receive", "completed", "pack", "failed"))
 		return
 	}
 	items, err := admissibleEvidence(pack.ContextPack)
 	if err != nil {
-		writeProblem(w, http.StatusUnprocessableEntity, "pack_error", "frozen evidence failed admission")
+		tracedProblem(w, http.StatusUnprocessableEntity, "pack_error", "frozen evidence failed admission", trace("receive", "completed", "pack", "failed"))
 		return
 	}
 	if len(items) == 0 {
@@ -148,16 +148,16 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		return
 	}
 	if decider == nil {
-		writeProblem(w, http.StatusServiceUnavailable, "decision_provider_unavailable", "no decision adapter is configured")
+		tracedProblem(w, http.StatusServiceUnavailable, "decision_provider_unavailable", "no decision adapter is configured", trace("receive", "completed", "pack", "completed", "decide", "skipped"))
 		return
 	}
 	snapshotRaw, err := json.Marshal(pack.Snapshot)
 	if err != nil {
-		writeProblem(w, http.StatusUnprocessableEntity, "pack_error", "Context snapshot could not be measured")
+		tracedProblem(w, http.StatusUnprocessableEntity, "pack_error", "Context snapshot could not be measured", trace("receive", "completed", "pack", "failed"))
 		return
 	}
 	if int64(len(pack.ContextPack)+len(snapshotRaw))+responseReserve > maxBodyBytes {
-		writeProblem(w, http.StatusUnprocessableEntity, "response_budget", "the frozen pack does not fit the response budget")
+		tracedProblem(w, http.StatusUnprocessableEntity, "response_budget", "the frozen pack does not fit the response budget", trace("receive", "completed", "pack", "completed", "decide", "skipped"))
 		return
 	}
 	decision, err := decider.Evaluate(request.Context(), map[string]any{
@@ -165,10 +165,10 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 	}, profile.ProviderQuestions())
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
-			writeProblem(w, http.StatusGatewayTimeout, "deadline_exceeded", "the decision adapter did not finish before the deadline")
+			tracedProblem(w, http.StatusGatewayTimeout, "deadline_exceeded", "the decision adapter did not finish before the deadline", trace("receive", "completed", "pack", "completed", "decide", "failed"))
 			return
 		}
-		writeProblem(w, http.StatusBadGateway, "decision_error", "the decision adapter failed")
+		tracedProblem(w, http.StatusBadGateway, "decision_error", "the decision adapter failed", trace("receive", "completed", "pack", "completed", "decide", "failed"))
 		return
 	}
 	bundle, err := wire.BuildBundle(wire.BundleInput{
@@ -181,12 +181,12 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		ResolvedModel: decision.ResolvedModel, Answers: decision.Answers,
 	})
 	if err != nil {
-		writeProblem(w, http.StatusBadGateway, "decision_error", "the decision adapter returned answers that cannot be sealed")
+		tracedProblem(w, http.StatusBadGateway, "decision_error", "the decision adapter returned answers that cannot be sealed", trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
 		return
 	}
 	report, err := wire.Replay(bundle)
 	if err != nil {
-		writeProblem(w, http.StatusInternalServerError, "verification_error", "the sealed bundle could not be verified")
+		tracedProblem(w, http.StatusInternalServerError, "verification_error", "the sealed bundle could not be verified", trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
 		return
 	}
 	if report.Verdict == verify.VerdictError {
@@ -241,13 +241,25 @@ func policyDisclosure() policyDisclosureView {
 	return policyDisclosureView{ID: profile.PolicyID, Version: profile.PolicyVersion, Calibration: profile.Calibration}
 }
 
+func tracedProblem(w http.ResponseWriter, status int, reason, detail string, stages []traceStage) {
+	writeProblemBody(w, status, reason, detail, map[string]any{"trace": stages})
+}
+
+func trace(pairs ...string) []traceStage {
+	stages := make([]traceStage, 0, len(pairs)/2)
+	for i := 0; i+1 < len(pairs); i += 2 {
+		stages = append(stages, traceStage{Name: pairs[i], Status: pairs[i+1]})
+	}
+	return stages
+}
+
 func writeEvaluation(w http.ResponseWriter, body evaluationResponse, maxBodyBytes int64) {
 	if body.Findings == nil {
 		body.Findings = []verify.Finding{}
 	}
 	encoded, err := json.Marshal(body)
 	if err != nil || int64(len(encoded)) > maxBodyBytes {
-		writeProblem(w, http.StatusUnprocessableEntity, "response_budget", "the evaluation response does not fit the response budget")
+		tracedProblem(w, http.StatusUnprocessableEntity, "response_budget", "the evaluation response does not fit the response budget", trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")

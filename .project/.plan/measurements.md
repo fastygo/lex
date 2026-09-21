@@ -25,3 +25,9 @@ The proposed warm-replay targets are 250 ms at P95 and 1 s at P99. This sample
 is inside those numbers and does not establish them. Stub evaluations do not
 measure SLO-02. No cold/warm platform label was available. No deployment region,
 CPU, or RSS figure is claimed from this run.
+
+## Vulnerability review
+
+`govulncheck` on 2026-09-21 reported no vulnerabilities in called code. One
+vulnerability exists in a required module on a path this module does not call.
+The module stayed on Go 1.25.0.

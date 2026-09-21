@@ -237,6 +237,7 @@ func writeVerdictProblem(w http.ResponseWriter, status int, reason, detail strin
 	writeProblemBody(w, status, reason, detail, map[string]any{
 		"verdict":  report.Verdict,
 		"findings": report.Findings,
+		"trace":    trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "completed"),
 	})
 }
 

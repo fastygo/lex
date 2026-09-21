@@ -239,7 +239,7 @@ func TestTechnicalVerdictIsNotHTTPSuccess(t *testing.T) {
 
 	handler.ServeHTTP(recorder, request)
 
-	if recorder.Code != http.StatusUnprocessableEntity || !strings.Contains(recorder.Body.String(), `"verdict":"error"`) || !strings.Contains(recorder.Body.String(), `"reason":"decision_error"`) {
+	if recorder.Code != http.StatusUnprocessableEntity || !strings.Contains(recorder.Body.String(), `"verdict":"error"`) || !strings.Contains(recorder.Body.String(), `"name":"verify","status":"completed"`) {
 		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
 	}
 }
@@ -502,7 +502,7 @@ func TestEvaluationStopsWhenRequestIsCanceled(t *testing.T) {
 
 	handler.ServeHTTP(recorder, request)
 
-	if recorder.Code != http.StatusGatewayTimeout || !strings.Contains(recorder.Body.String(), `"reason":"deadline_exceeded"`) {
+	if recorder.Code != http.StatusGatewayTimeout || !strings.Contains(recorder.Body.String(), `"reason":"deadline_exceeded"`) || !strings.Contains(recorder.Body.String(), `"name":"decide","status":"failed"`) {
 		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
 	}
 }

@@ -113,7 +113,8 @@
           "detail": {"type": "string"},
           "reason": {"type": "string"},
           "verdict": {"type": "string", "enum": ["validated", "rejected", "insufficient", "conflict", "manual_review", "error"]},
-          "findings": {"type": "array"}
+          "findings": {"type": "array"},
+          "trace": {"type": "array"}
         }
       },
       "Verdict": {
