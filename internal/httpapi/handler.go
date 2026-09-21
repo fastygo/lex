@@ -211,6 +211,9 @@ func replay(w http.ResponseWriter, request *http.Request) {
 		"verdict":            report.Verdict,
 		"findings":           report.Findings,
 		"policy_calibration": profile.Calibration,
+		"trace": []traceStage{
+			{Name: "replay", Status: "completed"},
+		},
 	})
 }
 

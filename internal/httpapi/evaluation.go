@@ -124,7 +124,13 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider) {
 			ContextRuntime:  pack.Snapshot.RuntimeVersion,
 			ReplayAvailable: false,
 			Stage:           "retrieval",
-			Policy:          policyDisclosure(),
+			Trace: []traceStage{
+				{Name: "receive", Status: "completed"},
+				{Name: "pack", Status: "completed"},
+				{Name: "decide", Status: "skipped"},
+				{Name: "verify", Status: "completed"},
+			},
+			Policy: policyDisclosure(),
 		})
 		return
 	}
@@ -165,7 +171,13 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider) {
 		ResolvedModel:   decision.ResolvedModel,
 		ReplayAvailable: true,
 		ReplayBundle:    bundle,
-		Policy:          policyDisclosure(),
+		Trace: []traceStage{
+			{Name: "receive", Status: "completed"},
+			{Name: "pack", Status: "completed"},
+			{Name: "decide", Status: "completed"},
+			{Name: "verify", Status: "completed"},
+		},
+		Policy: policyDisclosure(),
 	})
 }
 
@@ -178,7 +190,13 @@ type evaluationResponse struct {
 	ReplayAvailable bool                 `json:"replay_available"`
 	ReplayBundle    json.RawMessage      `json:"replay_bundle,omitempty"`
 	Stage           string               `json:"stage,omitempty"`
+	Trace           []traceStage         `json:"trace"`
 	Policy          policyDisclosureView `json:"policy"`
+}
+
+type traceStage struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
 }
 
 type policyDisclosureView struct {
