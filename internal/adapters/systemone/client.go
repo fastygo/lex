@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -75,18 +76,24 @@ func Evaluate(ctx context.Context, call Call, state any, questions map[string]an
 	}
 	response, err := limited.Do(request)
 	if err != nil {
-		return Decision{}, fmt.Errorf("decision transport: %w", err)
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return Decision{}, err
+		}
+		return Decision{}, CallError{Retryable: true}
 	}
 	defer response.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
 	if err != nil {
-		return Decision{}, fmt.Errorf("read decision response: %w", err)
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return Decision{}, err
+		}
+		return Decision{}, CallError{Retryable: true}
 	}
 	if len(body) > maxResponseBytes {
 		return Decision{}, fmt.Errorf("decision response exceeds limit")
 	}
 	if response.StatusCode != http.StatusOK {
-		return Decision{}, fmt.Errorf("decision provider status %d", response.StatusCode)
+		return Decision{}, CallError{Retryable: retryableProviderStatus(response.StatusCode)}
 	}
 	if _, err := canonical.DecodeJSON(body); err != nil {
 		return Decision{}, fmt.Errorf("decode decision response: %w", err)
@@ -119,6 +126,30 @@ func Evaluate(ctx context.Context, call Call, state any, questions map[string]an
 		Usage:            usage,
 	}, nil
 }
+
+func retryableProviderStatus(status int) bool {
+	switch status {
+	case http.StatusRequestTimeout, http.StatusTooManyRequests, http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout, 529:
+		return true
+	default:
+		return false
+	}
+}
+
+// CallError is a provider failure that carries no response body or status text.
+type CallError struct {
+	Retryable bool
+}
+
+func (err CallError) Error() string {
+	if err.Retryable {
+		return "decision provider is temporarily unavailable"
+	}
+	return "decision provider failed"
+}
+
+// ProviderRetryable reports whether the caller may try again later. This adapter does not retry.
+func (err CallError) ProviderRetryable() bool { return err.Retryable }
 
 func questionsSupported(questions map[string]any) bool {
 	if len(questions) == 0 || len(questions) > maxProviderQuestions {

@@ -446,6 +446,31 @@ func (failingDecider) Evaluate(context.Context, any, map[string]any) (Decision, 
 	return Decision{}, errors.New("provider unavailable")
 }
 
+func TestRetryableProviderFailureIsNotADecisionError(t *testing.T) {
+	handler := mustHandlerWithDecider(t, retryableDecider{})
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(evaluationBody))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusServiceUnavailable || !strings.Contains(recorder.Body.String(), `"reason":"provider_unavailable"`) || strings.Contains(recorder.Body.String(), "429") || !strings.Contains(recorder.Body.String(), `"name":"decide","status":"failed"`) {
+		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
+	}
+}
+
+type retryableDecider struct{}
+
+func (retryableDecider) AdapterID() string      { return "direct-systemone" }
+func (retryableDecider) AdapterVersion() string { return "0.1.0" }
+func (retryableDecider) Evaluate(context.Context, any, map[string]any) (Decision, error) {
+	return Decision{}, retryableProviderError{}
+}
+
+type retryableProviderError struct{}
+
+func (retryableProviderError) Error() string           { return "decision provider is temporarily unavailable" }
+func (retryableProviderError) ProviderRetryable() bool { return true }
+
 func TestTechnicalVerdictIsNotHTTPSuccess(t *testing.T) {
 	handler := mustHandlerWithDecider(t, &scriptedDecider{answers: []byte(`{"support":{"type":"noul","noul":0.9}}`)})
 	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(evaluationBody))

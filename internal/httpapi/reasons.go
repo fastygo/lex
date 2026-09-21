@@ -19,6 +19,7 @@ const (
 	reasonNotFound                    = "not_found"
 	reasonPackError                   = "pack_error"
 	reasonProjectForbidden            = "project_forbidden"
+	reasonProviderUnavailable         = "provider_unavailable"
 	reasonQuestionError               = "question_error"
 	reasonResponseBudget              = "response_budget"
 	reasonUnsupportedMediaType        = "unsupported_media_type"
@@ -44,6 +45,7 @@ func problemReasons() []string {
 		reasonNotFound,
 		reasonPackError,
 		reasonProjectForbidden,
+		reasonProviderUnavailable,
 		reasonQuestionError,
 		reasonResponseBudget,
 		reasonUnsupportedMediaType,

@@ -146,6 +146,7 @@
             "not_found",
             "pack_error",
             "project_forbidden",
+            "provider_unavailable",
             "question_error",
             "response_budget",
             "unsupported_media_type",

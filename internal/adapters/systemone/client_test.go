@@ -3,6 +3,7 @@ package systemone
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -116,4 +117,32 @@ func TestEvaluateKeepsProviderMetadataOnlyWhenPresent(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 	_ = json.Valid([]byte(decision.Usage))
+}
+
+func TestEvaluateClassifiesRetryableProviderStatus(t *testing.T) {
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		http.Error(w, "secret-provider-body", http.StatusTooManyRequests)
+	}))
+	defer server.Close()
+	call := Call{
+		APIKey: "test-key", Endpoint: server.URL, OfficialEndpoint: "https://api.typesafe.ai/v1/systemone",
+		Model: "jev-1.13.0", AllowLoopback: true, HTTP: server.Client(),
+	}
+	_, err := Evaluate(context.Background(), call, map[string]any{}, map[string]any{"support": map[string]any{"type": "noul"}})
+	var classified CallError
+	if !errors.As(err, &classified) || !classified.Retryable || calls.Load() != 1 || strings.Contains(err.Error(), "secret-provider-body") || strings.Contains(err.Error(), "429") {
+		t.Fatalf("calls = %d err = %v", calls.Load(), err)
+	}
+	rejected := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "secret-provider-body", http.StatusBadRequest)
+	}))
+	defer rejected.Close()
+	call.Endpoint = rejected.URL
+	call.HTTP = rejected.Client()
+	_, err = Evaluate(context.Background(), call, map[string]any{}, map[string]any{"support": map[string]any{"type": "noul"}})
+	if !errors.As(err, &classified) || classified.Retryable || strings.Contains(err.Error(), "secret-provider-body") {
+		t.Fatalf("err = %v", err)
+	}
 }

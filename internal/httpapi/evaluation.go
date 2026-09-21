@@ -189,6 +189,10 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		if writeRequestStop(w, err, trace("receive", "completed", "pack", "completed", "decide", "failed")) {
 			return
 		}
+		if retryableProvider(err) {
+			tracedProblem(w, http.StatusServiceUnavailable, reasonProviderUnavailable, "the decision provider is unavailable", trace("receive", "completed", "pack", "completed", "decide", "failed"))
+			return
+		}
 		tracedProblem(w, http.StatusBadGateway, reasonDecisionError, "the decision adapter failed", trace("receive", "completed", "pack", "completed", "decide", "failed"))
 		return
 	}
@@ -323,6 +327,15 @@ func writeRequestStop(w http.ResponseWriter, err error, stages []traceStage) boo
 	}
 	tracedProblem(w, status, reason, detail, stages)
 	return true
+}
+
+type providerRetryable interface {
+	ProviderRetryable() bool
+}
+
+func retryableProvider(err error) bool {
+	var retryable providerRetryable
+	return errors.As(err, &retryable) && retryable.ProviderRetryable()
 }
 
 func requestStopped(err error) (int, string, string, bool) {
