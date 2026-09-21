@@ -1,0 +1,83 @@
+{
+  "protocol_version": "0.1-draft",
+  "verdict": "insufficient",
+  "findings": [
+    {
+      "code": "establishment_below_threshold",
+      "verdict": "insufficient",
+      "detail": "establishment is below the policy threshold"
+    },
+    {
+      "code": "safety_gate",
+      "verdict": "manual_review",
+      "detail": "semantic safety is below the policy threshold"
+    },
+    {
+      "code": "action_inconsistent",
+      "verdict": "manual_review",
+      "detail": "the proceed choice disagrees with the predicate signals"
+    }
+  ],
+  "context_runtime": "memory-exact-v1",
+  "resolved_model": "jev-1.13.0",
+  "replay_available": true,
+  "stage": null,
+  "trace": [
+    {
+      "name": "receive",
+      "status": "completed"
+    },
+    {
+      "name": "pack",
+      "status": "completed"
+    },
+    {
+      "name": "decide",
+      "status": "completed"
+    },
+    {
+      "name": "verify",
+      "status": "completed"
+    }
+  ],
+  "policy": {
+    "id": "claim-validation",
+    "version": "0.1.0",
+    "calibration": "uncalibrated"
+  },
+  "retention": {
+    "server_history": false,
+    "replay": "caller_owned",
+    "idempotency": "none"
+  },
+  "adapter_id": "direct-systemone",
+  "adapter_version": "0.1.0",
+  "decision_resolved_model": "jev-1.13.0",
+  "answers": {
+    "action": {
+      "type": "choice",
+      "choice": "proceed",
+      "confidence": 0.49
+    },
+    "conflict": {
+      "type": "noul",
+      "noul": 0.11
+    },
+    "established": {
+      "type": "noul",
+      "noul": 0.6
+    },
+    "safe_to_auto_act": {
+      "type": "noul",
+      "noul": 0.5
+    },
+    "support": {
+      "type": "noul",
+      "noul": 0.78
+    }
+  },
+  "evidence_count": 1,
+  "evidence_sources": [
+    "typesafe-jev"
+  ]
+}

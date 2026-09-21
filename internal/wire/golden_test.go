@@ -17,13 +17,13 @@ func TestGoldenReplayAgreesOnVerdictAndHash(t *testing.T) {
 	t.Cleanup(func() { http.DefaultTransport = previous })
 
 	cases := []goldenCase{
-		{name: "validated-direct", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "proceed"), verdict: "validated", hash: "4815218466f23187c6f528a99fc89827d5486628d4fd923614a6c1eb45f78774"},
-		{name: "validated-hosted", adapter: "hosted-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "proceed"), verdict: "validated", hash: "382c4860aaec5321c4d4ac9ab3715782a03de513c3b03adffe8482ee80964e5a"},
-		{name: "rejected", adapter: "direct-systemone", answers: goldenAnswers(0.1, 0.9, 0.1, 0.9, "reject"), verdict: "rejected", finding: "negative_result", hash: "620f52c60247e1893fddf132638755df68eaed01168a3372e79e1c383969fed0"},
-		{name: "insufficient", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.1, 0.1, 0.9, "proceed"), verdict: "insufficient", finding: "establishment_below_threshold", hash: "3a181a517513d2db40221a9879ce257d974e541ce312552733e96ed611ce4c27"},
-		{name: "conflict", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.9, 0.1, "proceed"), verdict: "conflict", finding: "evidence_conflict", hash: "b96bc43f893f4b1b6a69beecf0abb027365f5ae4c914f3c073f62ed705bf9859"},
-		{name: "manual-review", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "manual_review"), verdict: "manual_review", finding: "review_required", hash: "a877785d0c774744e3cb0b531621d9c378fbac1d6a7f91b036ce11fcd55d000b"},
-		{name: "error", adapter: "direct-systemone", answers: []byte(`{"support":{"type":"noul","noul":2}}`), verdict: "error", finding: "invalid_noul:support", hash: "5c6e612087c29e42043c22183e5738798fa7ef7266d669c2e9c7728d8f1e8d43"},
+		{name: "validated-direct", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "proceed"), verdict: "validated", hash: "9328322c5b6b447ed2a97da5f6db2762125381b5ba615aa182ddf1c22b32b0b3"},
+		{name: "validated-hosted", adapter: "hosted-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "proceed"), verdict: "validated", hash: "6426fb976432543b6a70fe05be0bc67dd7e1863ce74f93765f1deb5fd84ea076"},
+		{name: "rejected", adapter: "direct-systemone", answers: goldenAnswers(0.1, 0.9, 0.1, 0.9, "reject"), verdict: "rejected", finding: "negative_result", hash: "0a2a35fa22a973c72f96f949630e7c8ab224318eacd5f8c8b942d334b0cfa17e"},
+		{name: "insufficient", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.1, 0.1, 0.9, "proceed"), verdict: "insufficient", finding: "establishment_below_threshold", hash: "87a56aae08ccf42a68ef95ca2c7e0af673ba55f96cf1a5b733111b6830812d42"},
+		{name: "conflict", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.9, 0.1, "proceed"), verdict: "conflict", finding: "evidence_conflict", hash: "c0292958eb00b862ddfdb349906621712b2e9959e42fc3e89bd9bef8bcfdcdaa"},
+		{name: "manual-review", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "manual_review"), verdict: "manual_review", finding: "review_required", hash: "8809b2b35c63fde45a1a48d01e57d00e0d0cf8d442d98cf88b57f6fb3bbe685b"},
+		{name: "error", adapter: "direct-systemone", answers: []byte(`{"support":{"type":"noul","noul":2}}`), verdict: "error", finding: "invalid_noul:support", hash: "4fad2913d57dd3e180e0da296e7aaa6febfb04c5b619e6c0cbc94b5eaff6b05c"},
 		{name: "inference-only", adapter: "direct-systemone", inference: true, answers: goldenAnswers(0.99, 0.99, 0.01, 0.99, "proceed"), verdict: "insufficient", finding: "inference_only", hash: "705b434cc1375a44c6ca88c3ae0f9f0a23de855d1e2a2fc0b3e4db0c2a7c56bb"},
 	}
 	for _, tc := range cases {

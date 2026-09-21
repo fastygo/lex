@@ -1,182 +1,783 @@
 {
   "origin": "https://lexproto.vercel.app",
-  "ran_at": "2026-09-21T17:55:42.830Z",
+  "ran_at": "2026-09-21T19:35:07.169253Z",
+  "model_requested": "jev-1.13.0",
+  "direct_typesafe": false,
+  "direct_typesafe_status": 401,
+  "vercel_evaluations": true,
+  "note": "No credentials are recorded. Direct TypeSafe System One calls returned 401. Live Jev answers below came from lexproto.vercel.app evaluations using adapter direct-systemone and resolved model jev-1.13.0. The deployment assigns every caller source source_text/project and retrieves by exact phrase only.",
+  "direct_comparisons": {
+    "playground": {
+      "comparable": false
+    },
+    "llm": {
+      "comparable": false
+    },
+    "context": {
+      "comparable": false
+    },
+    "chaos": {
+      "comparable": false
+    }
+  },
   "results": [
     {
+      "id": "jev-direct-playground",
+      "kind": "typesafe_systemone",
+      "method": "POST",
+      "path": "/v1/systemone",
+      "status": 401,
+      "reason": "",
+      "elapsed_ms": 1236.5,
+      "resolved_model": null,
+      "answers": {},
+      "usage": null,
+      "comparison": {
+        "matching_choice_winners": null,
+        "comparable_choices": null,
+        "max_abs_noul_delta": null
+      }
+    },
+    {
+      "id": "jev-direct-llm",
+      "kind": "typesafe_systemone",
+      "method": "POST",
+      "path": "/v1/systemone",
+      "status": 401,
+      "reason": "",
+      "elapsed_ms": 1111.2,
+      "resolved_model": null,
+      "answers": {},
+      "usage": null,
+      "comparison": {
+        "matching_choice_winners": null,
+        "comparable_choices": null,
+        "max_abs_noul_delta": null
+      }
+    },
+    {
+      "id": "jev-direct-context",
+      "kind": "typesafe_systemone",
+      "method": "POST",
+      "path": "/v1/systemone",
+      "status": 401,
+      "reason": "",
+      "elapsed_ms": 1083.0,
+      "resolved_model": null,
+      "answers": {},
+      "usage": null,
+      "comparison": {
+        "matching_choice_winners": null,
+        "comparable_choices": null,
+        "max_abs_noul_delta": null
+      }
+    },
+    {
+      "id": "jev-direct-chaos",
+      "kind": "typesafe_systemone",
+      "method": "POST",
+      "path": "/v1/systemone",
+      "status": 401,
+      "reason": "",
+      "elapsed_ms": 1103.6,
+      "resolved_model": null,
+      "answers": {},
+      "usage": null,
+      "comparison": {
+        "matching_choice_winners": null,
+        "comparable_choices": null,
+        "max_abs_noul_delta": null
+      }
+    },
+    {
       "id": "health-open",
+      "kind": "vercel_gate",
       "method": "GET",
       "path": "/healthz",
       "status": 200,
       "reason": "",
-      "cache_control": "no-store"
-    },
-    {
-      "id": "capabilities-open",
-      "method": "GET",
-      "path": "/v1/capabilities",
-      "status": 401,
-      "reason": "authentication_required",
-      "cache_control": "no-store"
+      "elapsed_ms": 592.1,
+      "cache_control": "no-store",
+      "body": {
+        "protocol_version": null,
+        "verdict": null,
+        "findings": null,
+        "context_runtime": null,
+        "resolved_model": null,
+        "replay_available": null,
+        "stage": null,
+        "trace": null,
+        "policy": null,
+        "retention": null
+      }
     },
     {
       "id": "capabilities-auth",
+      "kind": "vercel_gate",
       "method": "GET",
       "path": "/v1/capabilities",
       "status": 200,
       "reason": "",
-      "cache_control": "no-store"
+      "elapsed_ms": 621.9,
+      "cache_control": "no-store",
+      "body": {
+        "protocol_version": null,
+        "verdict": null,
+        "findings": null,
+        "context_runtime": null,
+        "resolved_model": null,
+        "replay_available": null,
+        "stage": null,
+        "trace": null,
+        "policy": null,
+        "retention": {
+          "server_history": false,
+          "replay": "caller_owned",
+          "idempotency": "none"
+        }
+      }
     },
     {
-      "id": "replay-get",
-      "method": "GET",
-      "path": "/v1/replays",
-      "status": 405,
-      "reason": "method_not_allowed",
-      "cache_control": "no-store"
-    },
-    {
-      "id": "replay-empty-object",
-      "method": "POST",
-      "path": "/v1/replays",
-      "status": 422,
-      "reason": "invalid_replay_bundle",
-      "cache_control": "no-store"
-    },
-    {
-      "id": "replay-plain-text",
-      "method": "POST",
-      "path": "/v1/replays",
-      "status": 415,
-      "reason": "unsupported_media_type",
-      "cache_control": "no-store"
-    },
-    {
-      "id": "playground-questions:/v1/evaluations",
+      "id": "playground-structured-decisions",
+      "kind": "vercel_evaluation",
+      "example": "playground",
       "method": "POST",
       "path": "/v1/evaluations",
-      "status": 404,
+      "query": "structured decisions",
+      "source_ids": [
+        "typesafe-jev"
+      ],
+      "status": 200,
       "reason": "",
-      "cache_control": "public, max-age=0, must-revalidate"
+      "elapsed_ms": 924.6,
+      "cache_control": "no-store",
+      "verdict": "insufficient",
+      "resolved_model": "jev-1.13.0",
+      "adapter_id": "direct-systemone",
+      "answers": {
+        "action": {
+          "type": "choice",
+          "choice": "proceed",
+          "confidence": 0.49
+        },
+        "conflict": {
+          "type": "noul",
+          "noul": 0.11
+        },
+        "established": {
+          "type": "noul",
+          "noul": 0.6
+        },
+        "safe_to_auto_act": {
+          "type": "noul",
+          "noul": 0.5
+        },
+        "support": {
+          "type": "noul",
+          "noul": 0.78
+        }
+      },
+      "findings": [
+        {
+          "code": "establishment_below_threshold",
+          "verdict": "insufficient",
+          "detail": "establishment is below the policy threshold"
+        },
+        {
+          "code": "safety_gate",
+          "verdict": "manual_review",
+          "detail": "semantic safety is below the policy threshold"
+        },
+        {
+          "code": "action_inconsistent",
+          "verdict": "manual_review",
+          "detail": "the proceed choice disagrees with the predicate signals"
+        }
+      ],
+      "evidence_count": 1,
+      "replay_available": true
     },
     {
-      "id": "playground-questions:/v1/replays",
+      "id": "playground-structured-decisions:replay",
+      "kind": "vercel_replay",
       "method": "POST",
       "path": "/v1/replays",
-      "status": 422,
-      "reason": "invalid_replay_bundle",
-      "cache_control": "no-store"
+      "status": 200,
+      "reason": "",
+      "elapsed_ms": 602.4,
+      "verdict": "insufficient",
+      "reproduced": true
     },
     {
-      "id": "playground-response:/v1/evaluations",
+      "id": "llm-next-token",
+      "kind": "vercel_evaluation",
+      "example": "llm",
       "method": "POST",
       "path": "/v1/evaluations",
-      "status": 404,
+      "query": "next token",
+      "source_ids": [
+        "llm-note"
+      ],
+      "status": 200,
       "reason": "",
-      "cache_control": "public, max-age=0, must-revalidate"
+      "elapsed_ms": 712.7,
+      "cache_control": "no-store",
+      "verdict": "insufficient",
+      "resolved_model": "jev-1.13.0",
+      "adapter_id": "direct-systemone",
+      "answers": {
+        "action": {
+          "type": "choice",
+          "choice": "proceed",
+          "confidence": 0.41
+        },
+        "conflict": {
+          "type": "noul",
+          "noul": 0.08
+        },
+        "established": {
+          "type": "noul",
+          "noul": 0.64
+        },
+        "safe_to_auto_act": {
+          "type": "noul",
+          "noul": 0.64
+        },
+        "support": {
+          "type": "noul",
+          "noul": 0.8
+        }
+      },
+      "findings": [
+        {
+          "code": "establishment_below_threshold",
+          "verdict": "insufficient",
+          "detail": "establishment is below the policy threshold"
+        },
+        {
+          "code": "safety_gate",
+          "verdict": "manual_review",
+          "detail": "semantic safety is below the policy threshold"
+        },
+        {
+          "code": "action_inconsistent",
+          "verdict": "manual_review",
+          "detail": "the proceed choice disagrees with the predicate signals"
+        }
+      ],
+      "evidence_count": 1,
+      "replay_available": true
     },
     {
-      "id": "playground-response:/v1/replays",
+      "id": "llm-next-token:replay",
+      "kind": "vercel_replay",
       "method": "POST",
       "path": "/v1/replays",
-      "status": 422,
-      "reason": "invalid_replay_bundle",
-      "cache_control": "no-store"
+      "status": 200,
+      "reason": "",
+      "elapsed_ms": 1574.1,
+      "verdict": "insufficient",
+      "reproduced": true
     },
     {
-      "id": "context-questions:/v1/evaluations",
+      "id": "context-restore-access",
+      "kind": "vercel_evaluation",
+      "example": "context",
       "method": "POST",
       "path": "/v1/evaluations",
-      "status": 404,
+      "query": "restore access",
+      "source_ids": [
+        "customer_message",
+        "payment_record",
+        "refund_policy",
+        "account_runbook",
+        "llm_report"
+      ],
+      "status": 200,
       "reason": "",
-      "cache_control": "public, max-age=0, must-revalidate"
+      "elapsed_ms": 735.8,
+      "cache_control": "no-store",
+      "verdict": "insufficient",
+      "resolved_model": "jev-1.13.0",
+      "adapter_id": "direct-systemone",
+      "answers": {
+        "action": {
+          "type": "choice",
+          "choice": "manual_review",
+          "confidence": 0.74
+        },
+        "conflict": {
+          "type": "noul",
+          "noul": 0.07
+        },
+        "established": {
+          "type": "noul",
+          "noul": 0.67
+        },
+        "safe_to_auto_act": {
+          "type": "noul",
+          "noul": 0.49
+        },
+        "support": {
+          "type": "noul",
+          "noul": 0.9
+        }
+      },
+      "findings": [
+        {
+          "code": "establishment_below_threshold",
+          "verdict": "insufficient",
+          "detail": "establishment is below the policy threshold"
+        },
+        {
+          "code": "review_required",
+          "verdict": "manual_review",
+          "detail": "the action choice requires review"
+        }
+      ],
+      "evidence_count": 1,
+      "replay_available": true
     },
     {
-      "id": "context-questions:/v1/replays",
+      "id": "context-restore-access:replay",
+      "kind": "vercel_replay",
       "method": "POST",
       "path": "/v1/replays",
-      "status": 422,
-      "reason": "invalid_replay_bundle",
-      "cache_control": "no-store"
+      "status": 200,
+      "reason": "",
+      "elapsed_ms": 1731.0,
+      "verdict": "insufficient",
+      "reproduced": true
     },
     {
-      "id": "context-response:/v1/evaluations",
+      "id": "context-refund",
+      "kind": "vercel_evaluation",
+      "example": "context",
       "method": "POST",
       "path": "/v1/evaluations",
-      "status": 404,
+      "query": "refund",
+      "source_ids": [
+        "customer_message",
+        "payment_record",
+        "refund_policy",
+        "account_runbook",
+        "llm_report"
+      ],
+      "status": 200,
       "reason": "",
-      "cache_control": "public, max-age=0, must-revalidate"
+      "elapsed_ms": 839.0,
+      "cache_control": "no-store",
+      "verdict": "conflict",
+      "resolved_model": "jev-1.13.0",
+      "adapter_id": "direct-systemone",
+      "answers": {
+        "action": {
+          "type": "choice",
+          "choice": "manual_review",
+          "confidence": 0.56
+        },
+        "conflict": {
+          "type": "noul",
+          "noul": 0.52
+        },
+        "established": {
+          "type": "noul",
+          "noul": 0.18
+        },
+        "safe_to_auto_act": {
+          "type": "noul",
+          "noul": 0.16
+        },
+        "support": {
+          "type": "noul",
+          "noul": 0.22
+        }
+      },
+      "findings": [
+        {
+          "code": "evidence_conflict",
+          "verdict": "conflict",
+          "detail": "admissible evidence supports an incompatible conclusion"
+        },
+        {
+          "code": "support_below_threshold",
+          "verdict": "insufficient",
+          "detail": "support is below the policy threshold"
+        },
+        {
+          "code": "establishment_below_threshold",
+          "verdict": "insufficient",
+          "detail": "establishment is below the policy threshold"
+        },
+        {
+          "code": "review_required",
+          "verdict": "manual_review",
+          "detail": "the action choice requires review"
+        }
+      ],
+      "evidence_count": 2,
+      "replay_available": true
     },
     {
-      "id": "context-response:/v1/replays",
+      "id": "context-refund:replay",
+      "kind": "vercel_replay",
       "method": "POST",
       "path": "/v1/replays",
-      "status": 422,
-      "reason": "invalid_replay_bundle",
-      "cache_control": "no-store"
+      "status": 200,
+      "reason": "",
+      "elapsed_ms": 658.8,
+      "verdict": "conflict",
+      "reproduced": true
     },
     {
-      "id": "llm-questions:/v1/evaluations",
+      "id": "chaos-raw-sign-in",
+      "kind": "vercel_evaluation",
+      "example": "chaos",
       "method": "POST",
       "path": "/v1/evaluations",
-      "status": 404,
+      "query": "cannot sign in",
+      "source_ids": [
+        "customer_message"
+      ],
+      "status": 200,
       "reason": "",
-      "cache_control": "public, max-age=0, must-revalidate"
+      "elapsed_ms": 722.6,
+      "cache_control": "no-store",
+      "verdict": "insufficient",
+      "resolved_model": "jev-1.13.0",
+      "adapter_id": "direct-systemone",
+      "answers": {
+        "action": {
+          "type": "choice",
+          "choice": "manual_review",
+          "confidence": 0.49
+        },
+        "conflict": {
+          "type": "noul",
+          "noul": 0.07
+        },
+        "established": {
+          "type": "noul",
+          "noul": 0.77
+        },
+        "safe_to_auto_act": {
+          "type": "noul",
+          "noul": 0.45
+        },
+        "support": {
+          "type": "noul",
+          "noul": 0.93
+        }
+      },
+      "findings": [
+        {
+          "code": "establishment_below_threshold",
+          "verdict": "insufficient",
+          "detail": "establishment is below the policy threshold"
+        },
+        {
+          "code": "review_required",
+          "verdict": "manual_review",
+          "detail": "the action choice requires review"
+        }
+      ],
+      "evidence_count": 1,
+      "replay_available": true
     },
     {
-      "id": "llm-questions:/v1/replays",
+      "id": "chaos-raw-sign-in:replay",
+      "kind": "vercel_replay",
       "method": "POST",
       "path": "/v1/replays",
-      "status": 422,
-      "reason": "invalid_replay_bundle",
-      "cache_control": "no-store"
+      "status": 200,
+      "reason": "",
+      "elapsed_ms": 611.3,
+      "verdict": "insufficient",
+      "reproduced": true
     },
     {
-      "id": "llm-response:/v1/evaluations",
+      "id": "chaos-llm-augmented-sign-in",
+      "kind": "vercel_evaluation",
+      "example": "chaos",
       "method": "POST",
       "path": "/v1/evaluations",
-      "status": 404,
+      "query": "cannot sign in",
+      "source_ids": [
+        "customer_message",
+        "incident_summary"
+      ],
+      "status": 200,
       "reason": "",
-      "cache_control": "public, max-age=0, must-revalidate"
+      "elapsed_ms": 697.3,
+      "cache_control": "no-store",
+      "verdict": "insufficient",
+      "resolved_model": "jev-1.13.0",
+      "adapter_id": "direct-systemone",
+      "answers": {
+        "action": {
+          "type": "choice",
+          "choice": "manual_review",
+          "confidence": 0.4
+        },
+        "conflict": {
+          "type": "noul",
+          "noul": 0.07
+        },
+        "established": {
+          "type": "noul",
+          "noul": 0.78
+        },
+        "safe_to_auto_act": {
+          "type": "noul",
+          "noul": 0.46
+        },
+        "support": {
+          "type": "noul",
+          "noul": 0.93
+        }
+      },
+      "findings": [
+        {
+          "code": "establishment_below_threshold",
+          "verdict": "insufficient",
+          "detail": "establishment is below the policy threshold"
+        },
+        {
+          "code": "review_required",
+          "verdict": "manual_review",
+          "detail": "the action choice requires review"
+        }
+      ],
+      "evidence_count": 1,
+      "replay_available": true
     },
     {
-      "id": "llm-response:/v1/replays",
+      "id": "chaos-llm-augmented-sign-in:replay",
+      "kind": "vercel_replay",
       "method": "POST",
       "path": "/v1/replays",
-      "status": 422,
-      "reason": "invalid_replay_bundle",
-      "cache_control": "no-store"
+      "status": 200,
+      "reason": "",
+      "elapsed_ms": 617.6,
+      "verdict": "insufficient",
+      "reproduced": true
     },
     {
-      "id": "chaos-questions:/v1/evaluations",
+      "id": "chaos-resolved-sign-in",
+      "kind": "vercel_evaluation",
+      "example": "chaos",
       "method": "POST",
       "path": "/v1/evaluations",
-      "status": 404,
+      "query": "cannot sign in",
+      "source_ids": [
+        "customer_message",
+        "payment_record",
+        "authentication_log",
+        "account_runbook",
+        "refund_policy"
+      ],
+      "status": 200,
       "reason": "",
-      "cache_control": "public, max-age=0, must-revalidate"
+      "elapsed_ms": 888.8,
+      "cache_control": "no-store",
+      "verdict": "insufficient",
+      "resolved_model": "jev-1.13.0",
+      "adapter_id": "direct-systemone",
+      "answers": {
+        "action": {
+          "type": "choice",
+          "choice": "manual_review",
+          "confidence": 0.4
+        },
+        "conflict": {
+          "type": "noul",
+          "noul": 0.07
+        },
+        "established": {
+          "type": "noul",
+          "noul": 0.77
+        },
+        "safe_to_auto_act": {
+          "type": "noul",
+          "noul": 0.47
+        },
+        "support": {
+          "type": "noul",
+          "noul": 0.93
+        }
+      },
+      "findings": [
+        {
+          "code": "establishment_below_threshold",
+          "verdict": "insufficient",
+          "detail": "establishment is below the policy threshold"
+        },
+        {
+          "code": "review_required",
+          "verdict": "manual_review",
+          "detail": "the action choice requires review"
+        }
+      ],
+      "evidence_count": 1,
+      "replay_available": true
     },
     {
-      "id": "chaos-questions:/v1/replays",
+      "id": "chaos-resolved-sign-in:replay",
+      "kind": "vercel_replay",
       "method": "POST",
       "path": "/v1/replays",
-      "status": 422,
-      "reason": "invalid_replay_bundle",
-      "cache_control": "no-store"
+      "status": 200,
+      "reason": "",
+      "elapsed_ms": 589.8,
+      "verdict": "insufficient",
+      "reproduced": true
     },
     {
-      "id": "chaos-response:/v1/evaluations",
+      "id": "chaos-conflicted-sign-in",
+      "kind": "vercel_evaluation",
+      "example": "chaos",
       "method": "POST",
       "path": "/v1/evaluations",
-      "status": 404,
+      "query": "cannot sign in",
+      "source_ids": [
+        "customer_message",
+        "payment_ledger_primary",
+        "payment_ledger_replica",
+        "authentication_log",
+        "billing_policy",
+        "account_runbook",
+        "data_quality_notice"
+      ],
+      "status": 200,
       "reason": "",
-      "cache_control": "public, max-age=0, must-revalidate"
+      "elapsed_ms": 759.7,
+      "cache_control": "no-store",
+      "verdict": "insufficient",
+      "resolved_model": "jev-1.13.0",
+      "adapter_id": "direct-systemone",
+      "answers": {
+        "action": {
+          "type": "choice",
+          "choice": "manual_review",
+          "confidence": 0.41
+        },
+        "conflict": {
+          "type": "noul",
+          "noul": 0.07
+        },
+        "established": {
+          "type": "noul",
+          "noul": 0.78
+        },
+        "safe_to_auto_act": {
+          "type": "noul",
+          "noul": 0.46
+        },
+        "support": {
+          "type": "noul",
+          "noul": 0.93
+        }
+      },
+      "findings": [
+        {
+          "code": "establishment_below_threshold",
+          "verdict": "insufficient",
+          "detail": "establishment is below the policy threshold"
+        },
+        {
+          "code": "review_required",
+          "verdict": "manual_review",
+          "detail": "the action choice requires review"
+        }
+      ],
+      "evidence_count": 1,
+      "replay_available": true
     },
     {
-      "id": "chaos-response:/v1/replays",
+      "id": "chaos-conflicted-sign-in:replay",
+      "kind": "vercel_replay",
       "method": "POST",
       "path": "/v1/replays",
-      "status": 422,
-      "reason": "invalid_replay_bundle",
-      "cache_control": "no-store"
+      "status": 200,
+      "reason": "",
+      "elapsed_ms": 1154.2,
+      "verdict": "insufficient",
+      "reproduced": true
+    },
+    {
+      "id": "chaos-conflicted-duplicate-charge",
+      "kind": "vercel_evaluation",
+      "example": "chaos",
+      "method": "POST",
+      "path": "/v1/evaluations",
+      "query": "duplicate charge",
+      "source_ids": [
+        "customer_message",
+        "payment_ledger_primary",
+        "payment_ledger_replica",
+        "billing_policy",
+        "data_quality_notice"
+      ],
+      "status": 200,
+      "reason": "",
+      "elapsed_ms": 763.4,
+      "cache_control": "no-store",
+      "verdict": "insufficient",
+      "resolved_model": "jev-1.13.0",
+      "adapter_id": "direct-systemone",
+      "answers": {
+        "action": {
+          "type": "choice",
+          "choice": "manual_review",
+          "confidence": 0.9
+        },
+        "conflict": {
+          "type": "noul",
+          "noul": 0.09
+        },
+        "established": {
+          "type": "noul",
+          "noul": 0.34
+        },
+        "safe_to_auto_act": {
+          "type": "noul",
+          "noul": 0.42
+        },
+        "support": {
+          "type": "noul",
+          "noul": 0.63
+        }
+      },
+      "findings": [
+        {
+          "code": "support_below_threshold",
+          "verdict": "insufficient",
+          "detail": "support is below the policy threshold"
+        },
+        {
+          "code": "establishment_below_threshold",
+          "verdict": "insufficient",
+          "detail": "establishment is below the policy threshold"
+        },
+        {
+          "code": "review_required",
+          "verdict": "manual_review",
+          "detail": "the action choice requires review"
+        }
+      ],
+      "evidence_count": 1,
+      "replay_available": true
+    },
+    {
+      "id": "chaos-conflicted-duplicate-charge:replay",
+      "kind": "vercel_replay",
+      "method": "POST",
+      "path": "/v1/replays",
+      "status": 200,
+      "reason": "",
+      "elapsed_ms": 753.2,
+      "verdict": "insufficient",
+      "reproduced": true
     }
   ]
 }

@@ -1,11 +1,11 @@
 package wire
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -15,6 +15,150 @@ import (
 	"github.com/fastygo/lex/internal/evidence"
 	"github.com/fastygo/lex/internal/profile"
 )
+
+func TestReplayAcceptsExactPhraseSelection(t *testing.T) {
+	request := contextmemory.PackRequest{
+		ProjectID: "project-test", Query: "account",
+		Focus: contextmemory.Focus{
+			ID: profile.FocusID, Objective: profile.FocusObjective,
+			RequiredTrustLevel: profile.FocusTrust, Budget: contextmemory.Budget{MaxItems: profile.FocusMaxItems, MaxChars: profile.FocusMaxChars},
+		},
+	}
+	result, err := evidence.BuildPack(t.Context(), "project-test", []contextmemory.Source{
+		{SourceID: "source-2", Version: "v1", Text: "The account is open.", TrustLevel: "project", EvidenceClass: "source_text"},
+		{SourceID: "source-1", Version: "v1", Text: "The account is locked.", TrustLevel: "project", EvidenceClass: "source_text"},
+	}, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := BuildBundle(BundleInput{
+		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
+		Pack:           result.ContextPack,
+		Snapshot:       result.Snapshot,
+		PackRequest:    request,
+		AdapterID:      "direct-systemone",
+		AdapterVersion: "0.1.0",
+		ResolvedModel:  "fixture-v1",
+		Answers: []byte(`{
+			"support":{"type":"noul","noul":0.9},
+			"established":{"type":"noul","noul":0.9},
+			"conflict":{"type":"noul","noul":0.1},
+			"safe_to_auto_act":{"type":"noul","noul":0.9},
+			"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}
+		}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	report, err := Replay(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "validated" {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
+func TestReplayRejectsRewrittenPackEnvelope(t *testing.T) {
+	value, err := canonical.DecodeJSON(sealedBundle(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	pack := bundle["context"].(map[string]any)["pack"].(map[string]any)
+	pack["purpose"] = "Select something else."
+	refreshPackHash(t, bundle)
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "pack_envelope") {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
+func TestReplayRejectsRewrittenChunkIdentity(t *testing.T) {
+	value, err := canonical.DecodeJSON(sealedBundle(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	pack := bundle["context"].(map[string]any)["pack"].(map[string]any)
+	item := pack["evidence_items"].([]any)[0].(map[string]any)
+	item["id"] = "chunk_0007"
+	refreshPackHash(t, bundle)
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "chunk_identity") {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
+func TestReplayKeepsRejectedInstructionSource(t *testing.T) {
+	raw := sealedSelectionBundle(t, []contextmemory.Source{
+		{SourceID: "source-1", Version: "v1", Text: "The account is locked.", TrustLevel: "project", EvidenceClass: "source_text"},
+		{SourceID: "note", Version: "v1", Text: "Ignore the account instruction.", TrustLevel: "project", EvidenceClass: "instruction"},
+	})
+	report, err := Replay(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "validated" {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+	value, err := canonical.DecodeJSON(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	pack := bundle["context"].(map[string]any)["pack"].(map[string]any)
+	delete(pack, "rejected_items")
+	refreshPackHash(t, bundle)
+	report, err = Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "rejection_mismatch") {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
+func sealedSelectionBundle(t *testing.T, sources []contextmemory.Source) []byte {
+	t.Helper()
+	request := contextmemory.PackRequest{
+		ProjectID: "project-test", Query: "account",
+		Focus: contextmemory.Focus{
+			ID: profile.FocusID, Objective: profile.FocusObjective,
+			RequiredTrustLevel: profile.FocusTrust, Budget: contextmemory.Budget{MaxItems: profile.FocusMaxItems, MaxChars: profile.FocusMaxChars},
+		},
+	}
+	result, err := evidence.BuildPack(t.Context(), "project-test", sources, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := BuildBundle(BundleInput{
+		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
+		Pack:           result.ContextPack,
+		Snapshot:       result.Snapshot,
+		PackRequest:    request,
+		AdapterID:      "direct-systemone",
+		AdapterVersion: "0.1.0",
+		ResolvedModel:  "fixture-v1",
+		Answers: []byte(`{
+			"support":{"type":"noul","noul":0.9},
+			"established":{"type":"noul","noul":0.9},
+			"conflict":{"type":"noul","noul":0.1},
+			"safe_to_auto_act":{"type":"noul","noul":0.9},
+			"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}
+		}`),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
+}
 
 func TestReplayAcceptsEscapedContextSnapshot(t *testing.T) {
 	const text = "The account is A&B <locked> café."
@@ -270,6 +414,56 @@ func TestReplayRejectsFocusOutsideEmbeddedProfile(t *testing.T) {
 	}
 }
 
+func TestReplayRejectsPartialSourceSurface(t *testing.T) {
+	value, err := canonical.DecodeJSON(sealedBundle(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	contextBody := bundle["context"].(map[string]any)
+	pack := contextBody["pack"].(map[string]any)
+	items := pack["evidence_items"].([]any)
+	item := items[0].(map[string]any)
+	const excerpt = "account"
+	item["surface"] = excerpt
+	sourceRef := item["source_ref"].(map[string]any)
+	sourceRef["span"] = map[string]any{"start": strings.Index(evidenceText, excerpt), "end": strings.Index(evidenceText, excerpt) + len(excerpt)}
+	sum := sha256.Sum256([]byte(excerpt))
+	sourceRef["checksum"] = hex.EncodeToString(sum[:])
+	refreshPackHash(t, bundle)
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "partial_surface") {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
+func TestReplayRejectsOmittedExactPhraseSource(t *testing.T) {
+	value, err := canonical.DecodeJSON(sealedBundle(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	contextBody := bundle["context"].(map[string]any)
+	snapshot := contextBody["snapshot"].(map[string]any)
+	sources := snapshot["sources"].([]any)
+	sources = append(sources, map[string]any{
+		"source_id": "source-2", "version": "v1", "text": "The account is open.",
+		"trust_level": "project", "evidence_class": "source_text",
+	})
+	snapshot["sources"] = sources
+	rebindFrozenIdentities(t, bundle)
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "query_mismatch") {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
 func TestReplayRejectsQueryThatEvidenceDoesNotContain(t *testing.T) {
 	value, err := canonical.DecodeJSON(sealedBundle(t))
 	if err != nil {
@@ -479,15 +673,19 @@ func addressableRequest() map[string]any {
 }
 
 func addressablePack() []byte {
-	sum := sha256.Sum256([]byte(evidenceText))
-	checksum := hex.EncodeToString(sum[:])
-	snapshot := addressableSnapshot()
-	request := addressableRequest()
-	identifier, ok := expectedPackID(snapshot, request)
-	if !ok {
-		panic("pack identity")
+	result, err := evidence.BuildPack(context.Background(), "project-test", []contextmemory.Source{{
+		SourceID: "source-1", Version: "v1", Text: evidenceText, TrustLevel: "project", EvidenceClass: "source_text",
+	}}, contextmemory.PackRequest{
+		ProjectID: "project-test", Query: "account",
+		Focus: contextmemory.Focus{
+			ID: profile.FocusID, Objective: profile.FocusObjective, RequiredTrustLevel: profile.FocusTrust,
+			Budget: contextmemory.Budget{MaxItems: profile.FocusMaxItems, MaxChars: profile.FocusMaxChars},
+		},
+	})
+	if err != nil {
+		panic(err)
 	}
-	return []byte(fmt.Sprintf(`{"id":%q,"evidence_items":[{"id":"chunk_0000","class":"source_text","trust_level":"project","surface":%q,"source_ref":{"project_id":"project-test","source_id":"source-1","span":{"start":0,"end":%d},"checksum":%q}}]}`, identifier, evidenceText, len(evidenceText), checksum))
+	return result.ContextPack
 }
 
 func addressableSnapshot() map[string]any {

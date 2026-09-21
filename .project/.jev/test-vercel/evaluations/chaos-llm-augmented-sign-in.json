@@ -1,0 +1,78 @@
+{
+  "protocol_version": "0.1-draft",
+  "verdict": "insufficient",
+  "findings": [
+    {
+      "code": "establishment_below_threshold",
+      "verdict": "insufficient",
+      "detail": "establishment is below the policy threshold"
+    },
+    {
+      "code": "review_required",
+      "verdict": "manual_review",
+      "detail": "the action choice requires review"
+    }
+  ],
+  "context_runtime": "memory-exact-v1",
+  "resolved_model": "jev-1.13.0",
+  "replay_available": true,
+  "stage": null,
+  "trace": [
+    {
+      "name": "receive",
+      "status": "completed"
+    },
+    {
+      "name": "pack",
+      "status": "completed"
+    },
+    {
+      "name": "decide",
+      "status": "completed"
+    },
+    {
+      "name": "verify",
+      "status": "completed"
+    }
+  ],
+  "policy": {
+    "id": "claim-validation",
+    "version": "0.1.0",
+    "calibration": "uncalibrated"
+  },
+  "retention": {
+    "server_history": false,
+    "replay": "caller_owned",
+    "idempotency": "none"
+  },
+  "adapter_id": "direct-systemone",
+  "adapter_version": "0.1.0",
+  "decision_resolved_model": "jev-1.13.0",
+  "answers": {
+    "action": {
+      "type": "choice",
+      "choice": "manual_review",
+      "confidence": 0.4
+    },
+    "conflict": {
+      "type": "noul",
+      "noul": 0.07
+    },
+    "established": {
+      "type": "noul",
+      "noul": 0.78
+    },
+    "safe_to_auto_act": {
+      "type": "noul",
+      "noul": 0.46
+    },
+    "support": {
+      "type": "noul",
+      "noul": 0.93
+    }
+  },
+  "evidence_count": 1,
+  "evidence_sources": [
+    "customer_message"
+  ]
+}

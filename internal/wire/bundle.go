@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 
@@ -289,13 +290,17 @@ func evidenceFindings(bundle map[string]any) []verify.Finding {
 	if len(findings) > 0 {
 		return findings
 	}
-	if admissible > 0 {
-		if finding, failed := selectionFinding(bundle); failed {
-			return []verify.Finding{finding}
-		}
-	}
 	if admissible == 0 && inference > 0 {
 		return []verify.Finding{{Code: "inference_only", Verdict: verify.VerdictInsufficient, Detail: "model inference cannot establish a factual claim"}}
+	}
+	if finding, failed := selectionFinding(bundle); failed {
+		return []verify.Finding{finding}
+	}
+	if finding, failed := rejectionFinding(bundle); failed {
+		return []verify.Finding{finding}
+	}
+	if finding, failed := packShapeFinding(bundle); failed {
+		return []verify.Finding{finding}
 	}
 	if admissible == 0 {
 		return []verify.Finding{{Code: "no_eligible_evidence", Verdict: verify.VerdictInsufficient, Detail: "the frozen pack contains no admissible source text"}}
@@ -417,6 +422,9 @@ func provenanceFinding(bundle map[string]any, item map[string]any) (verify.Findi
 		if excerpt != surface {
 			return verify.Finding{Code: "checksum_mismatch", Verdict: verify.VerdictError, Detail: "evidence surface does not match the frozen source"}, true
 		}
+		if excerpt != text {
+			return verify.Finding{Code: "partial_surface", Verdict: verify.VerdictError, Detail: "evidence surface must be the full frozen source"}, true
+		}
 		return verify.Finding{}, false
 	}
 	return verify.Finding{Code: "missing_provenance", Verdict: verify.VerdictError, Detail: "admissible evidence does not resolve to a frozen source"}, true
@@ -429,11 +437,15 @@ func selectionFinding(bundle map[string]any) (verify.Finding, bool) {
 	if !ok {
 		return verify.Finding{Code: "unpinned_focus", Verdict: verify.VerdictError, Detail: "frozen pack request does not use the embedded focus"}, true
 	}
+	snapshot, _ := contextBody["snapshot"].(map[string]any)
 	query := strings.TrimSpace(req.Query)
+	expected, ok := matchingSourceIDs(snapshot, query)
+	if !ok || query == "" {
+		return verify.Finding{Code: "query_mismatch", Verdict: verify.VerdictError, Detail: "admissible evidence does not contain the frozen exact phrase"}, true
+	}
 	pack, _ := contextBody["pack"].(map[string]any)
 	rawItems, _ := pack["evidence_items"].([]any)
-	count := 0
-	total := 0
+	got := make([]string, 0, len(rawItems))
 	for _, raw := range rawItems {
 		item, _ := raw.(map[string]any)
 		class, _ := item["class"].(string)
@@ -441,17 +453,269 @@ func selectionFinding(bundle map[string]any) (verify.Finding, bool) {
 		if class != "source_text" || trust != "project" {
 			continue
 		}
-		surface, _ := item["surface"].(string)
-		if query == "" || !strings.Contains(surface, query) {
-			return verify.Finding{Code: "query_mismatch", Verdict: verify.VerdictError, Detail: "admissible evidence does not contain the frozen exact phrase"}, true
-		}
-		count++
-		total += len(surface)
+		sourceRef, _ := item["source_ref"].(map[string]any)
+		got = append(got, textField(sourceRef["source_id"]))
 	}
-	if count > profile.FocusMaxItems || total > profile.FocusMaxChars {
-		return verify.Finding{Code: "focus_budget", Verdict: verify.VerdictError, Detail: "admissible evidence exceeds the embedded focus budget"}, true
+	if len(got) != len(expected) {
+		return verify.Finding{Code: "query_mismatch", Verdict: verify.VerdictError, Detail: "admissible evidence is not the exact-phrase selection"}, true
+	}
+	for i := range got {
+		if got[i] != expected[i] {
+			return verify.Finding{Code: "query_mismatch", Verdict: verify.VerdictError, Detail: "admissible evidence is not the exact-phrase selection"}, true
+		}
 	}
 	return verify.Finding{}, false
+}
+
+func matchingSourceIDs(snapshot map[string]any, query string) ([]string, bool) {
+	rawSources, _ := snapshot["sources"].([]any)
+	type candidate struct {
+		id   string
+		text string
+	}
+	candidates := make([]candidate, 0, len(rawSources))
+	for _, raw := range rawSources {
+		source, ok := raw.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		if source["trust_level"] != profile.FocusTrust || source["evidence_class"] != "source_text" {
+			continue
+		}
+		text, _ := source["text"].(string)
+		if query == "" || !strings.Contains(text, query) {
+			continue
+		}
+		candidates = append(candidates, candidate{id: textField(source["source_id"]), text: text})
+	}
+	sort.Slice(candidates, func(i, j int) bool { return candidates[i].id < candidates[j].id })
+	ids := make([]string, 0, len(candidates))
+	chars := 0
+	for _, candidate := range candidates {
+		if len(ids) >= profile.FocusMaxItems {
+			continue
+		}
+		if chars+len(candidate.text) > profile.FocusMaxChars {
+			continue
+		}
+		ids = append(ids, candidate.id)
+		chars += len(candidate.text)
+	}
+	return ids, true
+}
+
+func rejectionFinding(bundle map[string]any) (verify.Finding, bool) {
+	contextBody, _ := bundle["context"].(map[string]any)
+	request, _ := contextBody["pack_request"].(map[string]any)
+	req, ok := decodePackRequest(request)
+	if !ok {
+		return verify.Finding{Code: "unpinned_focus", Verdict: verify.VerdictError, Detail: "frozen pack request does not use the embedded focus"}, true
+	}
+	snapshot, _ := contextBody["snapshot"].(map[string]any)
+	query := strings.TrimSpace(req.Query)
+	expected, ok := expectedRejections(snapshot, query)
+	if !ok || query == "" {
+		return verify.Finding{Code: "rejection_mismatch", Verdict: verify.VerdictError, Detail: "frozen rejections do not match the exact-phrase scan"}, true
+	}
+	pack, _ := contextBody["pack"].(map[string]any)
+	rawItems, _ := pack["rejected_items"].([]any)
+	if len(rawItems) != len(expected) {
+		return verify.Finding{Code: "rejection_mismatch", Verdict: verify.VerdictError, Detail: "frozen rejections do not match the exact-phrase scan"}, true
+	}
+	for i, raw := range rawItems {
+		item, _ := raw.(map[string]any)
+		sourceRef, _ := item["source_ref"].(map[string]any)
+		if textField(sourceRef["source_id"]) != expected[i].sourceID || textField(item["rejection_reason"]) != expected[i].reason {
+			return verify.Finding{Code: "rejection_mismatch", Verdict: verify.VerdictError, Detail: "frozen rejections do not match the exact-phrase scan"}, true
+		}
+	}
+	return verify.Finding{}, false
+}
+
+func packShapeFinding(bundle map[string]any) (verify.Finding, bool) {
+	contextBody, _ := bundle["context"].(map[string]any)
+	pack, _ := contextBody["pack"].(map[string]any)
+	snapshot, _ := contextBody["snapshot"].(map[string]any)
+	packID := textField(pack["id"])
+	switch {
+	case !strings.HasPrefix(packID, "pack_") || pack["retrieval_plan_id"] != "plan_"+strings.TrimPrefix(packID, "pack_"):
+		return packEnvelope("plan")
+	case pack["project_id"] != snapshot["project_id"] || textField(pack["task_id"]) != "":
+		return packEnvelope("project")
+	case pack["purpose"] != profile.FocusObjective:
+		return packEnvelope("purpose")
+	case pack["budget_estimator_version"] != "chars-div4-v1" || !budgetPinned(pack["budget"]):
+		return packEnvelope("budget")
+	case !emptyList(pack["instructions"]) || !emptyList(pack["policy_refs"]) || !emptyList(pack["verification_requirements"]):
+		return packEnvelope("controls")
+	}
+	chunks, ok := chunkIDs(snapshot)
+	if !ok {
+		return verify.Finding{Code: "chunk_identity", Verdict: verify.VerdictError, Detail: "frozen evidence chunk is not the exact-phrase chunk"}, true
+	}
+	for _, field := range []string{"evidence_items", "rejected_items"} {
+		rawItems, _ := pack[field].([]any)
+		for _, raw := range rawItems {
+			item, _ := raw.(map[string]any)
+			if !chunkPinned(item, chunks, textField(snapshot["id"]), textField(snapshot["project_id"])) {
+				return verify.Finding{Code: "chunk_identity", Verdict: verify.VerdictError, Detail: "frozen evidence chunk is not the exact-phrase chunk"}, true
+			}
+		}
+	}
+	return verify.Finding{}, false
+}
+
+func packEnvelope(part string) (verify.Finding, bool) {
+	return verify.Finding{Code: "pack_envelope", Verdict: verify.VerdictError, Detail: "frozen pack envelope is not the embedded exact-phrase pack: " + part}, true
+}
+
+func emptyList(value any) bool {
+	if value == nil {
+		return true
+	}
+	items, ok := value.([]any)
+	return ok && len(items) == 0
+}
+
+func budgetPinned(value any) bool {
+	budget, ok := value.(map[string]any)
+	if !ok {
+		return false
+	}
+	return numberEqual(budget["max_items"], profile.FocusMaxItems) && numberEqual(budget["max_chars"], profile.FocusMaxChars) && numberEqual(budget["max_tokens_estimate"], 0) && budget["budget_estimator_version"] == "chars-div4-v1" && numberEqual(budget["reject_score_floor"], 0.3) && budget["allow_span_truncate"] != true && numberEqual(budget["reserve_for_instructions"], 0)
+}
+
+func numberEqual(value any, want float64) bool {
+	if value == nil {
+		return want == 0
+	}
+	number, ok := value.(json.Number)
+	if !ok {
+		return false
+	}
+	got, err := number.Float64()
+	return err == nil && math.Abs(got-want) <= 1e-9
+}
+
+func chunkIDs(snapshot map[string]any) (map[string]string, bool) {
+	rawSources, _ := snapshot["sources"].([]any)
+	ids := make([]string, 0, len(rawSources))
+	for _, raw := range rawSources {
+		source, ok := raw.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		ids = append(ids, textField(source["source_id"]))
+	}
+	sort.Strings(ids)
+	chunks := make(map[string]string, len(ids))
+	for i, id := range ids {
+		if id == "" {
+			return nil, false
+		}
+		chunks[id] = fmt.Sprintf("chunk_%04d", i)
+	}
+	return chunks, true
+}
+
+func chunkPinned(item map[string]any, chunks map[string]string, snapshotID, projectID string) bool {
+	sourceRef, _ := item["source_ref"].(map[string]any)
+	sourceID := textField(sourceRef["source_id"])
+	chunkID, ok := chunks[sourceID]
+	candidate, _ := item["candidate"].(map[string]any)
+	contributions, _ := candidate["contributions"].([]any)
+	if !ok || item["id"] != chunkID || candidate["chunk_id"] != chunkID || len(contributions) != 1 || !numberEqual(candidate["merged_score"], 1) || candidate["trust_level"] != item["trust_level"] {
+		return false
+	}
+	contribution, _ := contributions[0].(map[string]any)
+	reasons, _ := contribution["reasons"].([]any)
+	return contribution["retriever_id"] == "exact" && numberEqual(contribution["raw_score"], 1) && numberEqual(contribution["normalized_score"], 1) && numberEqual(contribution["weight"], 1) && len(reasons) == 1 && reasons[0] == "exact_phrase" && contribution["explanation"] == "exact phrase match in chunk text" && contribution["snapshot_id"] == snapshotID && contribution["project_id"] == projectID
+}
+
+type phraseRejection struct {
+	sourceID string
+	reason   string
+}
+
+func expectedRejections(snapshot map[string]any, query string) ([]phraseRejection, bool) {
+	sources, ok := matchingPhraseSources(snapshot, query)
+	if !ok {
+		return nil, false
+	}
+	rejected := make([]phraseRejection, 0)
+	admissible := make([]phraseSource, 0)
+	for _, source := range sources {
+		switch source.class {
+		case "instruction", "policy":
+			rejected = append(rejected, phraseRejection{source.id, "instruction_or_policy_not_evidence"})
+			continue
+		}
+		if source.trust == "quarantined" {
+			rejected = append(rejected, phraseRejection{source.id, "quarantined"})
+			continue
+		}
+		if trustRank(source.trust) < trustRank(profile.FocusTrust) {
+			rejected = append(rejected, phraseRejection{source.id, "trust_below_required"})
+			continue
+		}
+		admissible = append(admissible, source)
+	}
+	chars := 0
+	selected := 0
+	for _, source := range admissible {
+		if selected >= profile.FocusMaxItems || chars+len(source.text) > profile.FocusMaxChars {
+			rejected = append(rejected, phraseRejection{source.id, "budget_trim"})
+			continue
+		}
+		selected++
+		chars += len(source.text)
+	}
+	return rejected, true
+}
+
+type phraseSource struct {
+	id    string
+	text  string
+	trust string
+	class string
+}
+
+func matchingPhraseSources(snapshot map[string]any, query string) ([]phraseSource, bool) {
+	rawSources, _ := snapshot["sources"].([]any)
+	sources := make([]phraseSource, 0, len(rawSources))
+	for _, raw := range rawSources {
+		source, ok := raw.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		text, _ := source["text"].(string)
+		if query == "" || !strings.Contains(text, query) {
+			continue
+		}
+		sources = append(sources, phraseSource{
+			id: textField(source["source_id"]), text: text,
+			trust: textField(source["trust_level"]), class: textField(source["evidence_class"]),
+		})
+	}
+	sort.Slice(sources, func(i, j int) bool { return sources[i].id < sources[j].id })
+	return sources, true
+}
+
+func trustRank(level string) int {
+	switch level {
+	case "trusted":
+		return 4
+	case "project":
+		return 3
+	case "external":
+		return 2
+	case "untrusted":
+		return 1
+	case "quarantined":
+		return 0
+	default:
+		return -1
+	}
 }
 
 func packRequestIDMatches(snapshot, pack, request map[string]any) bool {
