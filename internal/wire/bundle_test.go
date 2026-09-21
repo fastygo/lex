@@ -281,6 +281,47 @@ func TestReplayRejectsCompoundQuestionEvenWhenSelfHashMatches(t *testing.T) {
 	}
 }
 
+func TestSkippedDecisionCannotHideAdmissibleEvidence(t *testing.T) {
+	raw := sealedBundle(t)
+	value, err := canonical.DecodeJSON(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	decision := bundle["decision_set"].(map[string]any)
+	bundle["decision_set"] = map[string]any{
+		"context_pack_hash": decision["context_pack_hash"],
+		"question_set_hash": decision["question_set_hash"],
+		"policy_hash":       decision["policy_hash"],
+		"skipped":           true,
+	}
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "binding_mismatch") {
+		t.Fatalf("report = %+v", report)
+	}
+}
+
+func TestCanceledReplayIsNotReportedAsPackMismatch(t *testing.T) {
+	raw := sealedBundle(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	report, err := ReplayContext(ctx, raw)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("ReplayContext() = %+v, %v, want context.Canceled", report, err)
+	}
+	value, err := canonical.DecodeJSON(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, failed, err := rebuiltPackFinding(ctx, value.(map[string]any))
+	if failed || !errors.Is(err, context.Canceled) {
+		t.Fatalf("rebuiltPackFinding() failed=%v err=%v, want cancellation", failed, err)
+	}
+}
+
 func sealedBundle(t *testing.T) []byte {
 	t.Helper()
 	raw, err := BuildBundle(BundleInput{

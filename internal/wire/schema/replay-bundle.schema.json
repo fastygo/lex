@@ -74,31 +74,46 @@
       }
     },
     "decision_set": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "context_pack_hash",
-        "question_set_hash",
-        "policy_hash",
-        "adapter_id",
-        "adapter_version",
-        "resolved_model",
-        "answers"
-      ],
-      "properties": {
-        "context_pack_hash": {"$ref": "#/$defs/sha256"},
-        "question_set_hash": {"$ref": "#/$defs/sha256"},
-        "policy_hash": {"$ref": "#/$defs/sha256"},
-        "adapter_id": {"type": "string", "minLength": 1, "maxLength": 256},
-        "adapter_version": {"type": "string", "minLength": 1, "maxLength": 128},
-        "resolved_model": {"type": "string", "minLength": 1, "maxLength": 256},
-        "answers": {
+      "oneOf": [
+        {
           "type": "object",
-          "minProperties": 1,
-          "maxProperties": 64,
-          "additionalProperties": {"$ref": "#/$defs/answer"}
+          "additionalProperties": false,
+          "required": [
+            "context_pack_hash",
+            "question_set_hash",
+            "policy_hash",
+            "adapter_id",
+            "adapter_version",
+            "resolved_model",
+            "answers"
+          ],
+          "properties": {
+            "context_pack_hash": {"$ref": "#/$defs/sha256"},
+            "question_set_hash": {"$ref": "#/$defs/sha256"},
+            "policy_hash": {"$ref": "#/$defs/sha256"},
+            "adapter_id": {"type": "string", "minLength": 1, "maxLength": 256},
+            "adapter_version": {"type": "string", "minLength": 1, "maxLength": 128},
+            "resolved_model": {"type": "string", "minLength": 1, "maxLength": 256},
+            "answers": {
+              "type": "object",
+              "minProperties": 1,
+              "maxProperties": 64,
+              "additionalProperties": {"$ref": "#/$defs/answer"}
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["context_pack_hash", "question_set_hash", "policy_hash", "skipped"],
+          "properties": {
+            "context_pack_hash": {"$ref": "#/$defs/sha256"},
+            "question_set_hash": {"$ref": "#/$defs/sha256"},
+            "policy_hash": {"$ref": "#/$defs/sha256"},
+            "skipped": {"const": true}
+          }
         }
-      }
+      ]
     },
     "bundle_hash": {"$ref": "#/$defs/sha256"}
   },

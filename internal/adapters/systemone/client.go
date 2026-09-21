@@ -82,15 +82,15 @@ func Evaluate(ctx context.Context, call Call, state any, questions map[string]an
 		return Decision{}, CallError{Retryable: true}
 	}
 	defer response.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
+	body, err := io.ReadAll(io.LimitReader(response.Body, responseLimit(ctx)+1))
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return Decision{}, err
 		}
 		return Decision{}, CallError{Retryable: true}
 	}
-	if len(body) > maxResponseBytes {
-		return Decision{}, fmt.Errorf("decision response exceeds limit")
+	if int64(len(body)) > responseLimit(ctx) {
+		return Decision{}, BudgetError{}
 	}
 	if response.StatusCode != http.StatusOK {
 		return Decision{}, CallError{Retryable: retryableProviderStatus(response.StatusCode)}
@@ -125,6 +125,32 @@ func Evaluate(ctx context.Context, call Call, state any, questions map[string]an
 		EvaluationTimeMS: decoded.EvaluationTimeMS,
 		Usage:            usage,
 	}, nil
+}
+
+// BudgetError means the provider body does not fit the caller's response budget.
+// The body is not retained.
+type BudgetError struct{}
+
+func (BudgetError) Error() string               { return "decision response exceeds the response budget" }
+func (BudgetError) ExceedsResponseBudget() bool { return true }
+
+type maxResponseKey struct{}
+
+// WithMaxResponseBytes caps one provider read. Zero and values above the
+// adapter ceiling stay at the adapter ceiling.
+func WithMaxResponseBytes(ctx context.Context, n int64) context.Context {
+	if n < 1 || n > maxResponseBytes {
+		n = maxResponseBytes
+	}
+	return context.WithValue(ctx, maxResponseKey{}, n)
+}
+
+func responseLimit(ctx context.Context) int64 {
+	n, _ := ctx.Value(maxResponseKey{}).(int64)
+	if n < 1 || n > maxResponseBytes {
+		return maxResponseBytes
+	}
+	return n
 }
 
 func retryableProviderStatus(status int) bool {

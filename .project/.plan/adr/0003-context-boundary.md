@@ -1,7 +1,7 @@
 # ADR-0003: Context public boundary and RAM integration
 
-Status: selected dependency; LeX adapter acceptance pending. Updated: 2026-09-21.
-Owner: LeX maintainers. Upstream capability is implemented; LeX is not yet wired.
+Status: selected dependency; LeX adapter is wired and acceptance is still pending. Updated: 2026-09-21.
+Owner: LeX maintainers. The embedded runtime is called from the evaluation handler.
 
 ## Context
 

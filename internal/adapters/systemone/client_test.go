@@ -146,3 +146,19 @@ func TestEvaluateClassifiesRetryableProviderStatus(t *testing.T) {
 		t.Fatalf("err = %v", err)
 	}
 }
+
+func TestEvaluateStopsReadingAtTheResponseBudget(t *testing.T) {
+	const marker = "BUDGET-MARKER-MUST-NOT-LEAK"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, `{"model":"jev-1.13.0","answers":{"support":{"type":"noul","noul":0.9}},"note":"`+marker+strings.Repeat("x", 64)+`"}`)
+	}))
+	defer server.Close()
+	_, err := Evaluate(WithMaxResponseBytes(context.Background(), 32), Call{
+		APIKey: "test-key", Endpoint: server.URL, OfficialEndpoint: "https://api.typesafe.ai/v1/systemone",
+		Model: "jev-1.13.0", AllowLoopback: true, HTTP: server.Client(),
+	}, map[string]any{}, map[string]any{"support": map[string]any{"type": "noul"}})
+	var budget BudgetError
+	if !errors.As(err, &budget) || strings.Contains(err.Error(), marker) {
+		t.Fatalf("err = %v", err)
+	}
+}

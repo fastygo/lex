@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -41,6 +42,7 @@ type BundleInput struct {
 	AdapterVersion string
 	ResolvedModel  string
 	Answers        json.RawMessage
+	Skipped        bool
 }
 
 // Report is the deterministic verifier result.
@@ -56,7 +58,7 @@ type bundleDocument struct {
 	Context         contextDocument `json:"context"`
 	QuestionSet     questionSetWire `json:"question_set"`
 	Policy          policyWire      `json:"policy"`
-	DecisionSet     decisionWire    `json:"decision_set"`
+	DecisionSet     any             `json:"decision_set"`
 }
 
 type entityDocument struct {
@@ -98,8 +100,38 @@ type decisionWire struct {
 	Answers         json.RawMessage `json:"answers"`
 }
 
+type skippedDecisionWire struct {
+	ContextPackHash string `json:"context_pack_hash"`
+	QuestionSetHash string `json:"question_set_hash"`
+	PolicyHash      string `json:"policy_hash"`
+	Skipped         bool   `json:"skipped"`
+}
+
+func decisionDocument(input BundleInput, packHash string) any {
+	if input.Skipped {
+		return skippedDecisionWire{
+			ContextPackHash: packHash,
+			QuestionSetHash: profile.QuestionSetHash(),
+			PolicyHash:      profile.PolicyHash(),
+			Skipped:         true,
+		}
+	}
+	return decisionWire{
+		ContextPackHash: packHash,
+		QuestionSetHash: profile.QuestionSetHash(),
+		PolicyHash:      profile.PolicyHash(),
+		AdapterID:       input.AdapterID,
+		AdapterVersion:  input.AdapterVersion,
+		ResolvedModel:   input.ResolvedModel,
+		Answers:         input.Answers,
+	}
+}
+
 // BuildBundle seals a replay bundle for the embedded profile.
 func BuildBundle(input BundleInput) ([]byte, error) {
+	if input.Skipped && (input.AdapterID != "" || input.AdapterVersion != "" || input.ResolvedModel != "" || len(input.Answers) != 0) {
+		return nil, fmt.Errorf("skipped decision cannot carry adapter output")
+	}
 	packHash, err := canonical.HashJSON(input.Pack)
 	if err != nil {
 		return nil, fmt.Errorf("hash context pack: %w", err)
@@ -137,16 +169,8 @@ func BuildBundle(input BundleInput) ([]byte, error) {
 		QuestionSet: questionSetWire{
 			ID: profile.QuestionSetID, Version: profile.QuestionSetVersion, Hash: profile.QuestionSetHash(), Questions: questions,
 		},
-		Policy: policyWire{ID: profile.PolicyID, Version: profile.PolicyVersion, Hash: profile.PolicyHash()},
-		DecisionSet: decisionWire{
-			ContextPackHash: packHash,
-			QuestionSetHash: profile.QuestionSetHash(),
-			PolicyHash:      profile.PolicyHash(),
-			AdapterID:       input.AdapterID,
-			AdapterVersion:  input.AdapterVersion,
-			ResolvedModel:   input.ResolvedModel,
-			Answers:         input.Answers,
-		},
+		Policy:      policyWire{ID: profile.PolicyID, Version: profile.PolicyVersion, Hash: profile.PolicyHash()},
+		DecisionSet: decisionDocument(input, packHash),
 	}
 	raw, err := json.Marshal(document)
 	if err != nil {
@@ -177,6 +201,14 @@ func BuildBundle(input BundleInput) ([]byte, error) {
 
 // Replay reproduces the verdict from a sealed bundle. It does not retrieve evidence or call a provider.
 func Replay(raw []byte) (Report, error) {
+	return ReplayContext(context.Background(), raw)
+}
+
+// ReplayContext is Replay bound to the caller's cancellation and deadline.
+func ReplayContext(ctx context.Context, raw []byte) (Report, error) {
+	if err := ctx.Err(); err != nil {
+		return Report{}, err
+	}
 	if err := VerifyReplayBundleHash(raw); err != nil {
 		return Report{}, err
 	}
@@ -196,6 +228,9 @@ func Replay(raw []byte) (Report, error) {
 		}
 		return Report{Verdict: verdict, Findings: findings}, nil
 	}
+	if decisionSkipped(bundle) {
+		return skippedDecisionReport(ctx, bundle)
+	}
 	answers, parseFindings := parseAnswers(bundle)
 	if len(parseFindings) > 0 {
 		verdict, err := verify.ResolveVerdict(parseFindings)
@@ -208,7 +243,11 @@ func Replay(raw []byte) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
-	findings = append(findings, evidenceFindings(bundle)...)
+	extra, err := evidenceFindings(ctx, bundle)
+	if err != nil {
+		return Report{}, err
+	}
+	findings = append(findings, extra...)
 	verdict, err = verify.ResolveVerdict(findings)
 	if err != nil {
 		return Report{}, err
@@ -246,6 +285,12 @@ func bindingFindings(bundle map[string]any) []verify.Finding {
 	if !entityChecksumMatches(entity) {
 		findings = append(findings, errorFinding(verify.CodeEntityChecksumMismatch))
 	}
+	if decisionSkipped(bundle) {
+		if decision["answers"] != nil || decision["resolved_model"] != nil || decision["adapter_id"] != nil || decision["adapter_version"] != nil {
+			findings = append(findings, errorFinding(verify.CodeBindingMismatch))
+		}
+		return findings
+	}
 	model, _ := decision["resolved_model"].(string)
 	adapterID, _ := decision["adapter_id"].(string)
 	switch adapterID {
@@ -262,12 +307,15 @@ func bindingFindings(bundle map[string]any) []verify.Finding {
 	return findings
 }
 
-func evidenceFindings(bundle map[string]any) []verify.Finding {
+func evidenceFindings(ctx context.Context, bundle map[string]any) ([]verify.Finding, error) {
 	contextBody, _ := bundle["context"].(map[string]any)
 	pack, _ := contextBody["pack"].(map[string]any)
 	rawItems, ok := pack["evidence_items"].([]any)
 	if !ok {
-		return []verify.Finding{{Code: verify.CodePackShape, Verdict: verify.VerdictError, Detail: "frozen pack has no evidence item list"}}
+		if pack["evidence_items"] != nil {
+			return []verify.Finding{{Code: verify.CodePackShape, Verdict: verify.VerdictError, Detail: "frozen pack has no evidence item list"}}, nil
+		}
+		rawItems = []any{}
 	}
 	admissible := 0
 	inference := 0
@@ -293,27 +341,51 @@ func evidenceFindings(bundle map[string]any) []verify.Finding {
 		}
 	}
 	if len(findings) > 0 {
-		return findings
+		return findings, nil
 	}
 	if admissible == 0 && inference > 0 {
-		return []verify.Finding{{Code: verify.CodeInferenceOnly, Verdict: verify.VerdictInsufficient, Detail: "model inference cannot establish a factual claim"}}
+		return []verify.Finding{{Code: verify.CodeInferenceOnly, Verdict: verify.VerdictInsufficient, Detail: "model inference cannot establish a factual claim"}}, nil
 	}
 	if finding, failed := selectionFinding(bundle); failed {
-		return []verify.Finding{finding}
+		return []verify.Finding{finding}, nil
 	}
 	if finding, failed := rejectionFinding(bundle); failed {
-		return []verify.Finding{finding}
+		return []verify.Finding{finding}, nil
 	}
 	if finding, failed := packShapeFinding(bundle); failed {
-		return []verify.Finding{finding}
+		return []verify.Finding{finding}, nil
 	}
-	if finding, failed := rebuiltPackFinding(bundle); failed {
-		return []verify.Finding{finding}
+	if finding, failed, err := rebuiltPackFinding(ctx, bundle); err != nil || failed {
+		if err != nil {
+			return nil, err
+		}
+		return []verify.Finding{finding}, nil
 	}
 	if admissible == 0 {
-		return []verify.Finding{{Code: verify.CodeNoEligibleEvidence, Verdict: verify.VerdictInsufficient, Detail: "the frozen pack contains no admissible source text"}}
+		return []verify.Finding{{Code: verify.CodeNoEligibleEvidence, Verdict: verify.VerdictInsufficient, Detail: "the frozen pack contains no admissible source text"}}, nil
 	}
-	return nil
+	return nil, nil
+}
+
+func decisionSkipped(bundle map[string]any) bool {
+	decision, _ := bundle["decision_set"].(map[string]any)
+	skipped, _ := decision["skipped"].(bool)
+	return skipped
+}
+
+func skippedDecisionReport(ctx context.Context, bundle map[string]any) (Report, error) {
+	findings, err := evidenceFindings(ctx, bundle)
+	if err != nil {
+		return Report{}, err
+	}
+	if len(findings) == 0 {
+		findings = []verify.Finding{errorFinding(verify.CodeBindingMismatch)}
+	}
+	verdict, err := verify.ResolveVerdict(findings)
+	if err != nil {
+		return Report{}, err
+	}
+	return Report{Verdict: verdict, Findings: findings}, nil
 }
 
 func parseAnswers(bundle map[string]any) (map[string]verify.Answer, []verify.Finding) {
@@ -573,7 +645,7 @@ func packShapeFinding(bundle map[string]any) (verify.Finding, bool) {
 	return verify.Finding{}, false
 }
 
-func rebuiltPackFinding(bundle map[string]any) (verify.Finding, bool) {
+func rebuiltPackFinding(ctx context.Context, bundle map[string]any) (verify.Finding, bool, error) {
 	mismatch := verify.Finding{Code: verify.CodePackRebuild, Verdict: verify.VerdictError, Detail: "frozen pack does not match the pack rebuilt from the snapshot and request"}
 	contextBody, _ := bundle["context"].(map[string]any)
 	pack, _ := contextBody["pack"].(map[string]any)
@@ -581,29 +653,32 @@ func rebuiltPackFinding(bundle map[string]any) (verify.Finding, bool) {
 	request, _ := contextBody["pack_request"].(map[string]any)
 	sources, err := snapshotSources(snapshot)
 	if err != nil {
-		return mismatch, true
+		return mismatch, true, nil
 	}
 	var req contextmemory.PackRequest
 	if err = recode(request, &req); err != nil {
-		return mismatch, true
+		return mismatch, true, nil
 	}
-	result, err := evidence.BuildPack(context.Background(), textField(snapshot["project_id"]), sources, req)
+	result, err := evidence.BuildPack(ctx, textField(snapshot["project_id"]), sources, req)
 	if err != nil {
-		return mismatch, true
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return verify.Finding{}, false, err
+		}
+		return mismatch, true, nil
 	}
 	saved, err := canonical.HashValue(pack)
 	if err != nil {
-		return mismatch, true
+		return mismatch, true, nil
 	}
 	fresh, err := canonical.DecodeJSON(result.ContextPack)
 	if err != nil {
-		return mismatch, true
+		return mismatch, true, nil
 	}
 	rebuilt, err := canonical.HashValue(fresh)
 	if err != nil || saved != rebuilt {
-		return mismatch, true
+		return mismatch, true, nil
 	}
-	return verify.Finding{}, false
+	return verify.Finding{}, false, nil
 }
 
 func snapshotSources(snapshot map[string]any) ([]contextmemory.Source, error) {

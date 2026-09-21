@@ -189,6 +189,7 @@ PolicySnapshot, raw DecisionSet, approval evidence, and pinned verifier version.
 It MUST NOT contact a retrieval service, call a decision provider, or execute side effects.
 It MUST compare a recomputation from the frozen snapshot and pack request with the saved pack.
 The saved pack MUST NOT be replaced.
+The service MUST refuse a replay whose entity project is outside the authenticated principal's projects.
 It reproduces deterministic findings and verdict under the same defined rules.
 
 A fresh model call is a new evaluation even with the same resolved model.

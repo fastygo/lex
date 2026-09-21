@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"mime"
 	"net/http"
 	"strconv"
@@ -16,7 +17,9 @@ import (
 	contextmemory "github.com/fastygo/context/pkg/contextkit/runtime"
 	frameworkapp "github.com/fastygo/framework/pkg/app"
 	"github.com/fastygo/framework/pkg/web/security"
+	"github.com/fastygo/lex/internal/canonical"
 	"github.com/fastygo/lex/internal/profile"
+	"github.com/fastygo/lex/internal/verify"
 	"github.com/fastygo/lex/internal/wire"
 )
 
@@ -33,15 +36,27 @@ func NewHandler(config Config) (http.Handler, error) {
 		WithSecurity(security.Config{Enabled: false}).
 		WithHealthEndpoints("/healthz", "")
 	mux := builder.Mux()
-	mux.Handle("/v1/capabilities", authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+	mux.Handle("/v1/capabilities", recoverProblem(authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		capabilities(w, request, config)
-	})))
-	mux.Handle("/v1/evaluations", authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+	}))))
+	mux.Handle("/v1/evaluations", recoverProblem(authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		evaluate(w, request, config.Decider, config.MaxBodyBytes)
-	})))
-	mux.Handle("/v1/replays", authenticated(config, http.HandlerFunc(replay)))
+	}))))
+	mux.Handle("/v1/replays", recoverProblem(authenticated(config, http.HandlerFunc(replay))))
 
 	return withKnownRoutes(withRequestLimits(builder.Build().Handler(), config, newAdmission(config.MaxInFlight))), nil
+}
+
+func recoverProblem(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		defer func() {
+			if recover() != nil {
+				slog.Error("http.panic")
+				writeProblem(w, http.StatusInternalServerError, reasonInternalError, "the request could not be completed")
+			}
+		}()
+		next.ServeHTTP(w, request)
+	})
 }
 
 func withKnownRoutes(next http.Handler) http.Handler {
@@ -277,8 +292,21 @@ func replay(w http.ResponseWriter, request *http.Request) {
 	if writeRequestStop(w, request.Context().Err(), replayTraceStatus("failed")) {
 		return
 	}
-	report, err := wire.Replay(raw)
+	projects, _ := request.Context().Value(projectsKey{}).([]string)
+	if projectID, ok := declaredReplayProject(raw); ok && !containsProject(projects, projectID) {
+		writeProblem(w, http.StatusForbidden, reasonProjectForbidden, "the authenticated principal cannot access this project")
+		return
+	}
+	report, err := wire.ReplayContext(request.Context(), raw)
 	if err != nil {
+		if writeRequestStop(w, err, replayTraceStatus("failed")) {
+			return
+		}
+		if errors.Is(err, verify.ErrUnusablePolicy) {
+			status, reason, detail := replayFailure(err)
+			tracedProblem(w, status, reason, detail, replayTraceStatus("failed"))
+			return
+		}
 		writeProblem(w, http.StatusUnprocessableEntity, reasonInvalidReplayBundle, "replay bundle failed deterministic structural validation")
 		return
 	}
@@ -299,6 +327,26 @@ type retentionView struct {
 	ServerHistory bool   `json:"server_history"`
 	Replay        string `json:"replay"`
 	Idempotency   string `json:"idempotency"`
+}
+
+func declaredReplayProject(raw []byte) (string, bool) {
+	value, err := canonical.DecodeJSON(raw)
+	if err != nil {
+		return "", false
+	}
+	object, ok := value.(map[string]any)
+	if !ok {
+		return "", false
+	}
+	entity, ok := object["entity"].(map[string]any)
+	if !ok {
+		return "", false
+	}
+	projectID, ok := entity["project_id"].(string)
+	if !ok || projectID == "" {
+		return "", false
+	}
+	return projectID, true
 }
 
 func retentionDisclosure() retentionView {

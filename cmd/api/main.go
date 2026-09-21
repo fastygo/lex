@@ -13,6 +13,7 @@ import (
 
 	"github.com/fastygo/lex/internal/adapters"
 	"github.com/fastygo/lex/internal/adapters/openrouter"
+	"github.com/fastygo/lex/internal/adapters/systemone"
 	"github.com/fastygo/lex/internal/adapters/typesafe"
 	"github.com/fastygo/lex/internal/httpapi"
 )
@@ -23,6 +24,9 @@ func (port typesafePort) AdapterID() string      { return typesafe.AdapterID }
 func (port typesafePort) AdapterVersion() string { return typesafe.AdapterVersion }
 
 func (port typesafePort) Evaluate(ctx context.Context, state any, questions map[string]any) (httpapi.Decision, error) {
+	if n, ok := httpapi.AnswerBudget(ctx); ok {
+		ctx = systemone.WithMaxResponseBytes(ctx, n)
+	}
 	decision, err := port.client.Evaluate(ctx, state, questions)
 	if err != nil {
 		return httpapi.Decision{}, err
@@ -39,6 +43,9 @@ func (port openrouterPort) AdapterID() string      { return openrouter.AdapterID
 func (port openrouterPort) AdapterVersion() string { return openrouter.AdapterVersion }
 
 func (port openrouterPort) Evaluate(ctx context.Context, state any, questions map[string]any) (httpapi.Decision, error) {
+	if n, ok := httpapi.AnswerBudget(ctx); ok {
+		ctx = systemone.WithMaxResponseBytes(ctx, n)
+	}
 	decision, err := port.client.Evaluate(ctx, state, questions)
 	if err != nil {
 		return httpapi.Decision{}, err

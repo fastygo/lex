@@ -47,6 +47,23 @@ func TestOpenAPIMatchesSynchronousContract(t *testing.T) {
 	if _, exists := responses["406"]; !exists {
 		t.Fatal("evaluation lacks an Accept negotiation response")
 	}
+	required := map[string]map[string][]string{
+		"/v1/capabilities": {"get": {"200", "400", "401", "403", "405", "406", "413", "503"}},
+		"/v1/evaluations":  {"post": {"200", "400", "401", "403", "405", "406", "413", "415", "422", "499", "500", "502", "503", "504"}},
+		"/v1/replays":      {"post": {"200", "400", "401", "403", "405", "406", "413", "415", "422", "499", "500", "503", "504"}},
+	}
+	for path, methods := range required {
+		operations, _ := paths[path].(map[string]any)
+		for method, statuses := range methods {
+			operation, _ := operations[method].(map[string]any)
+			published, _ := operation["responses"].(map[string]any)
+			for _, status := range statuses {
+				if _, exists := published[status]; !exists {
+					t.Fatalf("%s %s does not publish HTTP %s", method, path, status)
+				}
+			}
+		}
+	}
 
 	components, _ := document["components"].(map[string]any)
 	compiler := jsonschema.NewCompiler()

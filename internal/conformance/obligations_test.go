@@ -31,6 +31,7 @@ var obligations = []struct {
 	{"MUST NOT contact a retrieval service", []string{"TestReplayDoesNotUseNetwork"}},
 	{"MUST compare a recomputation", []string{"TestReplayRejectsRewrittenPackChecksum"}},
 	{"saved pack MUST NOT be replaced", []string{"TestReplayLeavesTheSavedBundleUnchanged"}},
+	{"MUST refuse a replay whose entity project", []string{"TestReplayRefusesAnotherProject"}},
 	{"The verifier MUST check", []string{"TestReplayRejectsPackHashThatDoesNotMatchContent", "TestValidateAnswersReportsMalformedAnswers", "TestReplayRejectsPartialSourceSurface", "TestReplayRefusesInferenceOnlyEvidence", "TestInterpretKeepsConflictAheadOfInsufficient", "TestInterpretRejectsEstablishedNegativeClaim", "TestSecurityProfileRejectsCookiesApprovalAndCORS"}},
 	{"MUST preserve all material epistemic", []string{"TestInterpretKeepsSafetyGateBesideConflict"}},
 	{"An adapter MUST:", []string{"TestEvaluationKeepsInjectedSourceTextOutOfQuestions", "TestEvaluateDeclaresQuestionCapabilitiesBeforeDial", "TestEvaluatePreservesRawAnswers", "TestReplayRejectsForeignAdapterVersion", "TestAdapterMetadataStaysOutOfTheReplayBundle", "TestEvaluateKeepsProviderMetadataOnlyWhenPresent", "TestRetryableProviderFailureIsNotADecisionError", "TestEvaluateClassifiesRetryableProviderStatus", "TestSelectRefusesSilentFallback", "TestEvaluateRejectsSubstitutedModel", "TestDirectAdapterConformanceFixture", "TestHostedAdapterConformanceFixture"}},

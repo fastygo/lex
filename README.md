@@ -191,8 +191,9 @@ an entity of type `claim` with schema `0.1`, an exact-phrase query, and
 versioned source texts. The server assigns source trust and evidence class,
 freezes the pack, and applies the embedded `claim-validation` policy. That
 policy is explicitly uncalibrated. An empty exact retrieval returns
-`insufficient` and does not call a provider. A technical `error` verdict is
-HTTP 422 and still returns the sealed replay bundle.
+`insufficient`, does not call a provider, and still returns a replay bundle. A technical `error` verdict is
+HTTP 422 and still returns the sealed replay bundle. Replay accepts that
+bundle only when its entity project is one of the token's projects.
 
 Configure bearer tokens outside version control. Set one decision credential,
 or set `LEX_DECISION_ADAPTER` to `direct` or `hosted` when both are present:

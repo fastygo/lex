@@ -72,17 +72,18 @@ The precedence order does not erase lower-priority findings.
 
 ## Failure stages
 
-- `retrieval_error`: evidence retrieval fails.
-- `pack_error`: pack construction, integrity, or contract validation fails.
-- `question_error`: the QuestionSet is malformed or violates its contract.
-- `decision_error`: provider execution or typed-answer validation fails.
-- `policy_error`: policy resolution or evaluation fails, distinct from a valid denial.
-- `verification_error`: deterministic verification cannot complete correctly.
-- `execution_error`: an authorized operation or its postcondition verification fails.
+- `retrieval_error`: a retrieval transport failed. This profile has no separate retrieval service. An empty exact selection is HTTP 200 `insufficient`, does not call a provider, and still returns a replay bundle. A failure while freezing sources is HTTP 422 `pack_error`. Cancellation remains HTTP 504 `deadline_exceeded` or HTTP 499 `client_canceled`. A canceled or expired pack rebuild stays that cancellation and is not reported as a pack mismatch.
+- `pack_error`: pack construction, integrity, or contract validation fails. HTTP 422.
+- `question_error`: the QuestionSet or the request shape violates its contract. HTTP 422. A query that is empty after trimming is this error. It is not an `insufficient` verdict.
+- `decision_error`: provider execution or typed-answer validation fails. A provider contract failure is HTTP 502. A technical `error` verdict is HTTP 422 and still returns the sealed bundle. A retryable provider status is HTTP 503 `provider_unavailable` and is not retried.
+- `policy_error`: the evaluator cannot apply its thresholds. HTTP 500. A threshold denial stays a finding on the verdict response.
+- `verification_error`: deterministic verification cannot complete correctly. HTTP 500.
+- `execution_error`: an authorized operation or its postcondition verification fails. This slice has no execution route.
+
+A response that does not fit the budget is HTTP 422 `response_budget`. The provider is not called when the frozen pack already fills that budget, and a provider body larger than the remaining budget is not retained. No execution status is advertised as success.
 
 Keep original stage and cause in the trace; do not describe every failure as
-a model error. Wire error codes, retry eligibility, and transport mappings
-must be finalized before release.
+a model error. The reason codes above are the v0.1 wire mapping.
 
 ## Replay and conformance
 

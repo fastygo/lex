@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"strings"
 
 	contextmemory "github.com/fastygo/context/pkg/contextkit/runtime"
 	"github.com/fastygo/lex/internal/canonical"
@@ -107,7 +108,7 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		writeProblem(w, http.StatusForbidden, reasonProjectForbidden, "the authenticated principal cannot access this project")
 		return
 	}
-	if !validEntity(body.Entity) || body.Query == "" || len(body.Sources) == 0 {
+	if !validEntity(body.Entity) || strings.TrimSpace(body.Query) == "" || len(body.Sources) == 0 {
 		writeProblem(w, http.StatusUnprocessableEntity, reasonQuestionError, "entity, query, and at least one source are required")
 		return
 	}
@@ -150,20 +151,7 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		if writeRequestStop(w, request.Context().Err(), trace("receive", "completed", "pack", "completed", "decide", "failed")) {
 			return
 		}
-		writeEvaluation(w, evaluationResponse{
-			ProtocolVersion: "0.1-draft",
-			Verdict:         string(verify.VerdictInsufficient),
-			Findings: []verify.Finding{{
-				Code: verify.CodeNoEligibleEvidence, Verdict: verify.VerdictInsufficient,
-				Detail: "exact retrieval selected no admissible evidence",
-			}},
-			ContextRuntime:  pack.Snapshot.RuntimeVersion,
-			ReplayAvailable: false,
-			Stage:           "retrieval",
-			Trace:           trace("receive", "completed", "pack", "completed", "decide", "skipped", "verify", "completed"),
-			Policy:          policyDisclosure(),
-			Retention:       retentionDisclosure(),
-		}, maxBodyBytes)
+		writeSkippedEvaluation(w, request, body, pack, packRequest, maxBodyBytes)
 		return
 	}
 	if decider == nil {
@@ -175,18 +163,23 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		tracedProblem(w, http.StatusUnprocessableEntity, reasonPackError, "Context snapshot could not be measured", trace("receive", "completed", "pack", "failed"))
 		return
 	}
-	if int64(len(pack.ContextPack)+len(snapshotRaw))+responseReserve > maxBodyBytes {
+	if int64(len(pack.ContextPack)+len(snapshotRaw))+responseReserve >= maxBodyBytes {
 		tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the frozen pack does not fit the response budget", trace("receive", "completed", "pack", "completed", "decide", "skipped"))
 		return
 	}
+	remaining := maxBodyBytes - int64(len(pack.ContextPack)+len(snapshotRaw)) - responseReserve
 	if writeRequestStop(w, request.Context().Err(), trace("receive", "completed", "pack", "completed", "decide", "failed")) {
 		return
 	}
-	decision, err := decider.Evaluate(request.Context(), map[string]any{
+	decision, err := decider.Evaluate(withAnswerBudget(request.Context(), remaining), map[string]any{
 		"claim": body.Query, "evidence": items,
 	}, profile.ProviderQuestions())
 	if err != nil {
 		if writeRequestStop(w, err, trace("receive", "completed", "pack", "completed", "decide", "failed")) {
+			return
+		}
+		if exceedsResponseBudget(err) {
+			tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the decision response does not fit the response budget", trace("receive", "completed", "pack", "completed", "decide", "failed"))
 			return
 		}
 		if retryableProvider(err) {
@@ -194,6 +187,10 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 			return
 		}
 		tracedProblem(w, http.StatusBadGateway, reasonDecisionError, "the decision adapter failed", trace("receive", "completed", "pack", "completed", "decide", "failed"))
+		return
+	}
+	if int64(len(decision.Answers)) > remaining {
+		tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the decision answers do not fit the response budget", trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
 		return
 	}
 	if writeRequestStop(w, request.Context().Err(), trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed")) {
@@ -212,8 +209,11 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		tracedProblem(w, http.StatusBadGateway, reasonDecisionError, "the decision adapter returned answers that cannot be sealed", trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
 		return
 	}
-	report, err := wire.Replay(bundle)
+	report, err := wire.ReplayContext(request.Context(), bundle)
 	if err != nil {
+		if writeRequestStop(w, err, trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed")) {
+			return
+		}
 		status, reason, detail := replayFailure(err)
 		tracedProblem(w, status, reason, detail, trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
 		return
@@ -265,6 +265,53 @@ type policyDisclosureView struct {
 
 func policyDisclosure() policyDisclosureView {
 	return policyDisclosureView{ID: profile.PolicyID, Version: profile.PolicyVersion, Calibration: profile.Calibration}
+}
+
+func writeSkippedEvaluation(w http.ResponseWriter, request *http.Request, body evaluationRequest, pack contextmemory.PackResult, packRequest contextmemory.PackRequest, maxBodyBytes int64) {
+	snapshotRaw, err := json.Marshal(pack.Snapshot)
+	if err != nil {
+		tracedProblem(w, http.StatusUnprocessableEntity, reasonPackError, "Context snapshot could not be measured", trace("receive", "completed", "pack", "failed"))
+		return
+	}
+	if int64(len(pack.ContextPack)+len(snapshotRaw))+responseReserve >= maxBodyBytes {
+		tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the frozen pack does not fit the response budget", trace("receive", "completed", "pack", "completed", "decide", "skipped"))
+		return
+	}
+	bundle, err := wire.BuildBundle(wire.BundleInput{
+		Entity: wire.Entity{
+			ID: body.Entity.ID, ProjectID: body.ProjectID, Type: body.Entity.Type,
+			SchemaVersion: body.Entity.SchemaVersion, Version: body.Entity.Version,
+		},
+		Pack: pack.ContextPack, Snapshot: pack.Snapshot, PackRequest: packRequest, Skipped: true,
+	})
+	if err != nil {
+		tracedProblem(w, http.StatusInternalServerError, reasonVerificationError, "the sealed bundle could not be verified", trace("receive", "completed", "pack", "completed", "decide", "failed"))
+		return
+	}
+	report, err := wire.ReplayContext(request.Context(), bundle)
+	if err != nil {
+		if writeRequestStop(w, err, trace("receive", "completed", "pack", "completed", "decide", "failed")) {
+			return
+		}
+		tracedProblem(w, http.StatusInternalServerError, reasonVerificationError, "the sealed bundle could not be verified", trace("receive", "completed", "pack", "completed", "decide", "failed"))
+		return
+	}
+	if report.Verdict != verify.VerdictInsufficient {
+		tracedProblem(w, http.StatusInternalServerError, reasonVerificationError, "the sealed bundle could not be verified", trace("receive", "completed", "pack", "completed", "decide", "failed"))
+		return
+	}
+	writeEvaluation(w, evaluationResponse{
+		ProtocolVersion: "0.1-draft",
+		Verdict:         string(report.Verdict),
+		Findings:        report.Findings,
+		ContextRuntime:  pack.Snapshot.RuntimeVersion,
+		ReplayAvailable: true,
+		ReplayBundle:    bundle,
+		Stage:           "retrieval",
+		Trace:           trace("receive", "completed", "pack", "completed", "decide", "skipped", "verify", "completed"),
+		Policy:          policyDisclosure(),
+		Retention:       retentionDisclosure(),
+	}, maxBodyBytes)
 }
 
 func adapterMetadata(decision Decision) map[string]any {
@@ -344,6 +391,27 @@ func replayFailure(err error) (int, string, string) {
 		return http.StatusInternalServerError, reasonPolicyError, "the policy evaluator could not apply its thresholds"
 	}
 	return http.StatusInternalServerError, reasonVerificationError, "the sealed bundle could not be verified"
+}
+
+type answerBudgetKey struct{}
+
+func withAnswerBudget(ctx context.Context, n int64) context.Context {
+	return context.WithValue(ctx, answerBudgetKey{}, n)
+}
+
+// AnswerBudget is the maximum provider body that still fits this response.
+func AnswerBudget(ctx context.Context) (int64, bool) {
+	n, ok := ctx.Value(answerBudgetKey{}).(int64)
+	return n, ok && n > 0
+}
+
+type responseLimited interface {
+	ExceedsResponseBudget() bool
+}
+
+func exceedsResponseBudget(err error) bool {
+	var limited responseLimited
+	return errors.As(err, &limited) && limited.ExceedsResponseBudget()
 }
 
 func requestStopped(err error) (int, string, string, bool) {

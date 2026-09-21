@@ -13,6 +13,7 @@ const (
 	reasonInvalidBody                 = "invalid_body"
 	reasonInvalidJSON                 = "invalid_json"
 	reasonInvalidReplayBundle         = "invalid_replay_bundle"
+	reasonInternalError               = "internal_error"
 	reasonJSONTooDeep                 = "json_too_deep"
 	reasonMethodNotAllowed            = "method_not_allowed"
 	reasonNotAcceptable               = "not_acceptable"
@@ -40,6 +41,7 @@ func problemReasons() []string {
 		reasonInvalidBody,
 		reasonInvalidJSON,
 		reasonInvalidReplayBundle,
+		reasonInternalError,
 		reasonJSONTooDeep,
 		reasonMethodNotAllowed,
 		reasonNotAcceptable,
