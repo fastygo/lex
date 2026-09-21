@@ -252,6 +252,9 @@ func replay(w http.ResponseWriter, request *http.Request) {
 		writeProblem(w, http.StatusRequestEntityTooLarge, "body_too_large", "request body exceeds the configured limit")
 		return
 	}
+	if writeRequestStop(w, request.Context().Err(), replayTraceStatus("failed")) {
+		return
+	}
 	report, err := wire.Replay(raw)
 	if err != nil {
 		writeProblem(w, http.StatusUnprocessableEntity, "invalid_replay_bundle", "replay bundle failed deterministic structural validation")
@@ -296,9 +299,13 @@ func writeProblemBody(w http.ResponseWriter, status int, reason, detail string, 
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", problemMediaType)
 	w.WriteHeader(status)
+	title := http.StatusText(status)
+	if title == "" {
+		title = "Client Closed Request"
+	}
 	body := map[string]any{
 		"type":   "https://lex.fastygo.dev/problems/" + reason,
-		"title":  http.StatusText(status),
+		"title":  title,
 		"status": status,
 		"detail": detail,
 		"reason": reason,

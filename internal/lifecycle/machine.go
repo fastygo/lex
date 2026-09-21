@@ -39,7 +39,7 @@ func Run(kind Kind, events []Event) error {
 }
 
 func runReplay(events []Event) error {
-	if len(events) != 1 || events[0].Name != "replay" || events[0].Status != statusCompleted {
+	if len(events) != 1 || events[0].Name != "replay" || (events[0].Status != statusCompleted && events[0].Status != statusFailed) {
 		return fmt.Errorf("illegal replay transition")
 	}
 	return nil

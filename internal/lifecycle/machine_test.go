@@ -43,9 +43,12 @@ func TestRunReplayAllowsOnlyCompletedReplay(t *testing.T) {
 	if err := Run(Replay, []Event{{Name: "replay", Status: "completed"}}); err != nil {
 		t.Fatal(err)
 	}
+	if err := Run(Replay, []Event{{Name: "replay", Status: "failed"}}); err != nil {
+		t.Fatal(err)
+	}
 	illegal := [][]Event{
 		{{Name: "receive", Status: "completed"}},
-		{{Name: "replay", Status: "failed"}},
+		{{Name: "replay", Status: "skipped"}},
 		{{Name: "replay", Status: "completed"}, {Name: "decide", Status: "completed"}},
 	}
 	for _, sequence := range illegal {

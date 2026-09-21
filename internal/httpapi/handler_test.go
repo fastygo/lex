@@ -509,6 +509,117 @@ func TestEvaluationStopsWhenRequestIsCanceled(t *testing.T) {
 	}
 }
 
+func TestDeadlineAndDisconnectStopPackDecideVerifyAndReplay(t *testing.T) {
+	t.Run("deadline before pack", func(t *testing.T) {
+		decider := &scriptedDecider{answers: []byte(passingAnswers)}
+		recorder := serveStopped(t, decider, expiredContext(), "/v1/evaluations", evaluationBody)
+		if recorder.Code != http.StatusGatewayTimeout || decider.calls != 0 || !strings.Contains(recorder.Body.String(), `"reason":"deadline_exceeded"`) || !strings.Contains(recorder.Body.String(), `"name":"pack","status":"failed"`) {
+			t.Fatalf("status = %d calls = %d body = %s", recorder.Code, decider.calls, recorder.Body)
+		}
+	})
+	t.Run("disconnect before pack", func(t *testing.T) {
+		decider := &scriptedDecider{answers: []byte(passingAnswers)}
+		recorder := serveStopped(t, decider, canceledContext(), "/v1/evaluations", evaluationBody)
+		if recorder.Code != statusClientClosedRequest || decider.calls != 0 || !strings.Contains(recorder.Body.String(), `"reason":"client_canceled"`) || !strings.Contains(recorder.Body.String(), `"name":"pack","status":"failed"`) {
+			t.Fatalf("status = %d calls = %d body = %s", recorder.Code, decider.calls, recorder.Body)
+		}
+	})
+	t.Run("disconnect during decide", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		recorder := serveStopped(t, &cancelDuringDecide{cancel: cancel}, ctx, "/v1/evaluations", evaluationBody)
+		if recorder.Code != statusClientClosedRequest || !strings.Contains(recorder.Body.String(), `"name":"decide","status":"failed"`) || strings.Contains(recorder.Body.String(), `"reason":"decision_error"`) {
+			t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
+		}
+	})
+	t.Run("deadline before verify", func(t *testing.T) {
+		handler, err := NewHandler(Config{
+			BearerTokens:   map[string][]string{"test-token": {"project-test"}},
+			RequestTimeout: 40 * time.Millisecond,
+			MaxBodyBytes:   defaultMaxBodyBytes,
+			MaxInFlight:    1,
+			Decider:        finishAfterDeadline{},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(evaluationBody))
+		request.Header.Set("Authorization", "Bearer test-token")
+		request.Header.Set("Content-Type", "application/json")
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
+		if recorder.Code != http.StatusGatewayTimeout || !strings.Contains(recorder.Body.String(), `"name":"verify","status":"failed"`) || strings.Contains(recorder.Body.String(), `"verdict":"validated"`) {
+			t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
+		}
+	})
+	t.Run("disconnect before replay", func(t *testing.T) {
+		recorder := serveStopped(t, &scriptedDecider{answers: []byte(passingAnswers)}, canceledContext(), "/v1/replays", `{}`)
+		if recorder.Code != statusClientClosedRequest || !strings.Contains(recorder.Body.String(), `"reason":"client_canceled"`) || !strings.Contains(recorder.Body.String(), `"name":"replay","status":"failed"`) {
+			t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
+		}
+	})
+	t.Run("deadline before replay", func(t *testing.T) {
+		recorder := serveStopped(t, &scriptedDecider{answers: []byte(passingAnswers)}, expiredContext(), "/v1/replays", `{}`)
+		if recorder.Code != http.StatusGatewayTimeout || !strings.Contains(recorder.Body.String(), `"reason":"deadline_exceeded"`) || !strings.Contains(recorder.Body.String(), `"name":"replay","status":"failed"`) {
+			t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
+		}
+	})
+}
+
+func serveStopped(t *testing.T, decider Decider, ctx context.Context, path, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	handler, err := NewHandler(Config{
+		BearerTokens:   map[string][]string{"test-token": {"project-test"}},
+		RequestTimeout: time.Second,
+		MaxBodyBytes:   defaultMaxBodyBytes,
+		MaxInFlight:    1,
+		Decider:        decider,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+	request = request.WithContext(ctx)
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	return recorder
+}
+
+func canceledContext() context.Context {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	return ctx
+}
+
+func expiredContext() context.Context {
+	ctx, cancel := context.WithDeadline(context.Background(), time.Unix(0, 0))
+	cancel()
+	return ctx
+}
+
+type cancelDuringDecide struct{ cancel context.CancelFunc }
+
+func (cancelDuringDecide) AdapterID() string      { return "direct-systemone" }
+func (cancelDuringDecide) AdapterVersion() string { return "0.1.0" }
+
+func (decider cancelDuringDecide) Evaluate(ctx context.Context, _ any, _ map[string]any) (Decision, error) {
+	decider.cancel()
+	<-ctx.Done()
+	return Decision{}, ctx.Err()
+}
+
+type finishAfterDeadline struct{}
+
+func (finishAfterDeadline) AdapterID() string      { return "direct-systemone" }
+func (finishAfterDeadline) AdapterVersion() string { return "0.1.0" }
+
+func (finishAfterDeadline) Evaluate(ctx context.Context, _ any, _ map[string]any) (Decision, error) {
+	<-ctx.Done()
+	return Decision{ResolvedModel: "fixture-v1", Answers: []byte(passingAnswers)}, nil
+}
+
 type cancelDecider struct{}
 
 func (cancelDecider) AdapterID() string      { return "direct-systemone" }

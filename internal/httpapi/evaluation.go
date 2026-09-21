@@ -131,6 +131,9 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 	}
 	pack, err := evidence.BuildPack(request.Context(), body.ProjectID, sources, packRequest)
 	if err != nil {
+		if writeRequestStop(w, err, trace("receive", "completed", "pack", "failed")) {
+			return
+		}
 		tracedProblem(w, http.StatusUnprocessableEntity, "pack_error", "Context could not freeze the supplied sources", trace("receive", "completed", "pack", "failed"))
 		return
 	}
@@ -140,6 +143,9 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		return
 	}
 	if len(items) == 0 {
+		if writeRequestStop(w, request.Context().Err(), trace("receive", "completed", "pack", "completed", "decide", "failed")) {
+			return
+		}
 		writeEvaluation(w, evaluationResponse{
 			ProtocolVersion: "0.1-draft",
 			Verdict:         string(verify.VerdictInsufficient),
@@ -150,14 +156,9 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 			ContextRuntime:  pack.Snapshot.RuntimeVersion,
 			ReplayAvailable: false,
 			Stage:           "retrieval",
-			Trace: []traceStage{
-				{Name: "receive", Status: "completed"},
-				{Name: "pack", Status: "completed"},
-				{Name: "decide", Status: "skipped"},
-				{Name: "verify", Status: "completed"},
-			},
-			Policy:    policyDisclosure(),
-			Retention: retentionDisclosure(),
+			Trace:           trace("receive", "completed", "pack", "completed", "decide", "skipped", "verify", "completed"),
+			Policy:          policyDisclosure(),
+			Retention:       retentionDisclosure(),
 		}, maxBodyBytes)
 		return
 	}
@@ -174,15 +175,20 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		tracedProblem(w, http.StatusUnprocessableEntity, "response_budget", "the frozen pack does not fit the response budget", trace("receive", "completed", "pack", "completed", "decide", "skipped"))
 		return
 	}
+	if writeRequestStop(w, request.Context().Err(), trace("receive", "completed", "pack", "completed", "decide", "failed")) {
+		return
+	}
 	decision, err := decider.Evaluate(request.Context(), map[string]any{
 		"claim": body.Query, "evidence": items,
 	}, profile.ProviderQuestions())
 	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			tracedProblem(w, http.StatusGatewayTimeout, "deadline_exceeded", "the decision adapter did not finish before the deadline", trace("receive", "completed", "pack", "completed", "decide", "failed"))
+		if writeRequestStop(w, err, trace("receive", "completed", "pack", "completed", "decide", "failed")) {
 			return
 		}
 		tracedProblem(w, http.StatusBadGateway, "decision_error", "the decision adapter failed", trace("receive", "completed", "pack", "completed", "decide", "failed"))
+		return
+	}
+	if writeRequestStop(w, request.Context().Err(), trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed")) {
 		return
 	}
 	bundle, err := wire.BuildBundle(wire.BundleInput{
@@ -275,11 +281,37 @@ func trace(pairs ...string) []traceStage {
 }
 
 func replayTrace() []traceStage {
-	event := lifecycle.Event{Name: "replay", Status: "completed"}
+	return replayTraceStatus("completed")
+}
+
+func replayTraceStatus(status string) []traceStage {
+	event := lifecycle.Event{Name: "replay", Status: status}
 	if err := lifecycle.Run(lifecycle.Replay, []lifecycle.Event{event}); err != nil {
 		panic(err)
 	}
 	return []traceStage{{Name: event.Name, Status: event.Status}}
+}
+
+const statusClientClosedRequest = 499
+
+func writeRequestStop(w http.ResponseWriter, err error, stages []traceStage) bool {
+	status, reason, detail, stopped := requestStopped(err)
+	if !stopped {
+		return false
+	}
+	tracedProblem(w, status, reason, detail, stages)
+	return true
+}
+
+func requestStopped(err error) (int, string, string, bool) {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return http.StatusGatewayTimeout, "deadline_exceeded", "the request deadline elapsed before the stage finished", true
+	case errors.Is(err, context.Canceled):
+		return statusClientClosedRequest, "client_canceled", "the client disconnected before the stage finished", true
+	default:
+		return 0, "", "", false
+	}
 }
 
 func writeEvaluation(w http.ResponseWriter, body evaluationResponse, maxBodyBytes int64) {
