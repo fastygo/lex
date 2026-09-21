@@ -24,10 +24,11 @@ not protocol identities.
 
 ## Status
 
-LeX is a **v0.1 working draft and implementation plan**. No released protocol,
-conformance claim, achieved SLO, or production deployment is claimed.
+LeX is a **v0.1 working draft**. The service implements synchronous evaluation
+and caller-owned replay. No released protocol, conformance certification,
+achieved SLO, or production deployment is claimed.
 
-The fixed first implementation profile is:
+The running profile is:
 
 - Go REST service using Framework and
   [`github.com/fastygo/context@v0.1.0`](.project/.plan/context-version.md);
@@ -40,14 +41,20 @@ The fixed first implementation profile is:
   side-effect execution;
 - no TypeScript SDK or JavaScript application runtime in v0.1.
 
-Context v0.1.0 and Framework v0.3.0 are pinned. The local service freezes a
-Context pack, requests one embedded question set through a direct or hosted
-System One adapter, applies an uncalibrated policy, and returns a verdict plus
-a caller-owned replay bundle. Replay reproduces that verdict without contacting
-a retrieval service or a provider. It recomputes the Context pack from the
-frozen snapshot already in the bundle and does not replace the saved pack. A draft OpenAPI document and local adversarial tests exist.
-Calibration, a 28-day SLO, race evidence on a supported runner, and proof of
-the latest deployment revision remain open. No conformance certification is claimed.
+Context v0.1.0 and Framework v0.3.0 are pinned. The service freezes a Context
+pack with embedded `memory-exact-v1`, asks the embedded `claim-validation`
+`0.2.0` question set through a direct or hosted System One adapter, applies
+the uncalibrated `0.2.0` policy, and returns a verdict plus a caller-owned
+replay bundle. Replay reproduces that verdict without contacting a retrieval
+service or a provider. It recomputes the Context pack from the frozen snapshot
+already in the bundle and does not replace the saved pack. The wire envelope
+remains `0.1-draft`. Bundles pinned to the `0.1` profile are rejected by this
+verifier.
+
+A draft OpenAPI document and local adversarial tests exist. Calibration, a
+28-day SLO, race evidence on a supported runner, hosted-adapter proof on a
+deployment, and proof of the latest deployment revision remain open. No
+conformance certification is claimed.
 
 ## Architecture
 
@@ -96,25 +103,22 @@ validated | rejected | insufficient | conflict | manual_review | error
 
 The reference decision contract uses:
 
-- independent **Noul** questions for support, establishment, conflict, and
-  safety predicates;
+- independent **Noul** questions for support, establishment, refutation,
+  conflict, and safety predicates;
 - one **Choice** for a mutually exclusive operational recommendation;
 - **Score** only for a genuinely ordered rubric.
 
-```text
-support Noul x N
-established/conflict Noul
-safe_to_auto_act Noul
-one action Choice
-optional ordered Score
-```
+The embedded `0.2.0` profile asks `support`, `established`, `refuted`,
+`conflict`, `safe_to_auto_act`, and one action Choice. `refuted` means the
+evidence establishes that the claim is false. Coherent refutation is not
+conflict. Score is a conforming adapter type and is not asked by this profile.
 
 A decision is never evidence for its own verdict, and confidence never grants
 authority.
 
-## Planned REST profile
+## HTTP profile
 
-The current plan proposes:
+The handler serves:
 
 ```text
 POST /v1/evaluations
@@ -125,23 +129,21 @@ GET  /healthz
 
 The wire profile uses JSON Schema 2020-12, RFC 8785 JCS with SHA-256 for LeX
 canonical hashes, and RFC 9457 Problem Details. A draft OpenAPI 3.1.1 document
-is at `internal/wire/schema/openapi.json`. The handler enforces that evaluation
+is at `internal/wire/schema/openapi.json`. The handler enforces the evaluation
 schema. `GET /v1/capabilities` reports exact-phrase retrieval, the uncalibrated
-policy, and the configured body, deadline, focus, and per-process admission
-limits. Routes are not a released protocol until the ADRs are accepted.
+`claim-validation` `0.2.0` policy, and the configured body, deadline, focus,
+and per-process admission limits. Research maps under `.project/.jev/examples/`
+are not evaluation requests. These routes are the working draft surface. They
+are not a released protocol while the ADRs remain proposed.
 
 ## Delivery path
 
-1. **P0 — feasibility:** pin Framework, compose the Go handler with Context,
-   and prove the Vercel deployment profile.
-2. **P1 — wire and replay:** schemas, OpenAPI, hash vectors, verdict precedence,
-   verifier, and network-free replay.
-3. **P2 — evidence and decisions:** real Context packs, two decision-adapter
-   paths, adversarial cases, and calibration evidence.
-4. **P3 — operational proof:** security, isolation, concurrency, resource
-   budgets, deployment probes, SLO measurements, and conformance report.
-
-See the complete [delivery and proof sequence](.project/.plan/delivery.md).
+The local service implements the evaluation and replay path: an embedded
+Context pack, direct and hosted adapter fixtures, schemas, hashes, the
+verifier, and network-free replay. Calibration evidence, hosted-adapter proof
+on a deployment, race evidence, SLO measurements, and a conformance
+certification remain open. The delivery sequence still records those proof
+gates in [delivery and proof](.project/.plan/delivery.md).
 
 ## Documentation
 
@@ -182,19 +184,47 @@ go test ./... -count=1
 go vet ./...
 ```
 
-The protocol schemas, OpenAPI description, and conformance suite remain work in progress.
+The working-draft schemas, OpenAPI document, and local conformance tests are
+enforced by `go test ./...`. They are not a conformance certification.
 
 ## Local API
 
 The local handler exposes `GET /healthz`, authenticated `GET /v1/capabilities`,
 `POST /v1/evaluations`, and `POST /v1/replays`. Evaluation accepts a project,
 an entity of type `claim` with schema `0.1`, an exact-phrase query, and
-versioned source texts. The server assigns source trust and evidence class,
-freezes the pack, and applies the embedded `claim-validation` policy. That
-policy is explicitly uncalibrated. An empty exact retrieval returns
-`insufficient`, does not call a provider, and still returns a replay bundle. A technical `error` verdict is
-HTTP 422 and still returns the sealed replay bundle. Replay accepts that
-bundle only when its entity project is one of the token's projects.
+versioned source texts. The caller does not send the question set. The server
+assigns source trust and evidence class, freezes the pack, and applies the
+embedded `claim-validation` `0.2.0` policy. That policy is explicitly
+uncalibrated.
+
+```json
+{
+  "project_id": "example-project",
+  "entity": {
+    "id": "claim-1",
+    "type": "claim",
+    "schema_version": "0.1",
+    "version": "1"
+  },
+  "query": "account is locked",
+  "sources": [
+    {"id": "source-1", "version": "v1", "text": "The account is locked."}
+  ]
+}
+```
+
+The exact phrase in `query` must occur in a source text or the selection is
+empty. The 18 scenario bodies derived from `.project/.jev/examples/` are in
+[`.project/.jev/test-vercel/requests/`](.project/.jev/test-vercel/requests/).
+The JSON maps next to those research notes are Jev question and response
+captures. Posting one of them to `/v1/evaluations` is rejected. Replay posts
+the returned `replay_bundle` to `POST /v1/replays`.
+
+An empty exact retrieval returns
+`insufficient`, does not call a provider, and still returns a replay bundle.
+A technical `error` verdict is HTTP 422 and still returns the sealed replay
+bundle. Replay accepts that bundle only when its entity project is one of the
+token's projects.
 
 Configure bearer tokens outside version control. Set one decision credential,
 or set `LEX_DECISION_ADAPTER` to `direct` or `hosted` when both are present:
@@ -205,10 +235,9 @@ export LEX_TYPESAFE_API_KEY='replace-with-secret'
 go run ./cmd/api
 ```
 
-The embedded QuestionSet, policy, and verifier are now version `0.2.0`.
-The wire envelope remains `0.1-draft`. The profile adds `refuted` and distinguishes
-coherent refutation from conflicting evidence. Bundles pinned to the old profile
-are rejected by this verifier; retain the previous verifier for historical replay.
+The embedded QuestionSet, policy, and verifier are version `0.2.0`.
+The wire envelope remains `0.1-draft`. Bundles pinned to the `0.1` profile are
+rejected by this verifier; retain the previous verifier for historical replay.
 
 The hosted adapter additionally requires `LEX_HOSTED_RESOLVED_MODEL`: the exact
 immutable identity confirmed by the provider for your deployment. The response

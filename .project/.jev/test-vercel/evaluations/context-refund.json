@@ -1,78 +1,75 @@
 {
   "protocol_version": "0.1-draft",
-  "verdict": "conflict",
+  "verdict": "insufficient",
   "findings": [
     {
-      "code": "evidence_conflict",
-      "verdict": "conflict",
-      "detail": "admissible evidence supports an incompatible conclusion"
-    },
-    {
       "code": "support_below_threshold",
-      "verdict": "insufficient",
-      "detail": "support is below the policy threshold"
+      "verdict": "insufficient"
     },
     {
       "code": "establishment_below_threshold",
-      "verdict": "insufficient",
-      "detail": "establishment is below the policy threshold"
+      "verdict": "insufficient"
+    },
+    {
+      "code": "action_inconsistent",
+      "verdict": "manual_review"
     }
   ],
   "context_runtime": "memory-exact-v1",
   "resolved_model": "jev-1.13.0",
   "replay_available": true,
-  "stage": null,
-  "trace": [
-    {
-      "name": "receive",
-      "status": "completed"
-    },
-    {
-      "name": "pack",
-      "status": "completed"
-    },
-    {
-      "name": "decide",
-      "status": "completed"
-    },
-    {
-      "name": "verify",
-      "status": "completed"
-    }
-  ],
   "policy": {
     "id": "claim-validation",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "calibration": "uncalibrated"
   },
-  "reason": null,
-  "detail": null,
   "adapter_id": "direct-systemone",
+  "adapter_version": "0.1.0",
+  "question_set": {
+    "id": "claim-validation",
+    "version": "0.2.0"
+  },
   "answers": {
     "action": {
-      "type": "choice",
       "choice": "reject",
-      "confidence": 0.96
+      "confidence": 0.81,
+      "probabilities": {
+        "manual_review": 0.13,
+        "other": 0.01,
+        "proceed": 0,
+        "reject": 0.86
+      },
+      "type": "choice"
     },
     "conflict": {
-      "type": "noul",
-      "noul": 0.92
+      "noul": 0.23,
+      "type": "noul"
     },
     "established": {
-      "type": "noul",
-      "noul": 0.06
+      "noul": 0.04,
+      "type": "noul"
+    },
+    "refuted": {
+      "noul": 0.47,
+      "type": "noul"
     },
     "safe_to_auto_act": {
-      "type": "noul",
-      "noul": 0.25
+      "noul": 0.13,
+      "type": "noul"
     },
     "support": {
-      "type": "noul",
-      "noul": 0.05
+      "noul": 0.32,
+      "type": "noul"
     }
   },
+  "query": "refund",
   "evidence_count": 1,
   "evidence_sources": [
     "context-scenario"
-  ]
+  ],
+  "http_status": 200,
+  "replay_http_status": 200,
+  "replay_status": "verdict_reproduced",
+  "replay_verdict": "insufficient",
+  "id": "context-refund"
 }

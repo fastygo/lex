@@ -28,16 +28,28 @@ LeX must not treat the model’s answer as the source of truth. Its job is to sp
 
 ## Current status
 
+The files under `examples/` are the original Jev question maps and captured
+responses. They are not `POST /v1/evaluations` bodies. The same scenarios as
+LeX evaluation requests are in
+[`test-vercel/requests/`](test-vercel/requests/). Each body is a project,
+a `claim` entity of schema `0.1`, an exact-phrase query, and versioned source
+text. The service asks the embedded `claim-validation` `0.2.0` profile:
+`support`, `established`, `refuted`, `conflict`, `safe_to_auto_act`, and one
+action Choice.
+
 Research supports the viability of the contract:
 
 ```text
 Entity
-  → ValidationIntent + Policy
-  → Context Runtime / ContextPack
-  → Jev typed questions
-  → support + uncertainty + action signals
-  → deterministic verification
-  → LeX Verdict + replayable trace
+  -> ValidationIntent + Policy
+  -> embedded Context Runtime / ContextPack
+  -> frozen QuestionSet
+  -> typed Noul / Choice answers
+  -> deterministic verification
+  -> LeX Verdict + caller-owned replay bundle
 ```
 
-This is observation of decision-model behavior on manually prepared states, not confirmation of a complete LeX implementation. The next level of proof is to obtain the same `ContextPack` through the real Context Runtime API and measure quality on a labeled corpus.
+These notes record decision-model behavior on manually prepared states. They
+are not a calibration corpus or a conformance certification. The captured
+verdicts under `test-vercel/evaluations/` are the `2026-09-21T22:14:57Z`
+sample of profile `0.2.0`.

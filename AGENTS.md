@@ -3,9 +3,10 @@
 LeX is subject-neutral operational infrastructure for turning evidence and
 uncertain judgments into governed, inspectable, reproducible outcomes.
 
-The protocol is one part of LeX. The complete system includes schemas, evidence
+The protocol is one part of LeX. The concept includes schemas, evidence
 contracts, semantic profiles, typed judgments, policy, deterministic
-verification, controlled execution, traces, receipts, and conformance.
+verification, traces, and conformance. The current slice validates and
+replays. Controlled execution and operation receipts are deferred.
 
 ## Central principle
 
@@ -22,11 +23,12 @@ execution != verified success
 ## Canonical architecture
 
 ```text
-Context Runtime     evidence plane
-Typed decision      judgment plane
-LeX verifier        policy binding + deterministic gates
-Executor            authorized operation only
-Trace/receipt       replay + proof of postconditions
+Context Runtime     evidence plane                 current
+Typed decision      judgment plane                 current
+LeX verifier        policy binding + gates         current
+Trace + replay      caller-owned bundle            current
+Executor            authorized operation           deferred
+Receipt             postcondition proof            deferred
 ```
 
 Current reference decision model: **Jev**. Current access paths include the
@@ -94,8 +96,8 @@ validated | rejected | insufficient | conflict | manual_review | error
 
 ## Question design
 
-- Use independent **Noul** questions for support, establishment, conflict, and
-  safety predicates. Their probabilities do not need to sum to one.
+- Use independent **Noul** questions for support, establishment, refutation,
+  conflict, and safety predicates. Their probabilities do not need to sum to one.
 - Use one **Choice** for a mutually exclusive operational action.
 - Use **Score** only for a genuinely ordered rubric.
 - Keep one atomic claim per question.
@@ -115,6 +117,12 @@ one action Choice
 optional ordered Score
 ```
 
+The embedded `claim-validation` profile `0.2.0` asks `support`, `established`,
+`refuted`, `conflict`, `safe_to_auto_act`, and one action Choice. `refuted`
+means the evidence establishes that the claim is false. Coherent refutation is
+not conflict. Score remains a conforming adapter type and is not part of this
+profile. The policy is explicitly `uncalibrated`.
+
 ## VSA and functional contracts
 
 Build LeX behavior as vertical slices. Each slice owns one transaction boundary
@@ -127,7 +135,9 @@ Use ICOM to describe the functional contract:
 - **Mechanism**: Context Runtime, Jev adapter, tools, verifier.
 - **Output**: verdict, authorized mutation, report, trace, or receipt.
 
-Mechanisms may choose internal paths, but they cannot weaken Control.
+The current slice returns a verdict, trace, and replay bundle. It does not
+authorize a mutation or emit a receipt. Mechanisms may choose internal paths,
+but they cannot weaken Control.
 
 Enforce three boundary tiers:
 
@@ -159,60 +169,71 @@ Provider-specific response additions remain trace metadata. They must not alter
 verdict rules. If a provider cannot preserve Noul/Choice/Score semantics, it is
 not a conforming typed-decision adapter.
 
-## Implementation priorities
+## Current slice
 
 Keep LeX thin. Context Runtime owns retrieval and ContextPack construction.
-Decision adapters own provider transport. LeX owns:
+The service uses the embedded `memory-exact-v1` runtime. It does not call the
+Context HTTP API and it does not contain a second retrieval engine. Decision
+adapters own provider transport. LeX owns:
 
 - protocol schemas and hashes;
-- semantic profiles and QuestionSets;
+- the embedded `claim-validation` `0.2.0` profile and QuestionSet;
 - preflight checks;
-- deterministic verifier and policy gates;
-- verdict state machine;
-- EvaluationTrace and Receipt;
-- conformance fixtures.
+- the deterministic verifier and policy gates;
+- the verdict state machine;
+- EvaluationTrace and the caller-owned replay bundle.
 
-Recommended v0.1 slice:
+The implemented path is:
 
 ```text
 ValidationIntent
-  -> FocusProfile
-  -> real ContextPack through Context API
-  -> QuestionSet
+  -> embedded FocusProfile
+  -> frozen ContextPack from memory-exact-v1
+  -> embedded QuestionSet 0.2.0
   -> provider-neutral DecisionSet
   -> verifier
-  -> Verdict + trace
+  -> Verdict + trace + replay bundle
 ```
 
+The HTTP surface is `GET /healthz`, `GET /v1/capabilities`,
+`POST /v1/evaluations`, and `POST /v1/replays`. Non-error verdicts are HTTP 200.
+A technical `error` verdict is HTTP 422 and still returns the sealed bundle.
+An empty exact selection is HTTP 200 `insufficient`, does not call a provider,
+and still returns a replay bundle. Replay refuses a bundle whose entity project
+is outside the authenticated principal's projects. The wire envelope is
+`0.1-draft`. Bundles pinned to the `0.1` profile are rejected by this verifier.
+
 Do not add a universal ontology, automatic question generation, a new retrieval
-engine, or provider orchestration before this slice is proven.
+engine, provider orchestration, server-side history, or an executor inside this
+slice.
 
 ## Testing and proof
 
-Hand-authored `.project/.jev/examples/` prove contract shape only. They do not
-prove retrieval quality, calibration, or production safety.
+`.project/.jev/examples/` holds research question and response maps. They are
+not evaluation requests and do not prove retrieval quality, calibration, or
+production safety. Protocol requests for those scenarios live in
+`.project/.jev/test-vercel/requests/` and go through `POST /v1/evaluations`.
 
-Required progression:
+Local tests already cover a real embedded ContextPack, versioned schemas and
+canonical hashes, raw answers retained only in the response bundle, the
+verifier, golden and invalid fixtures, adversarial evidence and provider
+failures, network-free replay, and direct plus hosted adapter fixtures.
 
-1. Real ContextPack from Context Runtime HTTP API or `contextkit`.
-2. Versioned JSON schemas and canonical hashes.
-3. Raw DecisionSet persistence.
-4. Deterministic verifier reference implementation.
-5. Golden and invalid protocol fixtures.
-6. Adversarial cases: inference-only evidence, conflicts, missing evidence,
-   overlapping criteria, compound questions, and provider failures.
-7. Calibration report per entity type, model version, provider path, and policy.
-8. Replay with pinned inputs and resolved versions.
-9. Interoperability test across at least two decision-provider adapters.
+Still open: a calibration report, race evidence on a gcc-capable runner, a
+28-day SLO, hosted-adapter proof on a deployment, and proof of the latest
+deployment revision. No conformance certification is claimed.
 
-Classify failures by stage:
+Classify failures by stage. The HTTP mapping is in `.project/.lex/checks.md`:
 
 ```text
 retrieval_error | pack_error | question_error | decision_error
 policy_error | verification_error | execution_error
 ```
 
-Do not explain every pipeline failure as "the model was wrong."
+A policy denial is a finding, not `policy_error`. A retryable provider failure
+is `provider_unavailable` and is not retried. This slice has no execution
+route, so it does not emit `execution_error`. Do not explain every pipeline
+failure as "the model was wrong."
 
 ## Repository rules
 

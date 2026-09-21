@@ -1,78 +1,75 @@
 {
   "protocol_version": "0.1-draft",
-  "verdict": "insufficient",
+  "verdict": "conflict",
   "findings": [
     {
-      "code": "support_below_threshold",
-      "verdict": "insufficient",
-      "detail": "support is below the policy threshold"
+      "code": "evidence_conflict",
+      "verdict": "conflict"
     },
     {
       "code": "establishment_below_threshold",
-      "verdict": "insufficient",
-      "detail": "establishment is below the policy threshold"
+      "verdict": "insufficient"
     },
     {
       "code": "review_required",
-      "verdict": "manual_review",
-      "detail": "the action choice requires review"
+      "verdict": "manual_review"
     }
   ],
   "context_runtime": "memory-exact-v1",
   "resolved_model": "jev-1.13.0",
   "replay_available": true,
-  "stage": null,
-  "trace": [
-    {
-      "name": "receive",
-      "status": "completed"
-    },
-    {
-      "name": "pack",
-      "status": "completed"
-    },
-    {
-      "name": "decide",
-      "status": "completed"
-    },
-    {
-      "name": "verify",
-      "status": "completed"
-    }
-  ],
   "policy": {
     "id": "claim-validation",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "calibration": "uncalibrated"
   },
-  "reason": null,
-  "detail": null,
   "adapter_id": "direct-systemone",
+  "adapter_version": "0.1.0",
+  "question_set": {
+    "id": "claim-validation",
+    "version": "0.2.0"
+  },
   "answers": {
     "action": {
-      "type": "choice",
       "choice": "manual_review",
-      "confidence": 0.99
+      "confidence": 0.99,
+      "probabilities": {
+        "manual_review": 1,
+        "other": 0,
+        "proceed": 0,
+        "reject": 0
+      },
+      "type": "choice"
     },
     "conflict": {
-      "type": "noul",
-      "noul": 0.34
+      "noul": 0.69,
+      "type": "noul"
     },
     "established": {
-      "type": "noul",
-      "noul": 0.44
+      "noul": 0.42,
+      "type": "noul"
+    },
+    "refuted": {
+      "noul": 0.06,
+      "type": "noul"
     },
     "safe_to_auto_act": {
-      "type": "noul",
-      "noul": 0.09
+      "noul": 0.1,
+      "type": "noul"
     },
     "support": {
-      "type": "noul",
-      "noul": 0.66
+      "noul": 0.91,
+      "type": "noul"
     }
   },
+  "query": "duplicate charge",
   "evidence_count": 1,
   "evidence_sources": [
     "cases-context-conflicted"
-  ]
+  ],
+  "http_status": 200,
+  "replay_http_status": 200,
+  "replay_status": "verdict_reproduced",
+  "replay_verdict": "conflict",
+  "id": "chaos-conflicted-duplicate-charge"
 }

@@ -1,78 +1,67 @@
 {
   "protocol_version": "0.1-draft",
-  "verdict": "insufficient",
+  "verdict": "manual_review",
   "findings": [
     {
-      "code": "establishment_below_threshold",
-      "verdict": "insufficient",
-      "detail": "establishment is below the policy threshold"
-    },
-    {
       "code": "safety_gate",
-      "verdict": "manual_review",
-      "detail": "semantic safety is below the policy threshold"
-    },
-    {
-      "code": "action_inconsistent",
-      "verdict": "manual_review",
-      "detail": "the proceed choice disagrees with the predicate signals"
+      "verdict": "manual_review"
     }
   ],
   "context_runtime": "memory-exact-v1",
   "resolved_model": "jev-1.13.0",
   "replay_available": true,
-  "stage": null,
-  "trace": [
-    {
-      "name": "receive",
-      "status": "completed"
-    },
-    {
-      "name": "pack",
-      "status": "completed"
-    },
-    {
-      "name": "decide",
-      "status": "completed"
-    },
-    {
-      "name": "verify",
-      "status": "completed"
-    }
-  ],
   "policy": {
     "id": "claim-validation",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "calibration": "uncalibrated"
   },
-  "reason": null,
-  "detail": null,
   "adapter_id": "direct-systemone",
+  "adapter_version": "0.1.0",
+  "question_set": {
+    "id": "claim-validation",
+    "version": "0.2.0"
+  },
   "answers": {
     "action": {
-      "type": "choice",
       "choice": "proceed",
-      "confidence": 0.35
+      "confidence": 0.42,
+      "probabilities": {
+        "manual_review": 0.42,
+        "other": 0.01,
+        "proceed": 0.57,
+        "reject": 0
+      },
+      "type": "choice"
     },
     "conflict": {
-      "type": "noul",
-      "noul": 0.07
+      "noul": 0.04,
+      "type": "noul"
     },
     "established": {
-      "type": "noul",
-      "noul": 0.77
+      "noul": 0.9,
+      "type": "noul"
+    },
+    "refuted": {
+      "noul": 0.03,
+      "type": "noul"
     },
     "safe_to_auto_act": {
-      "type": "noul",
-      "noul": 0.39
+      "noul": 0.67,
+      "type": "noul"
     },
     "support": {
-      "type": "noul",
-      "noul": 0.93
+      "noul": 0.98,
+      "type": "noul"
     }
   },
+  "query": "cannot sign in",
   "evidence_count": 1,
   "evidence_sources": [
     "cases-raw"
-  ]
+  ],
+  "http_status": 200,
+  "replay_http_status": 200,
+  "replay_status": "verdict_reproduced",
+  "replay_verdict": "manual_review",
+  "id": "chaos-raw-sign-in"
 }

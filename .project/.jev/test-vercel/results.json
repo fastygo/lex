@@ -1,1238 +1,356 @@
 {
   "origin": "https://lexproto.vercel.app",
-  "ran_at": "2026-09-21T19:40:45.472574Z",
+  "ran_at": "2026-09-21T22:14:57.032Z",
   "protocol": "LeX EvaluationRequest -> POST /v1/evaluations",
-  "direct_typesafe": false,
-  "note": "No credentials are recorded. Requests are EvaluationRequest objects only. The deployment adapter calls Jev.",
+  "policy": {
+    "id": "claim-validation",
+    "version": "0.2.0",
+    "calibration": "uncalibrated"
+  },
+  "question_set": {
+    "id": "claim-validation",
+    "version": "0.2.0"
+  },
+  "resolved_model": "jev-1.13.0",
+  "adapter_id": "direct-systemone",
+  "raw_questions_status": 400,
+  "raw_questions_reason": "invalid_json",
   "results": [
     {
-      "id": "playground-structured-decisions",
-      "kind": "lex_evaluation",
-      "example": "playground",
-      "method": "POST",
-      "path": "/v1/evaluations",
-      "query": "structured decisions",
-      "source_ids": [
-        "typesafe-jev"
-      ],
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 1334.0,
-      "verdict": "insufficient",
-      "resolved_model": "jev-1.13.0",
-      "adapter_id": "direct-systemone",
-      "answers": {
-        "action": {
-          "type": "choice",
-          "choice": "proceed",
-          "confidence": 0.47
-        },
-        "conflict": {
-          "type": "noul",
-          "noul": 0.11
-        },
-        "established": {
-          "type": "noul",
-          "noul": 0.62
-        },
-        "safe_to_auto_act": {
-          "type": "noul",
-          "noul": 0.54
-        },
-        "support": {
-          "type": "noul",
-          "noul": 0.8
-        }
-      },
-      "findings": [
-        {
-          "code": "establishment_below_threshold",
-          "verdict": "insufficient",
-          "detail": "establishment is below the policy threshold"
-        },
-        {
-          "code": "safety_gate",
-          "verdict": "manual_review",
-          "detail": "semantic safety is below the policy threshold"
-        },
-        {
-          "code": "action_inconsistent",
-          "verdict": "manual_review",
-          "detail": "the proceed choice disagrees with the predicate signals"
-        }
-      ],
-      "evidence_count": 1,
-      "evidence_sources": [
-        "typesafe-jev"
-      ],
-      "replay_available": true
-    },
-    {
-      "id": "playground-structured-decisions:replay",
-      "kind": "lex_replay",
-      "method": "POST",
-      "path": "/v1/replays",
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 807.2,
-      "verdict": "insufficient",
-      "reproduced": true
-    },
-    {
-      "id": "playground-cannot-generate-strings",
-      "kind": "lex_evaluation",
-      "example": "playground",
-      "method": "POST",
-      "path": "/v1/evaluations",
-      "query": "cannot generate string responses",
-      "source_ids": [
-        "typesafe-jev"
-      ],
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 960.4,
-      "verdict": "manual_review",
-      "resolved_model": "jev-1.13.0",
-      "adapter_id": "direct-systemone",
-      "answers": {
-        "action": {
-          "type": "choice",
-          "choice": "proceed",
-          "confidence": 0.95
-        },
-        "conflict": {
-          "type": "noul",
-          "noul": 0.05
-        },
-        "established": {
-          "type": "noul",
-          "noul": 0.92
-        },
-        "safe_to_auto_act": {
-          "type": "noul",
-          "noul": 0.58
-        },
-        "support": {
-          "type": "noul",
-          "noul": 0.97
-        }
-      },
-      "findings": [
-        {
-          "code": "safety_gate",
-          "verdict": "manual_review",
-          "detail": "semantic safety is below the policy threshold"
-        }
-      ],
-      "evidence_count": 1,
-      "evidence_sources": [
-        "typesafe-jev"
-      ],
-      "replay_available": true
-    },
-    {
-      "id": "playground-cannot-generate-strings:replay",
-      "kind": "lex_replay",
-      "method": "POST",
-      "path": "/v1/replays",
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 756.3,
-      "verdict": "manual_review",
-      "reproduced": true
-    },
-    {
-      "id": "playground-parallel-questions",
-      "kind": "lex_evaluation",
-      "example": "playground",
-      "method": "POST",
-      "path": "/v1/evaluations",
-      "query": "evaluated independently and in parallel",
-      "source_ids": [
-        "typesafe-jev"
-      ],
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 982.5,
-      "verdict": "manual_review",
-      "resolved_model": "jev-1.13.0",
-      "adapter_id": "direct-systemone",
-      "answers": {
-        "action": {
-          "type": "choice",
-          "choice": "proceed",
-          "confidence": 0.99
-        },
-        "conflict": {
-          "type": "noul",
-          "noul": 0.07
-        },
-        "established": {
-          "type": "noul",
-          "noul": 0.91
-        },
-        "safe_to_auto_act": {
-          "type": "noul",
-          "noul": 0.65
-        },
-        "support": {
-          "type": "noul",
-          "noul": 0.97
-        }
-      },
-      "findings": [
-        {
-          "code": "safety_gate",
-          "verdict": "manual_review",
-          "detail": "semantic safety is below the policy threshold"
-        }
-      ],
-      "evidence_count": 1,
-      "evidence_sources": [
-        "typesafe-jev"
-      ],
-      "replay_available": true
-    },
-    {
-      "id": "playground-parallel-questions:replay",
-      "kind": "lex_replay",
-      "method": "POST",
-      "path": "/v1/replays",
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 650.1,
-      "verdict": "manual_review",
-      "reproduced": true
-    },
-    {
-      "id": "playground-noul-no-confidence",
-      "kind": "lex_evaluation",
-      "example": "playground",
-      "method": "POST",
-      "path": "/v1/evaluations",
-      "query": "no separate confidence field",
-      "source_ids": [
-        "typesafe-jev"
-      ],
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 741.5,
-      "verdict": "manual_review",
-      "resolved_model": "jev-1.13.0",
-      "adapter_id": "direct-systemone",
-      "answers": {
-        "action": {
-          "type": "choice",
-          "choice": "proceed",
-          "confidence": 0.78
-        },
-        "conflict": {
-          "type": "noul",
-          "noul": 0.41
-        },
-        "established": {
-          "type": "noul",
-          "noul": 0.85
-        },
-        "safe_to_auto_act": {
-          "type": "noul",
-          "noul": 0.63
-        },
-        "support": {
-          "type": "noul",
-          "noul": 0.89
-        }
-      },
-      "findings": [
-        {
-          "code": "safety_gate",
-          "verdict": "manual_review",
-          "detail": "semantic safety is below the policy threshold"
-        }
-      ],
-      "evidence_count": 1,
-      "evidence_sources": [
-        "typesafe-jev"
-      ],
-      "replay_available": true
-    },
-    {
-      "id": "playground-noul-no-confidence:replay",
-      "kind": "lex_replay",
-      "method": "POST",
-      "path": "/v1/replays",
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 1478.1,
-      "verdict": "manual_review",
-      "reproduced": true
-    },
-    {
-      "id": "llm-next-token",
-      "kind": "lex_evaluation",
-      "example": "llm",
-      "method": "POST",
-      "path": "/v1/evaluations",
-      "query": "next token",
-      "source_ids": [
-        "llm-note"
-      ],
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 732.9,
-      "verdict": "insufficient",
-      "resolved_model": "jev-1.13.0",
-      "adapter_id": "direct-systemone",
-      "answers": {
-        "action": {
-          "type": "choice",
-          "choice": "proceed",
-          "confidence": 0.43
-        },
-        "conflict": {
-          "type": "noul",
-          "noul": 0.09
-        },
-        "established": {
-          "type": "noul",
-          "noul": 0.65
-        },
-        "safe_to_auto_act": {
-          "type": "noul",
-          "noul": 0.64
-        },
-        "support": {
-          "type": "noul",
-          "noul": 0.81
-        }
-      },
-      "findings": [
-        {
-          "code": "establishment_below_threshold",
-          "verdict": "insufficient",
-          "detail": "establishment is below the policy threshold"
-        },
-        {
-          "code": "safety_gate",
-          "verdict": "manual_review",
-          "detail": "semantic safety is below the policy threshold"
-        },
-        {
-          "code": "action_inconsistent",
-          "verdict": "manual_review",
-          "detail": "the proceed choice disagrees with the predicate signals"
-        }
-      ],
-      "evidence_count": 1,
-      "evidence_sources": [
-        "llm-note"
-      ],
-      "replay_available": true
-    },
-    {
-      "id": "llm-next-token:replay",
-      "kind": "lex_replay",
-      "method": "POST",
-      "path": "/v1/replays",
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 618.9,
-      "verdict": "insufficient",
-      "reproduced": true
-    },
-    {
-      "id": "llm-temperature-zero",
-      "kind": "lex_evaluation",
-      "example": "llm",
-      "method": "POST",
-      "path": "/v1/evaluations",
-      "query": "Temperature 0",
-      "source_ids": [
-        "llm-note"
-      ],
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 845.6,
-      "verdict": "insufficient",
-      "resolved_model": "jev-1.13.0",
-      "adapter_id": "direct-systemone",
-      "answers": {
-        "action": {
-          "type": "choice",
-          "choice": "manual_review",
-          "confidence": 0.29
-        },
-        "conflict": {
-          "type": "noul",
-          "noul": 0.29
-        },
-        "established": {
-          "type": "noul",
-          "noul": 0.51
-        },
-        "safe_to_auto_act": {
-          "type": "noul",
-          "noul": 0.54
-        },
-        "support": {
-          "type": "noul",
-          "noul": 0.74
-        }
-      },
-      "findings": [
-        {
-          "code": "establishment_below_threshold",
-          "verdict": "insufficient",
-          "detail": "establishment is below the policy threshold"
-        },
-        {
-          "code": "review_required",
-          "verdict": "manual_review",
-          "detail": "the action choice requires review"
-        }
-      ],
-      "evidence_count": 1,
-      "evidence_sources": [
-        "llm-note"
-      ],
-      "replay_available": true
-    },
-    {
-      "id": "llm-temperature-zero:replay",
-      "kind": "lex_replay",
-      "method": "POST",
-      "path": "/v1/replays",
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 614.2,
-      "verdict": "insufficient",
-      "reproduced": true
-    },
-    {
-      "id": "llm-proposal-not-authority",
-      "kind": "lex_evaluation",
-      "example": "llm",
-      "method": "POST",
-      "path": "/v1/evaluations",
-      "query": "treat the model output as a proposal",
-      "source_ids": [
-        "llm-note"
-      ],
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 739.7,
-      "verdict": "manual_review",
-      "resolved_model": "jev-1.13.0",
-      "adapter_id": "direct-systemone",
-      "answers": {
-        "action": {
-          "type": "choice",
-          "choice": "proceed",
-          "confidence": 0.66
-        },
-        "conflict": {
-          "type": "noul",
-          "noul": 0.05
-        },
-        "established": {
-          "type": "noul",
-          "noul": 0.88
-        },
-        "safe_to_auto_act": {
-          "type": "noul",
-          "noul": 0.42
-        },
-        "support": {
-          "type": "noul",
-          "noul": 0.97
-        }
-      },
-      "findings": [
-        {
-          "code": "safety_gate",
-          "verdict": "manual_review",
-          "detail": "semantic safety is below the policy threshold"
-        }
-      ],
-      "evidence_count": 1,
-      "evidence_sources": [
-        "llm-note"
-      ],
-      "replay_available": true
-    },
-    {
-      "id": "llm-proposal-not-authority:replay",
-      "kind": "lex_replay",
-      "method": "POST",
-      "path": "/v1/replays",
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 707.8,
-      "verdict": "manual_review",
-      "reproduced": true
-    },
-    {
-      "id": "llm-hallucination-structural",
-      "kind": "lex_evaluation",
-      "example": "llm",
-      "method": "POST",
-      "path": "/v1/evaluations",
-      "query": "Hallucination is structural",
-      "source_ids": [
-        "llm-note"
-      ],
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 813.3,
-      "verdict": "insufficient",
-      "resolved_model": "jev-1.13.0",
-      "adapter_id": "direct-systemone",
-      "answers": {
-        "action": {
-          "type": "choice",
-          "choice": "proceed",
-          "confidence": 0.8
-        },
-        "conflict": {
-          "type": "noul",
-          "noul": 0.06
-        },
-        "established": {
-          "type": "noul",
-          "noul": 0.78
-        },
-        "safe_to_auto_act": {
-          "type": "noul",
-          "noul": 0.54
-        },
-        "support": {
-          "type": "noul",
-          "noul": 0.95
-        }
-      },
-      "findings": [
-        {
-          "code": "establishment_below_threshold",
-          "verdict": "insufficient",
-          "detail": "establishment is below the policy threshold"
-        },
-        {
-          "code": "safety_gate",
-          "verdict": "manual_review",
-          "detail": "semantic safety is below the policy threshold"
-        },
-        {
-          "code": "action_inconsistent",
-          "verdict": "manual_review",
-          "detail": "the proceed choice disagrees with the predicate signals"
-        }
-      ],
-      "evidence_count": 1,
-      "evidence_sources": [
-        "llm-note"
-      ],
-      "replay_available": true
-    },
-    {
-      "id": "llm-hallucination-structural:replay",
-      "kind": "lex_replay",
-      "method": "POST",
-      "path": "/v1/replays",
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 598.2,
-      "verdict": "insufficient",
-      "reproduced": true
-    },
-    {
-      "id": "context-restore-access",
-      "kind": "lex_evaluation",
-      "example": "context",
-      "method": "POST",
-      "path": "/v1/evaluations",
-      "query": "restore access",
-      "source_ids": [
-        "context-scenario"
-      ],
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 749.8,
-      "verdict": "manual_review",
-      "resolved_model": "jev-1.13.0",
-      "adapter_id": "direct-systemone",
-      "answers": {
-        "action": {
-          "type": "choice",
-          "choice": "proceed",
-          "confidence": 0.92
-        },
-        "conflict": {
-          "type": "noul",
-          "noul": 0.09
-        },
-        "established": {
-          "type": "noul",
-          "noul": 0.9
-        },
-        "safe_to_auto_act": {
-          "type": "noul",
-          "noul": 0.54
-        },
-        "support": {
-          "type": "noul",
-          "noul": 0.94
-        }
-      },
-      "findings": [
-        {
-          "code": "safety_gate",
-          "verdict": "manual_review",
-          "detail": "semantic safety is below the policy threshold"
-        }
-      ],
-      "evidence_count": 1,
-      "evidence_sources": [
-        "context-scenario"
-      ],
-      "replay_available": true
-    },
-    {
-      "id": "context-restore-access:replay",
-      "kind": "lex_replay",
-      "method": "POST",
-      "path": "/v1/replays",
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 746.0,
-      "verdict": "manual_review",
-      "reproduced": true
-    },
-    {
-      "id": "context-refund",
-      "kind": "lex_evaluation",
-      "example": "context",
-      "method": "POST",
-      "path": "/v1/evaluations",
-      "query": "refund",
-      "source_ids": [
-        "context-scenario"
-      ],
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 804.4,
-      "verdict": "conflict",
-      "resolved_model": "jev-1.13.0",
-      "adapter_id": "direct-systemone",
-      "answers": {
-        "action": {
-          "type": "choice",
-          "choice": "reject",
-          "confidence": 0.96
-        },
-        "conflict": {
-          "type": "noul",
-          "noul": 0.92
-        },
-        "established": {
-          "type": "noul",
-          "noul": 0.06
-        },
-        "safe_to_auto_act": {
-          "type": "noul",
-          "noul": 0.25
-        },
-        "support": {
-          "type": "noul",
-          "noul": 0.05
-        }
-      },
-      "findings": [
-        {
-          "code": "evidence_conflict",
-          "verdict": "conflict",
-          "detail": "admissible evidence supports an incompatible conclusion"
-        },
-        {
-          "code": "support_below_threshold",
-          "verdict": "insufficient",
-          "detail": "support is below the policy threshold"
-        },
-        {
-          "code": "establishment_below_threshold",
-          "verdict": "insufficient",
-          "detail": "establishment is below the policy threshold"
-        }
-      ],
-      "evidence_count": 1,
-      "evidence_sources": [
-        "context-scenario"
-      ],
-      "replay_available": true
-    },
-    {
-      "id": "context-refund:replay",
-      "kind": "lex_replay",
-      "method": "POST",
-      "path": "/v1/replays",
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 607.2,
-      "verdict": "conflict",
-      "reproduced": true
-    },
-    {
-      "id": "context-account-access",
-      "kind": "lex_evaluation",
-      "example": "context",
-      "method": "POST",
-      "path": "/v1/evaluations",
-      "query": "account access",
-      "source_ids": [
-        "context-scenario"
-      ],
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 893.6,
-      "verdict": "manual_review",
-      "resolved_model": "jev-1.13.0",
-      "adapter_id": "direct-systemone",
-      "answers": {
-        "action": {
-          "type": "choice",
-          "choice": "proceed",
-          "confidence": 0.92
-        },
-        "conflict": {
-          "type": "noul",
-          "noul": 0.08
-        },
-        "established": {
-          "type": "noul",
-          "noul": 0.93
-        },
-        "safe_to_auto_act": {
-          "type": "noul",
-          "noul": 0.57
-        },
-        "support": {
-          "type": "noul",
-          "noul": 0.95
-        }
-      },
-      "findings": [
-        {
-          "code": "safety_gate",
-          "verdict": "manual_review",
-          "detail": "semantic safety is below the policy threshold"
-        }
-      ],
-      "evidence_count": 1,
-      "evidence_sources": [
-        "context-scenario"
-      ],
-      "replay_available": true
-    },
-    {
-      "id": "context-account-access:replay",
-      "kind": "lex_replay",
-      "method": "POST",
-      "path": "/v1/replays",
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 900.9,
-      "verdict": "manual_review",
-      "reproduced": true
-    },
-    {
-      "id": "context-duplicate-charge",
-      "kind": "lex_evaluation",
-      "example": "context",
-      "method": "POST",
-      "path": "/v1/evaluations",
+      "id": "chaos-conflicted-duplicate-charge",
       "query": "duplicate charge",
-      "source_ids": [
-        "context-scenario"
-      ],
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 744.9,
+      "http_status": 200,
       "verdict": "conflict",
-      "resolved_model": "jev-1.13.0",
-      "adapter_id": "direct-systemone",
-      "answers": {
-        "action": {
-          "type": "choice",
-          "choice": "reject",
-          "confidence": 0.99
-        },
-        "conflict": {
-          "type": "noul",
-          "noul": 0.96
-        },
-        "established": {
-          "type": "noul",
-          "noul": 0.04
-        },
-        "safe_to_auto_act": {
-          "type": "noul",
-          "noul": 0.39
-        },
-        "support": {
-          "type": "noul",
-          "noul": 0.04
-        }
-      },
+      "replay_http_status": 200,
+      "replay_verdict": "conflict",
+      "replay_status": "verdict_reproduced",
+      "support": 0.91,
+      "established": 0.42,
+      "refuted": 0.06,
+      "conflict": 0.69,
+      "safe_to_auto_act": 0.1,
+      "action": "manual_review",
       "findings": [
-        {
-          "code": "evidence_conflict",
-          "verdict": "conflict",
-          "detail": "admissible evidence supports an incompatible conclusion"
-        },
-        {
-          "code": "support_below_threshold",
-          "verdict": "insufficient",
-          "detail": "support is below the policy threshold"
-        },
-        {
-          "code": "establishment_below_threshold",
-          "verdict": "insufficient",
-          "detail": "establishment is below the policy threshold"
-        }
-      ],
-      "evidence_count": 1,
-      "evidence_sources": [
-        "context-scenario"
-      ],
-      "replay_available": true
-    },
-    {
-      "id": "context-duplicate-charge:replay",
-      "kind": "lex_replay",
-      "method": "POST",
-      "path": "/v1/replays",
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 627.1,
-      "verdict": "conflict",
-      "reproduced": true
-    },
-    {
-      "id": "chaos-raw-sign-in",
-      "kind": "lex_evaluation",
-      "example": "chaos",
-      "method": "POST",
-      "path": "/v1/evaluations",
-      "query": "cannot sign in",
-      "source_ids": [
-        "cases-raw"
-      ],
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 752.1,
-      "verdict": "insufficient",
-      "resolved_model": "jev-1.13.0",
-      "adapter_id": "direct-systemone",
-      "answers": {
-        "action": {
-          "type": "choice",
-          "choice": "proceed",
-          "confidence": 0.35
-        },
-        "conflict": {
-          "type": "noul",
-          "noul": 0.07
-        },
-        "established": {
-          "type": "noul",
-          "noul": 0.77
-        },
-        "safe_to_auto_act": {
-          "type": "noul",
-          "noul": 0.39
-        },
-        "support": {
-          "type": "noul",
-          "noul": 0.93
-        }
-      },
-      "findings": [
-        {
-          "code": "establishment_below_threshold",
-          "verdict": "insufficient",
-          "detail": "establishment is below the policy threshold"
-        },
-        {
-          "code": "safety_gate",
-          "verdict": "manual_review",
-          "detail": "semantic safety is below the policy threshold"
-        },
-        {
-          "code": "action_inconsistent",
-          "verdict": "manual_review",
-          "detail": "the proceed choice disagrees with the predicate signals"
-        }
-      ],
-      "evidence_count": 1,
-      "evidence_sources": [
-        "cases-raw"
-      ],
-      "replay_available": true
-    },
-    {
-      "id": "chaos-raw-sign-in:replay",
-      "kind": "lex_replay",
-      "method": "POST",
-      "path": "/v1/replays",
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 626.7,
-      "verdict": "insufficient",
-      "reproduced": true
-    },
-    {
-      "id": "chaos-llm-augmented-sign-in",
-      "kind": "lex_evaluation",
-      "example": "chaos",
-      "method": "POST",
-      "path": "/v1/evaluations",
-      "query": "cannot sign in",
-      "source_ids": [
-        "cases-llm-augmented"
-      ],
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 727.6,
-      "verdict": "insufficient",
-      "resolved_model": "jev-1.13.0",
-      "adapter_id": "direct-systemone",
-      "answers": {
-        "action": {
-          "type": "choice",
-          "choice": "manual_review",
-          "confidence": 0.55
-        },
-        "conflict": {
-          "type": "noul",
-          "noul": 0.14
-        },
-        "established": {
-          "type": "noul",
-          "noul": 0.65
-        },
-        "safe_to_auto_act": {
-          "type": "noul",
-          "noul": 0.13
-        },
-        "support": {
-          "type": "noul",
-          "noul": 0.83
-        }
-      },
-      "findings": [
-        {
-          "code": "establishment_below_threshold",
-          "verdict": "insufficient",
-          "detail": "establishment is below the policy threshold"
-        },
-        {
-          "code": "review_required",
-          "verdict": "manual_review",
-          "detail": "the action choice requires review"
-        }
-      ],
-      "evidence_count": 1,
-      "evidence_sources": [
-        "cases-llm-augmented"
-      ],
-      "replay_available": true
-    },
-    {
-      "id": "chaos-llm-augmented-sign-in:replay",
-      "kind": "lex_replay",
-      "method": "POST",
-      "path": "/v1/replays",
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 718.7,
-      "verdict": "insufficient",
-      "reproduced": true
-    },
-    {
-      "id": "chaos-resolved-sign-in",
-      "kind": "lex_evaluation",
-      "example": "chaos",
-      "method": "POST",
-      "path": "/v1/evaluations",
-      "query": "cannot sign in",
-      "source_ids": [
-        "cases-context-resolved"
-      ],
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 709.4,
-      "verdict": "manual_review",
-      "resolved_model": "jev-1.13.0",
-      "adapter_id": "direct-systemone",
-      "answers": {
-        "action": {
-          "type": "choice",
-          "choice": "proceed",
-          "confidence": 0.5
-        },
-        "conflict": {
-          "type": "noul",
-          "noul": 0.13
-        },
-        "established": {
-          "type": "noul",
-          "noul": 0.81
-        },
-        "safe_to_auto_act": {
-          "type": "noul",
-          "noul": 0.5
-        },
-        "support": {
-          "type": "noul",
-          "noul": 0.9
-        }
-      },
-      "findings": [
-        {
-          "code": "safety_gate",
-          "verdict": "manual_review",
-          "detail": "semantic safety is below the policy threshold"
-        }
-      ],
-      "evidence_count": 1,
-      "evidence_sources": [
-        "cases-context-resolved"
-      ],
-      "replay_available": true
-    },
-    {
-      "id": "chaos-resolved-sign-in:replay",
-      "kind": "lex_replay",
-      "method": "POST",
-      "path": "/v1/replays",
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 561.6,
-      "verdict": "manual_review",
-      "reproduced": true
-    },
-    {
-      "id": "chaos-resolved-account-access",
-      "kind": "lex_evaluation",
-      "example": "chaos",
-      "method": "POST",
-      "path": "/v1/evaluations",
-      "query": "account access",
-      "source_ids": [
-        "cases-context-resolved"
-      ],
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 809.9,
-      "verdict": "insufficient",
-      "resolved_model": "jev-1.13.0",
-      "adapter_id": "direct-systemone",
-      "answers": {
-        "action": {
-          "type": "choice",
-          "choice": "proceed",
-          "confidence": 0.79
-        },
-        "conflict": {
-          "type": "noul",
-          "noul": 0.13
-        },
-        "established": {
-          "type": "noul",
-          "noul": 0.77
-        },
-        "safe_to_auto_act": {
-          "type": "noul",
-          "noul": 0.54
-        },
-        "support": {
-          "type": "noul",
-          "noul": 0.85
-        }
-      },
-      "findings": [
-        {
-          "code": "establishment_below_threshold",
-          "verdict": "insufficient",
-          "detail": "establishment is below the policy threshold"
-        },
-        {
-          "code": "safety_gate",
-          "verdict": "manual_review",
-          "detail": "semantic safety is below the policy threshold"
-        },
-        {
-          "code": "action_inconsistent",
-          "verdict": "manual_review",
-          "detail": "the proceed choice disagrees with the predicate signals"
-        }
-      ],
-      "evidence_count": 1,
-      "evidence_sources": [
-        "cases-context-resolved"
-      ],
-      "replay_available": true
-    },
-    {
-      "id": "chaos-resolved-account-access:replay",
-      "kind": "lex_replay",
-      "method": "POST",
-      "path": "/v1/replays",
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 612.7,
-      "verdict": "insufficient",
-      "reproduced": true
+        "evidence_conflict",
+        "establishment_below_threshold",
+        "review_required"
+      ]
     },
     {
       "id": "chaos-conflicted-sign-in",
-      "kind": "lex_evaluation",
-      "example": "chaos",
-      "method": "POST",
-      "path": "/v1/evaluations",
       "query": "cannot sign in",
-      "source_ids": [
-        "cases-context-conflicted"
-      ],
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 784.7,
-      "verdict": "insufficient",
-      "resolved_model": "jev-1.13.0",
-      "adapter_id": "direct-systemone",
-      "answers": {
-        "action": {
-          "type": "choice",
-          "choice": "manual_review",
-          "confidence": 0.55
-        },
-        "conflict": {
-          "type": "noul",
-          "noul": 0.14
-        },
-        "established": {
-          "type": "noul",
-          "noul": 0.76
-        },
-        "safe_to_auto_act": {
-          "type": "noul",
-          "noul": 0.1
-        },
-        "support": {
-          "type": "noul",
-          "noul": 0.88
-        }
-      },
+      "http_status": 200,
+      "verdict": "manual_review",
+      "replay_http_status": 200,
+      "replay_verdict": "manual_review",
+      "replay_status": "verdict_reproduced",
+      "support": 0.97,
+      "established": 0.87,
+      "refuted": 0.04,
+      "conflict": 0.17,
+      "safe_to_auto_act": 0.31,
+      "action": "manual_review",
       "findings": [
-        {
-          "code": "establishment_below_threshold",
-          "verdict": "insufficient",
-          "detail": "establishment is below the policy threshold"
-        },
-        {
-          "code": "review_required",
-          "verdict": "manual_review",
-          "detail": "the action choice requires review"
-        }
-      ],
-      "evidence_count": 1,
-      "evidence_sources": [
-        "cases-context-conflicted"
-      ],
-      "replay_available": true
+        "review_required"
+      ]
     },
     {
-      "id": "chaos-conflicted-sign-in:replay",
-      "kind": "lex_replay",
-      "method": "POST",
-      "path": "/v1/replays",
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 755.7,
+      "id": "chaos-llm-augmented-sign-in",
+      "query": "cannot sign in",
+      "http_status": 200,
       "verdict": "insufficient",
-      "reproduced": true
+      "replay_http_status": 200,
+      "replay_verdict": "insufficient",
+      "replay_status": "verdict_reproduced",
+      "support": 0.96,
+      "established": 0.79,
+      "refuted": 0.03,
+      "conflict": 0.14,
+      "safe_to_auto_act": 0.32,
+      "action": "manual_review",
+      "findings": [
+        "establishment_below_threshold",
+        "review_required"
+      ]
     },
     {
-      "id": "chaos-conflicted-duplicate-charge",
-      "kind": "lex_evaluation",
-      "example": "chaos",
-      "method": "POST",
-      "path": "/v1/evaluations",
+      "id": "chaos-raw-sign-in",
+      "query": "cannot sign in",
+      "http_status": 200,
+      "verdict": "manual_review",
+      "replay_http_status": 200,
+      "replay_verdict": "manual_review",
+      "replay_status": "verdict_reproduced",
+      "support": 0.98,
+      "established": 0.9,
+      "refuted": 0.03,
+      "conflict": 0.04,
+      "safe_to_auto_act": 0.67,
+      "action": "proceed",
+      "findings": [
+        "safety_gate"
+      ]
+    },
+    {
+      "id": "chaos-resolved-account-access",
+      "query": "account access",
+      "http_status": 200,
+      "verdict": "insufficient",
+      "replay_http_status": 200,
+      "replay_verdict": "insufficient",
+      "replay_status": "verdict_reproduced",
+      "support": 0.74,
+      "established": 0.79,
+      "refuted": 0.07,
+      "conflict": 0.1,
+      "safe_to_auto_act": 0.52,
+      "action": "proceed",
+      "findings": [
+        "establishment_below_threshold",
+        "safety_gate",
+        "action_inconsistent"
+      ]
+    },
+    {
+      "id": "chaos-resolved-sign-in",
+      "query": "cannot sign in",
+      "http_status": 200,
+      "verdict": "manual_review",
+      "replay_http_status": 200,
+      "replay_verdict": "manual_review",
+      "replay_status": "verdict_reproduced",
+      "support": 0.97,
+      "established": 0.9,
+      "refuted": 0.04,
+      "conflict": 0.11,
+      "safe_to_auto_act": 0.58,
+      "action": "proceed",
+      "findings": [
+        "safety_gate"
+      ]
+    },
+    {
+      "id": "context-account-access",
+      "query": "account access",
+      "http_status": 200,
+      "verdict": "manual_review",
+      "replay_http_status": 200,
+      "replay_verdict": "manual_review",
+      "replay_status": "verdict_reproduced",
+      "support": 0.9,
+      "established": 0.93,
+      "refuted": 0.03,
+      "conflict": 0.14,
+      "safe_to_auto_act": 0.62,
+      "action": "proceed",
+      "findings": [
+        "safety_gate"
+      ]
+    },
+    {
+      "id": "context-duplicate-charge",
       "query": "duplicate charge",
-      "source_ids": [
-        "cases-context-conflicted"
-      ],
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 782.6,
-      "verdict": "insufficient",
-      "resolved_model": "jev-1.13.0",
-      "adapter_id": "direct-systemone",
-      "answers": {
-        "action": {
-          "type": "choice",
-          "choice": "manual_review",
-          "confidence": 0.99
-        },
-        "conflict": {
-          "type": "noul",
-          "noul": 0.34
-        },
-        "established": {
-          "type": "noul",
-          "noul": 0.44
-        },
-        "safe_to_auto_act": {
-          "type": "noul",
-          "noul": 0.09
-        },
-        "support": {
-          "type": "noul",
-          "noul": 0.66
-        }
-      },
+      "http_status": 200,
+      "verdict": "rejected",
+      "replay_http_status": 200,
+      "replay_verdict": "rejected",
+      "replay_status": "verdict_reproduced",
+      "support": 0.12,
+      "established": 0.04,
+      "refuted": 0.9,
+      "conflict": 0.2,
+      "safe_to_auto_act": 0.23,
+      "action": "reject",
       "findings": [
-        {
-          "code": "support_below_threshold",
-          "verdict": "insufficient",
-          "detail": "support is below the policy threshold"
-        },
-        {
-          "code": "establishment_below_threshold",
-          "verdict": "insufficient",
-          "detail": "establishment is below the policy threshold"
-        },
-        {
-          "code": "review_required",
-          "verdict": "manual_review",
-          "detail": "the action choice requires review"
-        }
-      ],
-      "evidence_count": 1,
-      "evidence_sources": [
-        "cases-context-conflicted"
-      ],
-      "replay_available": true
+        "negative_result"
+      ]
     },
     {
-      "id": "chaos-conflicted-duplicate-charge:replay",
-      "kind": "lex_replay",
-      "method": "POST",
-      "path": "/v1/replays",
-      "status": 200,
-      "reason": "",
-      "elapsed_ms": 627.9,
+      "id": "context-refund",
+      "query": "refund",
+      "http_status": 200,
       "verdict": "insufficient",
-      "reproduced": true
+      "replay_http_status": 200,
+      "replay_verdict": "insufficient",
+      "replay_status": "verdict_reproduced",
+      "support": 0.32,
+      "established": 0.04,
+      "refuted": 0.47,
+      "conflict": 0.23,
+      "safe_to_auto_act": 0.13,
+      "action": "reject",
+      "findings": [
+        "support_below_threshold",
+        "establishment_below_threshold",
+        "action_inconsistent"
+      ]
+    },
+    {
+      "id": "context-restore-access",
+      "query": "restore access",
+      "http_status": 200,
+      "verdict": "manual_review",
+      "replay_http_status": 200,
+      "replay_verdict": "manual_review",
+      "replay_status": "verdict_reproduced",
+      "support": 0.96,
+      "established": 0.89,
+      "refuted": 0.03,
+      "conflict": 0.1,
+      "safe_to_auto_act": 0.6,
+      "action": "proceed",
+      "findings": [
+        "safety_gate"
+      ]
+    },
+    {
+      "id": "llm-hallucination-structural",
+      "query": "Hallucination is structural",
+      "http_status": 200,
+      "verdict": "manual_review",
+      "replay_http_status": 200,
+      "replay_verdict": "manual_review",
+      "replay_status": "verdict_reproduced",
+      "support": 0.98,
+      "established": 0.83,
+      "refuted": 0.02,
+      "conflict": 0.04,
+      "safe_to_auto_act": 0.57,
+      "action": "proceed",
+      "findings": [
+        "safety_gate"
+      ]
+    },
+    {
+      "id": "llm-next-token",
+      "query": "next token",
+      "http_status": 200,
+      "verdict": "insufficient",
+      "replay_http_status": 200,
+      "replay_verdict": "insufficient",
+      "replay_status": "verdict_reproduced",
+      "support": 0.85,
+      "established": 0.59,
+      "refuted": 0.03,
+      "conflict": 0.04,
+      "safe_to_auto_act": 0.62,
+      "action": "proceed",
+      "findings": [
+        "establishment_below_threshold",
+        "safety_gate",
+        "action_inconsistent"
+      ]
+    },
+    {
+      "id": "llm-proposal-not-authority",
+      "query": "treat the model output as a proposal",
+      "http_status": 200,
+      "verdict": "manual_review",
+      "replay_http_status": 200,
+      "replay_verdict": "manual_review",
+      "replay_status": "verdict_reproduced",
+      "support": 0.98,
+      "established": 0.92,
+      "refuted": 0.02,
+      "conflict": 0.04,
+      "safe_to_auto_act": 0.51,
+      "action": "manual_review",
+      "findings": [
+        "review_required"
+      ]
+    },
+    {
+      "id": "llm-temperature-zero",
+      "query": "Temperature 0",
+      "http_status": 200,
+      "verdict": "insufficient",
+      "replay_http_status": 200,
+      "replay_verdict": "insufficient",
+      "replay_status": "verdict_reproduced",
+      "support": 0.86,
+      "established": 0.59,
+      "refuted": 0.1,
+      "conflict": 0.07,
+      "safe_to_auto_act": 0.47,
+      "action": "manual_review",
+      "findings": [
+        "establishment_below_threshold",
+        "review_required"
+      ]
+    },
+    {
+      "id": "playground-cannot-generate-strings",
+      "query": "cannot generate string responses",
+      "http_status": 200,
+      "verdict": "manual_review",
+      "replay_http_status": 200,
+      "replay_verdict": "manual_review",
+      "replay_status": "verdict_reproduced",
+      "support": 0.97,
+      "established": 0.88,
+      "refuted": 0.06,
+      "conflict": 0.04,
+      "safe_to_auto_act": 0.68,
+      "action": "proceed",
+      "findings": [
+        "safety_gate"
+      ]
+    },
+    {
+      "id": "playground-noul-no-confidence",
+      "query": "no separate confidence field",
+      "http_status": 200,
+      "verdict": "manual_review",
+      "replay_http_status": 200,
+      "replay_verdict": "manual_review",
+      "replay_status": "verdict_reproduced",
+      "support": 0.95,
+      "established": 0.81,
+      "refuted": 0.22,
+      "conflict": 0.12,
+      "safe_to_auto_act": 0.55,
+      "action": "proceed",
+      "findings": [
+        "safety_gate"
+      ]
+    },
+    {
+      "id": "playground-parallel-questions",
+      "query": "evaluated independently and in parallel",
+      "http_status": 200,
+      "verdict": "manual_review",
+      "replay_http_status": 200,
+      "replay_verdict": "manual_review",
+      "replay_status": "verdict_reproduced",
+      "support": 0.98,
+      "established": 0.92,
+      "refuted": 0.03,
+      "conflict": 0.04,
+      "safe_to_auto_act": 0.77,
+      "action": "proceed",
+      "findings": [
+        "safety_gate"
+      ]
+    },
+    {
+      "id": "playground-structured-decisions",
+      "query": "structured decisions",
+      "http_status": 200,
+      "verdict": "insufficient",
+      "replay_http_status": 200,
+      "replay_verdict": "insufficient",
+      "replay_status": "verdict_reproduced",
+      "support": 0.92,
+      "established": 0.59,
+      "refuted": 0.03,
+      "conflict": 0.05,
+      "safe_to_auto_act": 0.48,
+      "action": "proceed",
+      "findings": [
+        "establishment_below_threshold",
+        "safety_gate",
+        "action_inconsistent"
+      ]
     }
   ]
 }

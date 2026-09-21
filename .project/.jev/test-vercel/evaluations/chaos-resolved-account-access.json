@@ -4,75 +4,72 @@
   "findings": [
     {
       "code": "establishment_below_threshold",
-      "verdict": "insufficient",
-      "detail": "establishment is below the policy threshold"
+      "verdict": "insufficient"
     },
     {
       "code": "safety_gate",
-      "verdict": "manual_review",
-      "detail": "semantic safety is below the policy threshold"
+      "verdict": "manual_review"
     },
     {
       "code": "action_inconsistent",
-      "verdict": "manual_review",
-      "detail": "the proceed choice disagrees with the predicate signals"
+      "verdict": "manual_review"
     }
   ],
   "context_runtime": "memory-exact-v1",
   "resolved_model": "jev-1.13.0",
   "replay_available": true,
-  "stage": null,
-  "trace": [
-    {
-      "name": "receive",
-      "status": "completed"
-    },
-    {
-      "name": "pack",
-      "status": "completed"
-    },
-    {
-      "name": "decide",
-      "status": "completed"
-    },
-    {
-      "name": "verify",
-      "status": "completed"
-    }
-  ],
   "policy": {
     "id": "claim-validation",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "calibration": "uncalibrated"
   },
-  "reason": null,
-  "detail": null,
   "adapter_id": "direct-systemone",
+  "adapter_version": "0.1.0",
+  "question_set": {
+    "id": "claim-validation",
+    "version": "0.2.0"
+  },
   "answers": {
     "action": {
-      "type": "choice",
       "choice": "proceed",
-      "confidence": 0.79
+      "confidence": 0.7,
+      "probabilities": {
+        "manual_review": 0.17,
+        "other": 0.03,
+        "proceed": 0.78,
+        "reject": 0.02
+      },
+      "type": "choice"
     },
     "conflict": {
-      "type": "noul",
-      "noul": 0.13
+      "noul": 0.1,
+      "type": "noul"
     },
     "established": {
-      "type": "noul",
-      "noul": 0.77
+      "noul": 0.79,
+      "type": "noul"
+    },
+    "refuted": {
+      "noul": 0.07,
+      "type": "noul"
     },
     "safe_to_auto_act": {
-      "type": "noul",
-      "noul": 0.54
+      "noul": 0.52,
+      "type": "noul"
     },
     "support": {
-      "type": "noul",
-      "noul": 0.85
+      "noul": 0.74,
+      "type": "noul"
     }
   },
+  "query": "account access",
   "evidence_count": 1,
   "evidence_sources": [
     "cases-context-resolved"
-  ]
+  ],
+  "http_status": 200,
+  "replay_http_status": 200,
+  "replay_status": "verdict_reproduced",
+  "replay_verdict": "insufficient",
+  "id": "chaos-resolved-account-access"
 }
