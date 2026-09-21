@@ -63,9 +63,10 @@ a broken policy evaluator. Verification cannot create missing provenance.
 - `error`: a technical or contract failure prevents correct evaluation.
 
 The report MUST preserve all material epistemic and policy findings.
-A review recommendation must not erase an established conflict. Exact primary
-verdict precedence and policy-denial reason codes remain a release blocker;
-these definitions are not a complete executable decision table.
+A review recommendation must not erase an established conflict. The primary
+verdict precedence is `error > conflict > insufficient > manual_review >
+rejected > validated`. Policy-denial reason codes remain a release blocker.
+The precedence order does not erase lower-priority findings.
 
 ## Failure stages
 

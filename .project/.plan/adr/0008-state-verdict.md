@@ -10,7 +10,7 @@ One primary verdict must not erase conflicting evidence or become an authorizati
 
 ## Decision
 
-Implement the canonical validation stages as a deterministic request-scoped state machine. Resolve a total precedence function for error, conflict, insufficient, rejected, manual_review, and validated against explicit findings before release. This ADR deliberately does not invent precedence without fixtures. Preserve all findings. No execution extension. Automatic provider retries are disabled initially; cancellation stops new stages.
+Implement the canonical validation stages as a deterministic request-scoped state machine. Resolve primary verdicts from explicit findings with the total order `error > conflict > insufficient > manual_review > rejected > validated`. Preserve all findings; selection of a primary verdict does not discard lower-priority findings. No execution extension. Automatic provider retries are disabled initially; cancellation stops new stages.
 
 ## Consequences and alternatives
 

@@ -10,7 +10,7 @@ LeX needs a small Go REST service while keeping deterministic verification indep
 
 ## Decision
 
-Use github.com/fastygo/framework for HTTP composition and github.com/fastygo/context only through public adapter packages. Keep core semantics free of framework/provider SDK types. No GoBackend, TypeScript SDK, UI runtime, or JavaScript service. Pin Context to v0.1.0 as recorded in [context-version.md](../context-version.md); select Framework's exact revision and the deployed toolchain separately. Upstream Go 1.25 directives are compatibility inputs, not proof of the deployed toolchain.
+Use github.com/fastygo/framework for HTTP composition and github.com/fastygo/context only through public adapter packages. Keep core semantics free of framework/provider SDK types. No GoBackend, TypeScript SDK, UI runtime, or JavaScript service. Pin Framework to v0.3.0 at annotated tag commit `7cfc0b34a0f71fbb6514c0121369375e5587c99c` and Context to v0.1.0 as recorded in [context-version.md](../context-version.md). The deployed toolchain remains a separate proof obligation. Upstream Go 1.25 directives are compatibility inputs, not proof of the deployed toolchain.
 
 ## Consequences and alternatives
 

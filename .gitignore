@@ -1,1 +1,4 @@
 .manual/
+.env
+.env.*
+!.env.example

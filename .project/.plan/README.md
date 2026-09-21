@@ -6,7 +6,8 @@ LeX implementation, SLO achievement, and standards certification are not claimed
 ## Fixed scope
 
 - Go implementation exposing a REST API; no TypeScript SDK or JavaScript application runtime.
-- Required modules: `github.com/fastygo/framework` (version selection pending) and `github.com/fastygo/context@v0.1.0`.
+- Required modules: `github.com/fastygo/framework@v0.3.0` and
+  `github.com/fastygo/context@v0.1.0`.
 - Vercel serverless deployment with request-scoped RAM only for mutable protocol data.
 - No database, disk persistence, external cache, object store, durable queue, or server-side run history.
 - Validation and replay only; side-effect execution is deferred.

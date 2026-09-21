@@ -40,8 +40,12 @@ The fixed first implementation profile is:
   side-effect execution;
 - no TypeScript SDK or JavaScript application runtime in v0.1.
 
-Context v0.1.0 is published and pinned. LeX implementation, deployment,
-conformance, calibration, and SLO evidence remain planned work.
+Context v0.1.0 and Framework v0.3.0 are pinned. The repository has a P0
+foundation: a Go module, a Framework-composed API handler, static bearer-token
+authentication, an embedded Context runtime adapter, RFC 8785 hashing, and an
+initial replay-bundle schema. Vercel deployment, the full wire contract,
+verifier, adapters, conformance, calibration, and SLO evidence remain planned
+work.
 
 ## Architecture
 
@@ -165,8 +169,28 @@ Human-readable content outside `.manual/` is English only. Optional:
 npm run check:english
 ```
 
-Implementation commands will be added only when the corresponding Go module,
-schemas, verifier, and conformance suite exist.
+Current foundation checks:
+
+```bash
+go test ./... -count=1
+go vet ./...
+```
+
+The protocol schemas, verifier, and conformance suite remain work in progress.
+
+## P0 local API
+
+The local P0 handler exposes `GET /healthz` and authenticated
+`GET /v1/capabilities`. Configure a development-only bearer-token-to-project
+map outside version control, then start the server:
+
+```bash
+export LEX_BEARER_TOKENS='{"development-token":["example-project"]}'
+go run ./cmd/api
+```
+
+`LEX_BEARER_TOKENS` and provider credentials are deployment secrets. Never add
+them to source files, request payloads, traces, replay bundles, or logs.
 
 ## License
 

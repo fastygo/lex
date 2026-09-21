@@ -12,6 +12,14 @@ Provider paths differ in metadata, limits, and failure behavior even for the sam
 
 Use separate direct and hosted adapters behind a provider-neutral typed interface. Declare Noul/Choice/Score support and limits before execution; preserve raw answers, exact input bindings, resolved identity, and available metadata. Bound all network reads and respect request cancellation. Missing required capability fails explicitly. No silent fallback.
 
+The initial direct adapter allowlists `https://api.typesafe.ai/v1/systemone`
+and requests `jev-1.13.0`. The hosted adapter allowlists
+`https://openrouter.ai/api/v1/systemone`, requests `typesafe/jev-1.13`, and
+records OpenRouter's exact returned model identity. Neither adapter accepts a
+caller-provided endpoint, credential, or model alias such as `latest`.
+Deployment supplies `LEX_TYPESAFE_API_KEY` and `LEX_OPENROUTER_API_KEY` as
+separate secrets; neither value enters a request, bundle, trace, or log.
+
 ## Consequences and alternatives
 
 Provider credentials and endpoint/billing details stay outside core semantics. A provider alias cannot support a reproducibility claim. Hosted routing must disclose sufficient resolved identity; inability to do so is a capability failure. The RAM-only path uses Context's immutable embedded runtime. If an optional HTTP evidence adapter is later added, contextkit clients with mutable LastAPIVersion must not be shared unsafely across requests.

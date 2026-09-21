@@ -1,0 +1,12 @@
+github.com/cyberphone/json-canonicalization v0.0.0-20241213102144-19d51d7fe467 h1:uX1JmpONuD549D73r6cgnxyUu18Zb7yHAy5AYU0Pm4Q=
+github.com/cyberphone/json-canonicalization v0.0.0-20241213102144-19d51d7fe467/go.mod h1:uzvlm1mxhHkdfqitSA92i7Se+S9ksOn3a3qmv/kyOCw=
+github.com/fastygo/context v0.1.0 h1:niqha0Uh29cOeh9axL3g3CTNydixF0oLZSGITvJTSn0=
+github.com/fastygo/context v0.1.0/go.mod h1:XzFWD43u/SEYS4F0lDn0CwPg1fSvOnNMVB+YN0IKcKk=
+github.com/fastygo/framework v0.3.0 h1:EeJuzD3O3Ln7yjUK164rslmyFm2Kqd8C9lfKSYwGLpU=
+github.com/fastygo/framework v0.3.0/go.mod h1:4MDilxXxsPqrsEqPJg/n6D1ZIDYI1wylfp7lQ27XX3I=
+github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 h1:1EYB5IzjZawrrnELUi78f9fPu57HuXjmddZPjrls/28=
+github.com/santhosh-tekuri/jsonschema/v6 v6.0.3/go.mod h1:JXeL+ps8p7/KNMjDQk3TCwPpBy0wYklyWTfbkIzdIFU=
+go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
+go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
+golang.org/x/text v0.22.0 h1:bofq7m3/HAFvbF51jz3Q9wLg3jkvSPuiZu/pD1XwgtM=
+golang.org/x/text v0.22.0/go.mod h1:YRoo4H8PVmsu+E3Ou7cqLVH8oXWIHVoX0jqUWALQhfY=
