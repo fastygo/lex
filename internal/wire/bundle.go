@@ -367,6 +367,11 @@ func provenanceFinding(bundle map[string]any, item map[string]any) (verify.Findi
 	if !snapshotIDMatches(snapshot) {
 		return verify.Finding{Code: "snapshot_identity", Verdict: verify.VerdictError, Detail: "frozen snapshot identity does not match its sources"}, true
 	}
+	pack, _ := contextBody["pack"].(map[string]any)
+	request, _ := contextBody["pack_request"].(map[string]any)
+	if !packRequestIDMatches(snapshot, pack, request) {
+		return verify.Finding{Code: "pack_request_identity", Verdict: verify.VerdictError, Detail: "frozen pack identity does not match the pack request"}, true
+	}
 	sum := sha256.Sum256([]byte(surface))
 	if hex.EncodeToString(sum[:]) != checksum {
 		return verify.Finding{Code: "checksum_mismatch", Verdict: verify.VerdictError, Detail: "evidence surface does not match its source checksum"}, true
@@ -397,6 +402,55 @@ func provenanceFinding(bundle map[string]any, item map[string]any) (verify.Findi
 		return verify.Finding{}, false
 	}
 	return verify.Finding{Code: "missing_provenance", Verdict: verify.VerdictError, Detail: "admissible evidence does not resolve to a frozen source"}, true
+}
+
+func packRequestIDMatches(snapshot, pack, request map[string]any) bool {
+	expected, ok := expectedPackID(snapshot, request)
+	declared, _ := pack["id"].(string)
+	return ok && declared == expected
+}
+
+func expectedPackID(snapshot, request map[string]any) (string, bool) {
+	encoded, err := json.Marshal(request)
+	if err != nil {
+		return "", false
+	}
+	var req frozenPackRequest
+	if err := json.Unmarshal(encoded, &req); err != nil {
+		return "", false
+	}
+	raw, err := json.Marshal(struct {
+		SnapshotID string            `json:"snapshot_id"`
+		Request    frozenPackRequest `json:"request"`
+	}{textField(snapshot["id"]), req})
+	if err != nil {
+		return "", false
+	}
+	sum := sha256.Sum256(append([]byte("context/memory-pack-request/v1\x00"), raw...))
+	return "pack_" + hex.EncodeToString(sum[:]), true
+}
+
+type frozenPackRequest struct {
+	ProjectID                string      `json:"project_id"`
+	TaskID                   string      `json:"task_id,omitempty"`
+	Query                    string      `json:"query"`
+	Focus                    frozenFocus `json:"focus"`
+	Instructions             []string    `json:"instructions,omitempty"`
+	PolicyRefs               []string    `json:"policy_refs,omitempty"`
+	VerificationRequirements []string    `json:"verification_requirements,omitempty"`
+}
+
+type frozenFocus struct {
+	ID                 string       `json:"id"`
+	Objective          string       `json:"objective"`
+	RequiredTrustLevel string       `json:"required_trust_level"`
+	Budget             frozenBudget `json:"context_budget"`
+}
+
+type frozenBudget struct {
+	MaxItems          int `json:"max_items"`
+	MaxChars          int `json:"max_chars"`
+	MaxTokensEstimate int `json:"max_tokens_estimate,omitempty"`
 }
 
 func snapshotIDMatches(snapshot map[string]any) bool {

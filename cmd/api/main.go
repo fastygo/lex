@@ -60,6 +60,18 @@ func selectDecider() (httpapi.Decider, error) {
 	}
 }
 
+func httpServer(addr string, handler http.Handler, requestTimeout time.Duration) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 2 * time.Second,
+		ReadTimeout:       requestTimeout,
+		WriteTimeout:      requestTimeout + 5*time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20,
+	}
+}
+
 func main() {
 	config, err := httpapi.LoadConfig()
 	if err != nil {
@@ -79,15 +91,7 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	server := &http.Server{
-		Addr:              ":" + port,
-		Handler:           handler,
-		ReadHeaderTimeout: 2 * time.Second,
-		ReadTimeout:       5 * time.Second,
-		WriteTimeout:      config.RequestTimeout,
-		IdleTimeout:       120 * time.Second,
-		MaxHeaderBytes:    1 << 20,
-	}
+	server := httpServer(":"+port, handler, config.RequestTimeout)
 
 	errCh := make(chan error, 1)
 	go func() {

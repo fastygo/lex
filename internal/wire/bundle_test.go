@@ -18,6 +18,13 @@ import (
 
 func TestReplayAcceptsEscapedContextSnapshot(t *testing.T) {
 	const text = "The account is A&B <locked>."
+	request := contextmemory.PackRequest{
+		ProjectID: "project-test", Query: "account",
+		Focus: contextmemory.Focus{
+			ID: profile.FocusID, Objective: "Select admissible source text.",
+			RequiredTrustLevel: "project", Budget: contextmemory.Budget{MaxItems: 8, MaxChars: 65536},
+		},
+	}
 	result, err := evidence.BuildPack(
 		t.Context(),
 		"project-test",
@@ -25,13 +32,7 @@ func TestReplayAcceptsEscapedContextSnapshot(t *testing.T) {
 			SourceID: "source-1", Version: "v1", Text: text,
 			TrustLevel: "project", EvidenceClass: "source_text",
 		}},
-		contextmemory.PackRequest{
-			ProjectID: "project-test", Query: "account",
-			Focus: contextmemory.Focus{
-				ID: profile.FocusID, Objective: "Select admissible source text.",
-				RequiredTrustLevel: "project", Budget: contextmemory.Budget{MaxItems: 8, MaxChars: 65536},
-			},
-		},
+		request,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -40,7 +41,7 @@ func TestReplayAcceptsEscapedContextSnapshot(t *testing.T) {
 		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
 		Pack:           result.ContextPack,
 		Snapshot:       result.Snapshot,
-		PackRequest:    map[string]any{"query": "account"},
+		PackRequest:    request,
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
 		ResolvedModel:  "fixture-v1",
@@ -141,6 +142,18 @@ func sealedBundle(t *testing.T) []byte {
 	return raw
 }
 
+func refreshPackHash(t *testing.T, bundle map[string]any) {
+	t.Helper()
+	contextBody := bundle["context"].(map[string]any)
+	hash, err := canonical.HashValue(contextBody["pack"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	contextBody["pack_hash"] = hash
+	decision := bundle["decision_set"].(map[string]any)
+	decision["context_pack_hash"] = hash
+}
+
 func reseal(t *testing.T, bundle map[string]any) []byte {
 	t.Helper()
 	delete(bundle, "bundle_hash")
@@ -196,6 +209,24 @@ func TestReplayRejectsEntityIdentityThatBreaksChecksum(t *testing.T) {
 		t.Fatal(err)
 	}
 	if report.Verdict != "error" || !hasFinding(report, "entity_checksum_mismatch") {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
+func TestReplayRejectsPackRequestIdentityMismatch(t *testing.T) {
+	value, err := canonical.DecodeJSON(sealedBundle(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	contextBody := bundle["context"].(map[string]any)
+	request := contextBody["pack_request"].(map[string]any)
+	request["query"] = "other"
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "pack_request_identity") {
 		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
 	}
 }
@@ -269,6 +300,7 @@ func TestReplayRejectsSurfaceThatBreaksChecksum(t *testing.T) {
 	items := pack["evidence_items"].([]any)
 	item := items[0].(map[string]any)
 	item["surface"] = "The account is open."
+	refreshPackHash(t, bundle)
 	report, err := Replay(reseal(t, bundle))
 	if err != nil {
 		t.Fatal(err)
@@ -283,7 +315,13 @@ const evidenceText = "The account is locked."
 func addressablePack() []byte {
 	sum := sha256.Sum256([]byte(evidenceText))
 	checksum := hex.EncodeToString(sum[:])
-	return []byte(fmt.Sprintf(`{"evidence_items":[{"id":"chunk_0000","class":"source_text","trust_level":"project","surface":%q,"source_ref":{"project_id":"project-test","source_id":"source-1","span":{"start":0,"end":%d},"checksum":%q}}]}`, evidenceText, len(evidenceText), checksum))
+	snapshot := addressableSnapshot()
+	request := map[string]any{"query": "account"}
+	identifier, ok := expectedPackID(snapshot, request)
+	if !ok {
+		panic("pack identity")
+	}
+	return []byte(fmt.Sprintf(`{"id":%q,"evidence_items":[{"id":"chunk_0000","class":"source_text","trust_level":"project","surface":%q,"source_ref":{"project_id":"project-test","source_id":"source-1","span":{"start":0,"end":%d},"checksum":%q}}]}`, identifier, evidenceText, len(evidenceText), checksum))
 }
 
 func addressableSnapshot() map[string]any {
