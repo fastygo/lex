@@ -30,4 +30,8 @@ func TestEvaluationRequestSchemaRejectsCallerPolicy(t *testing.T) {
 	if err := ValidateEvaluationRequest([]byte(otherType)); err == nil {
 		t.Fatal("schema accepted an entity type outside the embedded profile")
 	}
+	const stamped = `{"project_id":"project-test","entity":{"id":"claim-1","type":"claim","schema_version":"0.1","version":"1"},"query":"account","observed_at":"2026-09-21T00:00:00.000Z","sources":[{"id":"source-1","version":"v1","text":"The account is locked."}]}`
+	if err := ValidateEvaluationRequest([]byte(stamped)); err == nil {
+		t.Fatal("schema accepted an audit timestamp")
+	}
 }

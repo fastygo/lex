@@ -17,7 +17,7 @@ They do not define a finished LeX wire profile merely by being listed.
 - [JSON, RFC 8259](https://www.rfc-editor.org/rfc/rfc8259): JSON message syntax.
 - [JSON Schema 2020-12](https://json-schema.org/draft/2020-12): intended schema dialect and source for generated types.
 - [JCS, RFC 8785](https://www.rfc-editor.org/rfc/rfc8785): candidate JSON canonicalization for SHA-256 content hashes. Specify numeric limits, duplicate-key rejection, hash scope, and test vectors before adoption.
-- [RFC 3339](https://www.rfc-editor.org/rfc/rfc3339): timestamp baseline; LeX precision and normalization remain to be specified.
+- [RFC 3339](https://www.rfc-editor.org/rfc/rfc3339): timestamp baseline. The v0.1 profile carries no audit timestamps on evaluation requests, evaluation responses, replay bundles, replay responses, or problem bodies. Replay does not compare wall-clock time. A preserved Context pack is not a LeX clock. This is narrower than RFC 3339 and is not date parsing.
 - [HTTP semantics, RFC 9110](https://www.rfc-editor.org/rfc/rfc9110): intended first remote transport.
 - [Problem Details, RFC 9457](https://www.rfc-editor.org/rfc/rfc9457): candidate HTTP error format; stage errors still need explicit mapping.
 - [OpenAPI 3.1.1](https://spec.openapis.org/oas/v3.1.1.html): candidate HTTP interface description, not a replacement for semantics or lifecycle rules.

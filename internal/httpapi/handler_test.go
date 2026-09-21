@@ -253,6 +253,7 @@ func TestLiveResponsesMatchOpenAPI(t *testing.T) {
 	if err := evaluationSchema.Validate(strictJSON(t, validated.Body.Bytes())); err != nil {
 		t.Fatalf("evaluation response: %v", err)
 	}
+	assertNoTimestamps(t, strictJSON(t, validated.Body.Bytes()))
 
 	miss := strings.Replace(evaluationBody, `"query":"account"`, `"query":"missing-phrase"`, 1)
 	insufficient := postJSON(t, handler, "/v1/evaluations", miss)
@@ -332,6 +333,23 @@ func strictJSON(t *testing.T, raw []byte) any {
 		t.Fatal(err)
 	}
 	return value
+}
+
+func assertNoTimestamps(t *testing.T, value any) {
+	t.Helper()
+	switch typed := value.(type) {
+	case map[string]any:
+		for key, child := range typed {
+			if key == "timestamp" || key == "observed_at" || key == "created_at" || strings.HasSuffix(key, "_at") {
+				t.Fatalf("response contains timestamp field %s", key)
+			}
+			assertNoTimestamps(t, child)
+		}
+	case []any:
+		for _, child := range typed {
+			assertNoTimestamps(t, child)
+		}
+	}
 }
 
 func TestProviderFailureDoesNotEchoSecrets(t *testing.T) {

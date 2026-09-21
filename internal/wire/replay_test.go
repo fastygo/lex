@@ -22,6 +22,14 @@ func TestValidateReplayBundleRejectsUnknownTopLevelField(t *testing.T) {
 	}
 }
 
+func TestValidateReplayBundleRejectsAuditTimestamp(t *testing.T) {
+	raw := strings.TrimSpace(validReplayBundle)
+	raw = strings.TrimSuffix(raw, "}") + `,"observed_at":"2026-09-21T00:00:00.000Z"}`
+	if err := ValidateReplayBundle([]byte(raw)); err == nil {
+		t.Fatal("ValidateReplayBundle() accepted an audit timestamp")
+	}
+}
+
 func TestValidateReplayBundleRejectsDuplicateKey(t *testing.T) {
 	raw := strings.Replace(validReplayBundle, `"protocol_version":"0.1-draft"`, `"protocol_version":"0.1-draft","protocol_version":"0.1-draft"`, 1)
 	if err := ValidateReplayBundle([]byte(raw)); err == nil {
