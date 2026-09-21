@@ -1,0 +1,156 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "LeX API",
+    "version": "0.1-draft",
+    "summary": "Synchronous validation and caller-owned replay. This document is a working draft, not a certification."
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "operationId": "health",
+        "responses": {
+          "200": {"description": "Process is serving."}
+        }
+      }
+    },
+    "/v1/capabilities": {
+      "get": {
+        "operationId": "capabilities",
+        "security": [{"bearerAuth": []}],
+        "responses": {
+          "200": {
+            "description": "Supported operations. Evaluation follows adapter configuration. Execution is off.",
+            "headers": {"Cache-Control": {"schema": {"const": "no-store"}}}
+          },
+          "401": {"$ref": "#/components/responses/Problem"},
+          "403": {"$ref": "#/components/responses/Problem"}
+        }
+      }
+    },
+    "/v1/evaluations": {
+      "post": {
+        "operationId": "evaluate",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {"schema": {"$ref": "#/components/schemas/EvaluationRequest"}}
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Synchronous verdict. Epistemic outcomes use HTTP 200. The response creates no Location and no 202 job.",
+            "headers": {"Cache-Control": {"schema": {"const": "no-store"}}}
+          },
+          "400": {"$ref": "#/components/responses/Problem"},
+          "401": {"$ref": "#/components/responses/Problem"},
+          "403": {"$ref": "#/components/responses/Problem"},
+          "413": {"$ref": "#/components/responses/Problem"},
+          "415": {"$ref": "#/components/responses/Problem"},
+          "422": {"$ref": "#/components/responses/Problem"},
+          "502": {"$ref": "#/components/responses/Problem"},
+          "503": {"$ref": "#/components/responses/Problem"}
+        }
+      }
+    },
+    "/v1/replays": {
+      "post": {
+        "operationId": "replay",
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {"schema": {"$ref": "replay-bundle.schema.json"}}
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Deterministic verdict from the submitted bundle.",
+            "headers": {"Cache-Control": {"schema": {"const": "no-store"}}}
+          },
+          "401": {"$ref": "#/components/responses/Problem"},
+          "403": {"$ref": "#/components/responses/Problem"},
+          "405": {"$ref": "#/components/responses/Problem"},
+          "413": {"$ref": "#/components/responses/Problem"},
+          "415": {"$ref": "#/components/responses/Problem"},
+          "422": {"$ref": "#/components/responses/Problem"}
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {"type": "http", "scheme": "bearer"}
+    },
+    "responses": {
+      "Problem": {
+        "description": "RFC 9457 problem. The status member matches the HTTP status.",
+        "content": {
+          "application/problem+json": {
+            "schema": {"$ref": "#/components/schemas/Problem"},
+            "example": {
+              "type": "https://lex.fastygo.dev/problems/authentication_required",
+              "title": "Unauthorized",
+              "status": 401,
+              "detail": "a bearer token is required",
+              "reason": "authentication_required"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Problem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "title", "status", "detail", "reason"],
+        "properties": {
+          "type": {"type": "string"},
+          "title": {"type": "string"},
+          "status": {"type": "integer"},
+          "detail": {"type": "string"},
+          "reason": {"type": "string"}
+        }
+      },
+      "Verdict": {
+        "type": "string",
+        "enum": ["validated", "rejected", "insufficient", "conflict", "manual_review", "error"]
+      },
+      "EvaluationRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["project_id", "entity", "query", "sources"],
+        "properties": {
+          "project_id": {"type": "string", "minLength": 1, "maxLength": 256},
+          "query": {"type": "string", "minLength": 1},
+          "entity": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "type", "schema_version", "version"],
+            "properties": {
+              "id": {"type": "string", "minLength": 1, "maxLength": 256},
+              "type": {"type": "string", "minLength": 1, "maxLength": 256},
+              "schema_version": {"type": "string", "minLength": 1, "maxLength": 256},
+              "version": {"type": "string", "minLength": 1, "maxLength": 256}
+            }
+          },
+          "sources": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "version", "text"],
+              "properties": {
+                "id": {"type": "string"},
+                "version": {"type": "string"},
+                "text": {"type": "string"}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

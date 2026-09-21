@@ -121,9 +121,9 @@ GET  /healthz
 ```
 
 The wire profile uses JSON Schema 2020-12, RFC 8785 JCS with SHA-256 for LeX
-canonical hashes, OpenAPI 3.1.1, and RFC 9457 Problem Details. Routes and
-schemas remain proposals until promoted by accepted ADRs and passing contract
-tests.
+canonical hashes, and RFC 9457 Problem Details. A draft OpenAPI 3.1.1 document
+is at `internal/wire/schema/openapi.json`. Routes and schemas remain proposals
+until promoted by accepted ADRs.
 
 ## Delivery path
 

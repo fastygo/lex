@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -173,6 +174,98 @@ func (failingDecider) Evaluate(context.Context, any, map[string]any) (Decision, 
 	return Decision{}, context.DeadlineExceeded
 }
 
+func TestEvaluationRejectsSourceURL(t *testing.T) {
+	handler := mustHandlerWithDecider(t, &scriptedDecider{answers: []byte(passingAnswers)})
+	body := strings.Replace(evaluationBody, `"text":"The account is locked."`, `"text":"The account is locked.","url":"https://example.invalid/secret"`, 1)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), `"reason":"invalid_json"`) {
+		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
+	}
+}
+
+func TestProblemResponseOmitsBearerToken(t *testing.T) {
+	handler := mustHandler(t)
+	const token = "test-token-must-not-appear"
+	request := httptest.NewRequest(http.MethodGet, "/v1/capabilities", nil)
+	request.Header.Set("Authorization", "Bearer "+token)
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusForbidden || strings.Contains(recorder.Body.String(), token) {
+		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
+	}
+}
+
+func TestOversizedRequestIsRejectedBeforeEvaluation(t *testing.T) {
+	decider := &scriptedDecider{answers: []byte(passingAnswers)}
+	handler := mustHandlerWithDecider(t, decider)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(evaluationBody))
+	request.ContentLength = defaultMaxBodyBytes + 1
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusRequestEntityTooLarge || decider.calls != 0 {
+		t.Fatalf("status = %d calls = %d body = %s", recorder.Code, decider.calls, recorder.Body)
+	}
+}
+
+func TestConcurrentProjectsStayIsolated(t *testing.T) {
+	handler, err := NewHandler(Config{
+		BearerTokens: map[string][]string{
+			"token-alpha": {"project-alpha"},
+			"token-beta":  {"project-beta"},
+		},
+		RequestTimeout: defaultRequestTimeout,
+		MaxBodyBytes:   defaultMaxBodyBytes,
+		Decider:        &scriptedDecider{answers: []byte(passingAnswers)},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	errors := make(chan string, 8)
+	for range 4 {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			if status, body := evaluateProject(handler, "token-alpha", "project-alpha", "alpha-evidence"); status != http.StatusOK || strings.Contains(body, "beta-evidence") {
+				errors <- body
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			if status, body := evaluateProject(handler, "token-beta", "project-beta", "beta-evidence"); status != http.StatusOK || strings.Contains(body, "alpha-evidence") {
+				errors <- body
+			}
+		}()
+	}
+	wg.Wait()
+	close(errors)
+	for body := range errors {
+		t.Fatalf("project isolation failed: %s", body)
+	}
+}
+
+func evaluateProject(handler http.Handler, token, projectID, phrase string) (int, string) {
+	body := `{"project_id":"` + projectID + `","entity":{"id":"claim-1","type":"claim","schema_version":"0.1","version":"1"},"query":"` + phrase + `","sources":[{"id":"source-1","version":"v1","text":"` + phrase + ` stays in ` + projectID + `."}]}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer "+token)
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	return recorder.Code, recorder.Body.String()
+}
+
 func TestEvaluationRejectsAnotherProject(t *testing.T) {
 	handler := mustHandlerWithDecider(t, &scriptedDecider{answers: []byte(passingAnswers)})
 	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(`{"project_id":"other-project","entity":{"id":"claim-1","type":"claim","schema_version":"0.1","version":"1"},"query":"account","sources":[{"id":"source-1","version":"v1","text":"The account is locked."}]}`))
@@ -188,6 +281,7 @@ func TestEvaluationRejectsAnotherProject(t *testing.T) {
 }
 
 type scriptedDecider struct {
+	mu      sync.Mutex
 	answers []byte
 	calls   int
 }
@@ -196,7 +290,9 @@ func (decider *scriptedDecider) AdapterID() string      { return "direct-systemo
 func (decider *scriptedDecider) AdapterVersion() string { return "0.1.0" }
 
 func (decider *scriptedDecider) Evaluate(context.Context, any, map[string]any) (Decision, error) {
+	decider.mu.Lock()
 	decider.calls++
+	decider.mu.Unlock()
 	return Decision{ResolvedModel: "fixture-v1", Answers: decider.answers}, nil
 }
 

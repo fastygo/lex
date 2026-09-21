@@ -39,15 +39,62 @@ func TestInterpretRejectsEstablishedNegativeClaim(t *testing.T) {
 	answers := passingAnswers()
 	answers["support"] = noulAnswer(0.1)
 	answers["action"] = choiceAnswer("reject")
-	verdict, _, err := Interpret(claimQuestions(), Thresholds{
-		SupportMin: 0.7, EstablishMin: 0.8, ConflictMin: 0.5, SafetyMin: 0.8,
-	}, answers)
+	verdict, _, err := Interpret(claimQuestions(), testThresholds(), answers)
 	if err != nil {
 		t.Fatalf("Interpret() error = %v", err)
 	}
 	if verdict != VerdictRejected {
 		t.Fatalf("verdict = %s", verdict)
 	}
+}
+
+func TestInterpretCoversEveryVerdict(t *testing.T) {
+	thresholds := testThresholds()
+	questions := claimQuestions()
+	cases := []struct {
+		name    string
+		answers map[string]Answer
+		want    Verdict
+	}{
+		{name: "validated", answers: passingAnswers(), want: VerdictValidated},
+		{name: "rejected", answers: withChoice(withNoul(passingAnswers(), "support", 0.1), "reject"), want: VerdictRejected},
+		{name: "insufficient", answers: withNoul(passingAnswers(), "established", 0.1), want: VerdictInsufficient},
+		{name: "conflict", answers: withNoul(passingAnswers(), "conflict", 0.9), want: VerdictConflict},
+		{name: "manual_review", answers: withChoice(passingAnswers(), "manual_review"), want: VerdictManualReview},
+		{name: "error", answers: map[string]Answer{}, want: VerdictError},
+	}
+	seen := map[Verdict]bool{}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			verdict, _, err := Interpret(questions, thresholds, tc.answers)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if verdict != tc.want {
+				t.Fatalf("verdict = %s, want %s", verdict, tc.want)
+			}
+		})
+		seen[tc.want] = true
+	}
+	for _, verdict := range []Verdict{VerdictValidated, VerdictRejected, VerdictInsufficient, VerdictConflict, VerdictManualReview, VerdictError} {
+		if !seen[verdict] {
+			t.Fatalf("missing verdict %s", verdict)
+		}
+	}
+}
+
+func testThresholds() Thresholds {
+	return Thresholds{SupportMin: 0.7, EstablishMin: 0.8, ConflictMin: 0.5, SafetyMin: 0.8}
+}
+
+func withNoul(answers map[string]Answer, id string, value float64) map[string]Answer {
+	answers[id] = noulAnswer(value)
+	return answers
+}
+
+func withChoice(answers map[string]Answer, choice string) map[string]Answer {
+	answers["action"] = choiceAnswer(choice)
+	return answers
 }
 
 func claimQuestions() map[string]Question {
