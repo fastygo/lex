@@ -152,7 +152,7 @@
             "verification_error"
           ]},
           "verdict": {"type": "string", "enum": ["validated", "rejected", "insufficient", "conflict", "manual_review", "error"]},
-          "findings": {"type": "array"},
+          "findings": {"type": "array", "items": {"$ref": "#/components/schemas/Finding"}},
           "trace": {"type": "array"},
           "replay_bundle": {"type": "object"}
         }
@@ -218,7 +218,7 @@
         "additionalProperties": false,
         "required": ["code", "verdict", "detail"],
         "properties": {
-          "code": {"type": "string", "minLength": 1},
+          "code": {"type": "string", "pattern": "^(action_inconsistent|binding_mismatch|checksum_mismatch|chunk_identity|entity_checksum_mismatch|establishment_below_threshold|evidence_conflict|inference_only|instruction_in_evidence|invalid_answers|missing_provenance|negative_result|no_eligible_evidence|pack_envelope|pack_rebuild|pack_request_identity|pack_shape|partial_surface|project_binding|query_mismatch|rejection_mismatch|review_required|safety_gate|snapshot_identity|source_admission|support_below_threshold|unknown_adapter|unpinned_adapter|unpinned_entity|unpinned_focus|unpinned_policy|unpinned_question_set|unpinned_verifier|unresolved_model|(answer_type_mismatch|invalid_choice|invalid_noul|invalid_score|missing_answer|unexpected_answer|unsupported_question_type):.+)$"},
           "verdict": {"$ref": "#/components/schemas/Verdict"},
           "detail": {"type": "string", "minLength": 1}
         }

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/fastygo/lex/internal/canonical"
+	"github.com/fastygo/lex/internal/verify"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
@@ -48,13 +49,17 @@ func TestOpenAPIMatchesSynchronousContract(t *testing.T) {
 	}
 
 	components, _ := document["components"].(map[string]any)
-	schemas, _ := components["schemas"].(map[string]any)
 	compiler := jsonschema.NewCompiler()
 	compiler.DefaultDraft(jsonschema.Draft2020)
-	if err := compiler.AddResource("https://lex.fastygo.dev/schema/v0.1/problem", schemas["Problem"]); err != nil {
+	if err := compiler.AddResource("https://lex.fastygo.dev/openapi.json", document); err != nil {
 		t.Fatal(err)
 	}
-	schema, err := compiler.Compile("https://lex.fastygo.dev/schema/v0.1/problem")
+	if err := compiler.AddResource("https://lex.fastygo.dev/schema/v0.1/check-problem", map[string]any{
+		"$ref": "https://lex.fastygo.dev/openapi.json#/components/schemas/Problem",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	schema, err := compiler.Compile("https://lex.fastygo.dev/schema/v0.1/check-problem")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -72,6 +77,26 @@ func TestOpenAPIMatchesSynchronousContract(t *testing.T) {
 	}
 	if err := schema.Validate(technical); err != nil {
 		t.Fatalf("technical verdict problem: %v", err)
+	}
+}
+
+func TestFindingCodePatternMatchesOpenAPI(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("schema", "openapi.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := canonical.DecodeJSON(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	document := value.(map[string]any)
+	components := document["components"].(map[string]any)
+	schemas := components["schemas"].(map[string]any)
+	finding := schemas["Finding"].(map[string]any)
+	properties := finding["properties"].(map[string]any)
+	code := properties["code"].(map[string]any)
+	if code["pattern"] != verify.FindingCodePattern() {
+		t.Fatalf("pattern = %s", verify.FindingCodePattern())
 	}
 }
 

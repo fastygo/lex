@@ -226,37 +226,37 @@ func bindingFindings(bundle map[string]any) []verify.Finding {
 	decision, _ := bundle["decision_set"].(map[string]any)
 	contextBody, _ := bundle["context"].(map[string]any)
 	if bundle["verifier_version"] != profile.VerifierVersion {
-		findings = append(findings, errorFinding("unpinned_verifier"))
+		findings = append(findings, errorFinding(verify.CodeUnpinnedVerifier))
 	}
 	if questionSet["id"] != profile.QuestionSetID || questionSet["version"] != profile.QuestionSetVersion || questionSet["hash"] != profile.QuestionSetHash() || !questionContentPinned(questionSet) {
-		findings = append(findings, errorFinding("unpinned_question_set"))
+		findings = append(findings, errorFinding(verify.CodeUnpinnedQuestionSet))
 	}
 	if policyRef["id"] != profile.PolicyID || policyRef["version"] != profile.PolicyVersion || policyRef["hash"] != profile.PolicyHash() {
-		findings = append(findings, errorFinding("unpinned_policy"))
+		findings = append(findings, errorFinding(verify.CodeUnpinnedPolicy))
 	}
 	if decision["question_set_hash"] != questionSet["hash"] || decision["policy_hash"] != policyRef["hash"] || decision["context_pack_hash"] != contextBody["pack_hash"] || !packHashMatches(contextBody) {
-		findings = append(findings, errorFinding("binding_mismatch"))
+		findings = append(findings, errorFinding(verify.CodeBindingMismatch))
 	}
 	entity, _ := bundle["entity"].(map[string]any)
 	entityType, _ := entity["type"].(string)
 	schemaVersion, _ := entity["schema_version"].(string)
 	if entityType != profile.EntityType || schemaVersion != profile.EntitySchemaVersion {
-		findings = append(findings, errorFinding("unpinned_entity"))
+		findings = append(findings, errorFinding(verify.CodeUnpinnedEntity))
 	}
 	if !entityChecksumMatches(entity) {
-		findings = append(findings, errorFinding("entity_checksum_mismatch"))
+		findings = append(findings, errorFinding(verify.CodeEntityChecksumMismatch))
 	}
 	model, _ := decision["resolved_model"].(string)
 	if model == "" || strings.Contains(model, "latest") {
-		findings = append(findings, errorFinding("unresolved_model"))
+		findings = append(findings, errorFinding(verify.CodeUnresolvedModel))
 	}
 	switch decision["adapter_id"] {
 	case "direct-systemone", "hosted-systemone":
 		if decision["adapter_version"] != profile.AdapterVersion {
-			findings = append(findings, errorFinding("unpinned_adapter"))
+			findings = append(findings, errorFinding(verify.CodeUnpinnedAdapter))
 		}
 	default:
-		findings = append(findings, errorFinding("unknown_adapter"))
+		findings = append(findings, errorFinding(verify.CodeUnknownAdapter))
 	}
 	return findings
 }
@@ -266,7 +266,7 @@ func evidenceFindings(bundle map[string]any) []verify.Finding {
 	pack, _ := contextBody["pack"].(map[string]any)
 	rawItems, ok := pack["evidence_items"].([]any)
 	if !ok {
-		return []verify.Finding{{Code: "pack_shape", Verdict: verify.VerdictError, Detail: "frozen pack has no evidence item list"}}
+		return []verify.Finding{{Code: verify.CodePackShape, Verdict: verify.VerdictError, Detail: "frozen pack has no evidence item list"}}
 	}
 	admissible := 0
 	inference := 0
@@ -277,7 +277,7 @@ func evidenceFindings(bundle map[string]any) []verify.Finding {
 		trust, _ := item["trust_level"].(string)
 		switch class {
 		case "instruction", "policy":
-			findings = append(findings, verify.Finding{Code: "instruction_in_evidence", Verdict: verify.VerdictError, Detail: "instructions and policy are not evidence"})
+			findings = append(findings, verify.Finding{Code: verify.CodeInstructionInEvidence, Verdict: verify.VerdictError, Detail: "instructions and policy are not evidence"})
 		case "model_inference":
 			inference++
 		case "source_text":
@@ -295,7 +295,7 @@ func evidenceFindings(bundle map[string]any) []verify.Finding {
 		return findings
 	}
 	if admissible == 0 && inference > 0 {
-		return []verify.Finding{{Code: "inference_only", Verdict: verify.VerdictInsufficient, Detail: "model inference cannot establish a factual claim"}}
+		return []verify.Finding{{Code: verify.CodeInferenceOnly, Verdict: verify.VerdictInsufficient, Detail: "model inference cannot establish a factual claim"}}
 	}
 	if finding, failed := selectionFinding(bundle); failed {
 		return []verify.Finding{finding}
@@ -310,7 +310,7 @@ func evidenceFindings(bundle map[string]any) []verify.Finding {
 		return []verify.Finding{finding}
 	}
 	if admissible == 0 {
-		return []verify.Finding{{Code: "no_eligible_evidence", Verdict: verify.VerdictInsufficient, Detail: "the frozen pack contains no admissible source text"}}
+		return []verify.Finding{{Code: verify.CodeNoEligibleEvidence, Verdict: verify.VerdictInsufficient, Detail: "the frozen pack contains no admissible source text"}}
 	}
 	return nil
 }
@@ -319,7 +319,7 @@ func parseAnswers(bundle map[string]any) (map[string]verify.Answer, []verify.Fin
 	decision, _ := bundle["decision_set"].(map[string]any)
 	raw, err := json.Marshal(decision["answers"])
 	if err != nil {
-		return nil, []verify.Finding{errorFinding("invalid_answers")}
+		return nil, []verify.Finding{errorFinding(verify.CodeInvalidAnswers)}
 	}
 	var decoded map[string]struct {
 		Type          string             `json:"type"`
@@ -329,7 +329,7 @@ func parseAnswers(bundle map[string]any) (map[string]verify.Answer, []verify.Fin
 		Score         *float64           `json:"score"`
 	}
 	if err := json.Unmarshal(raw, &decoded); err != nil {
-		return nil, []verify.Finding{errorFinding("invalid_answers")}
+		return nil, []verify.Finding{errorFinding(verify.CodeInvalidAnswers)}
 	}
 	answers := make(map[string]verify.Answer, len(decoded))
 	for id, answer := range decoded {
@@ -384,27 +384,27 @@ func provenanceFinding(bundle map[string]any, item map[string]any) (verify.Findi
 	projectID, _ := sourceRef["project_id"].(string)
 	entity, _ := bundle["entity"].(map[string]any)
 	if surface == "" || sourceID == "" || checksum == "" || projectID == "" || projectID != entity["project_id"] {
-		return verify.Finding{Code: "missing_provenance", Verdict: verify.VerdictError, Detail: "admissible evidence has no complete source identity"}, true
+		return verify.Finding{Code: verify.CodeMissingProvenance, Verdict: verify.VerdictError, Detail: "admissible evidence has no complete source identity"}, true
 	}
 	contextBody, _ := bundle["context"].(map[string]any)
 	snapshot, _ := contextBody["snapshot"].(map[string]any)
 	if !snapshotIDMatches(snapshot) {
-		return verify.Finding{Code: "snapshot_identity", Verdict: verify.VerdictError, Detail: "frozen snapshot identity does not match its sources"}, true
+		return verify.Finding{Code: verify.CodeSnapshotIdentity, Verdict: verify.VerdictError, Detail: "frozen snapshot identity does not match its sources"}, true
 	}
 	if snapshot["project_id"] != entity["project_id"] || snapshot["runtime_version"] != pinnedRuntime {
-		return verify.Finding{Code: "project_binding", Verdict: verify.VerdictError, Detail: "frozen snapshot is not bound to the entity project and pinned runtime"}, true
+		return verify.Finding{Code: verify.CodeProjectBinding, Verdict: verify.VerdictError, Detail: "frozen snapshot is not bound to the entity project and pinned runtime"}, true
 	}
 	pack, _ := contextBody["pack"].(map[string]any)
 	request, _ := contextBody["pack_request"].(map[string]any)
 	if !packRequestIDMatches(snapshot, pack, request) {
-		return verify.Finding{Code: "pack_request_identity", Verdict: verify.VerdictError, Detail: "frozen pack identity does not match the pack request"}, true
+		return verify.Finding{Code: verify.CodePackRequestIdentity, Verdict: verify.VerdictError, Detail: "frozen pack identity does not match the pack request"}, true
 	}
 	if !focusPinned(request, textField(entity["project_id"])) {
-		return verify.Finding{Code: "unpinned_focus", Verdict: verify.VerdictError, Detail: "frozen pack request does not use the embedded focus"}, true
+		return verify.Finding{Code: verify.CodeUnpinnedFocus, Verdict: verify.VerdictError, Detail: "frozen pack request does not use the embedded focus"}, true
 	}
 	sum := sha256.Sum256([]byte(surface))
 	if hex.EncodeToString(sum[:]) != checksum {
-		return verify.Finding{Code: "checksum_mismatch", Verdict: verify.VerdictError, Detail: "evidence surface does not match its source checksum"}, true
+		return verify.Finding{Code: verify.CodeChecksumMismatch, Verdict: verify.VerdictError, Detail: "evidence surface does not match its source checksum"}, true
 	}
 	sources, _ := snapshot["sources"].([]any)
 	for _, raw := range sources {
@@ -415,26 +415,26 @@ func provenanceFinding(bundle map[string]any, item map[string]any) (verify.Findi
 		version, _ := source["version"].(string)
 		text, _ := source["text"].(string)
 		if version == "" || source["trust_level"] != "project" || source["evidence_class"] != "source_text" {
-			return verify.Finding{Code: "source_admission", Verdict: verify.VerdictError, Detail: "frozen source is not admissible project text"}, true
+			return verify.Finding{Code: verify.CodeSourceAdmission, Verdict: verify.VerdictError, Detail: "frozen source is not admissible project text"}, true
 		}
 		excerpt := text
 		if span, ok := sourceRef["span"].(map[string]any); ok {
 			start, startOK := nonNegative(span["start"])
 			end, endOK := nonNegative(span["end"])
 			if !startOK || !endOK || start > end || end > uint64(len(text)) {
-				return verify.Finding{Code: "checksum_mismatch", Verdict: verify.VerdictError, Detail: "evidence span does not fit the frozen source"}, true
+				return verify.Finding{Code: verify.CodeChecksumMismatch, Verdict: verify.VerdictError, Detail: "evidence span does not fit the frozen source"}, true
 			}
 			excerpt = text[start:end]
 		}
 		if excerpt != surface {
-			return verify.Finding{Code: "checksum_mismatch", Verdict: verify.VerdictError, Detail: "evidence surface does not match the frozen source"}, true
+			return verify.Finding{Code: verify.CodeChecksumMismatch, Verdict: verify.VerdictError, Detail: "evidence surface does not match the frozen source"}, true
 		}
 		if excerpt != text {
-			return verify.Finding{Code: "partial_surface", Verdict: verify.VerdictError, Detail: "evidence surface must be the full frozen source"}, true
+			return verify.Finding{Code: verify.CodePartialSurface, Verdict: verify.VerdictError, Detail: "evidence surface must be the full frozen source"}, true
 		}
 		return verify.Finding{}, false
 	}
-	return verify.Finding{Code: "missing_provenance", Verdict: verify.VerdictError, Detail: "admissible evidence does not resolve to a frozen source"}, true
+	return verify.Finding{Code: verify.CodeMissingProvenance, Verdict: verify.VerdictError, Detail: "admissible evidence does not resolve to a frozen source"}, true
 }
 
 func selectionFinding(bundle map[string]any) (verify.Finding, bool) {
@@ -442,13 +442,13 @@ func selectionFinding(bundle map[string]any) (verify.Finding, bool) {
 	request, _ := contextBody["pack_request"].(map[string]any)
 	req, ok := decodePackRequest(request)
 	if !ok {
-		return verify.Finding{Code: "unpinned_focus", Verdict: verify.VerdictError, Detail: "frozen pack request does not use the embedded focus"}, true
+		return verify.Finding{Code: verify.CodeUnpinnedFocus, Verdict: verify.VerdictError, Detail: "frozen pack request does not use the embedded focus"}, true
 	}
 	snapshot, _ := contextBody["snapshot"].(map[string]any)
 	query := strings.TrimSpace(req.Query)
 	expected, ok := matchingSourceIDs(snapshot, query)
 	if !ok || query == "" {
-		return verify.Finding{Code: "query_mismatch", Verdict: verify.VerdictError, Detail: "admissible evidence does not contain the frozen exact phrase"}, true
+		return verify.Finding{Code: verify.CodeQueryMismatch, Verdict: verify.VerdictError, Detail: "admissible evidence does not contain the frozen exact phrase"}, true
 	}
 	pack, _ := contextBody["pack"].(map[string]any)
 	rawItems, _ := pack["evidence_items"].([]any)
@@ -464,11 +464,11 @@ func selectionFinding(bundle map[string]any) (verify.Finding, bool) {
 		got = append(got, textField(sourceRef["source_id"]))
 	}
 	if len(got) != len(expected) {
-		return verify.Finding{Code: "query_mismatch", Verdict: verify.VerdictError, Detail: "admissible evidence is not the exact-phrase selection"}, true
+		return verify.Finding{Code: verify.CodeQueryMismatch, Verdict: verify.VerdictError, Detail: "admissible evidence is not the exact-phrase selection"}, true
 	}
 	for i := range got {
 		if got[i] != expected[i] {
-			return verify.Finding{Code: "query_mismatch", Verdict: verify.VerdictError, Detail: "admissible evidence is not the exact-phrase selection"}, true
+			return verify.Finding{Code: verify.CodeQueryMismatch, Verdict: verify.VerdictError, Detail: "admissible evidence is not the exact-phrase selection"}, true
 		}
 	}
 	return verify.Finding{}, false
@@ -516,24 +516,24 @@ func rejectionFinding(bundle map[string]any) (verify.Finding, bool) {
 	request, _ := contextBody["pack_request"].(map[string]any)
 	req, ok := decodePackRequest(request)
 	if !ok {
-		return verify.Finding{Code: "unpinned_focus", Verdict: verify.VerdictError, Detail: "frozen pack request does not use the embedded focus"}, true
+		return verify.Finding{Code: verify.CodeUnpinnedFocus, Verdict: verify.VerdictError, Detail: "frozen pack request does not use the embedded focus"}, true
 	}
 	snapshot, _ := contextBody["snapshot"].(map[string]any)
 	query := strings.TrimSpace(req.Query)
 	expected, ok := expectedRejections(snapshot, query)
 	if !ok || query == "" {
-		return verify.Finding{Code: "rejection_mismatch", Verdict: verify.VerdictError, Detail: "frozen rejections do not match the exact-phrase scan"}, true
+		return verify.Finding{Code: verify.CodeRejectionMismatch, Verdict: verify.VerdictError, Detail: "frozen rejections do not match the exact-phrase scan"}, true
 	}
 	pack, _ := contextBody["pack"].(map[string]any)
 	rawItems, _ := pack["rejected_items"].([]any)
 	if len(rawItems) != len(expected) {
-		return verify.Finding{Code: "rejection_mismatch", Verdict: verify.VerdictError, Detail: "frozen rejections do not match the exact-phrase scan"}, true
+		return verify.Finding{Code: verify.CodeRejectionMismatch, Verdict: verify.VerdictError, Detail: "frozen rejections do not match the exact-phrase scan"}, true
 	}
 	for i, raw := range rawItems {
 		item, _ := raw.(map[string]any)
 		sourceRef, _ := item["source_ref"].(map[string]any)
 		if textField(sourceRef["source_id"]) != expected[i].sourceID || textField(item["rejection_reason"]) != expected[i].reason {
-			return verify.Finding{Code: "rejection_mismatch", Verdict: verify.VerdictError, Detail: "frozen rejections do not match the exact-phrase scan"}, true
+			return verify.Finding{Code: verify.CodeRejectionMismatch, Verdict: verify.VerdictError, Detail: "frozen rejections do not match the exact-phrase scan"}, true
 		}
 	}
 	return verify.Finding{}, false
@@ -558,14 +558,14 @@ func packShapeFinding(bundle map[string]any) (verify.Finding, bool) {
 	}
 	chunks, ok := chunkIDs(snapshot)
 	if !ok {
-		return verify.Finding{Code: "chunk_identity", Verdict: verify.VerdictError, Detail: "frozen evidence chunk is not the exact-phrase chunk"}, true
+		return verify.Finding{Code: verify.CodeChunkIdentity, Verdict: verify.VerdictError, Detail: "frozen evidence chunk is not the exact-phrase chunk"}, true
 	}
 	for _, field := range []string{"evidence_items", "rejected_items"} {
 		rawItems, _ := pack[field].([]any)
 		for _, raw := range rawItems {
 			item, _ := raw.(map[string]any)
 			if !chunkPinned(item, chunks, textField(snapshot["id"]), textField(snapshot["project_id"])) {
-				return verify.Finding{Code: "chunk_identity", Verdict: verify.VerdictError, Detail: "frozen evidence chunk is not the exact-phrase chunk"}, true
+				return verify.Finding{Code: verify.CodeChunkIdentity, Verdict: verify.VerdictError, Detail: "frozen evidence chunk is not the exact-phrase chunk"}, true
 			}
 		}
 	}
@@ -573,7 +573,7 @@ func packShapeFinding(bundle map[string]any) (verify.Finding, bool) {
 }
 
 func rebuiltPackFinding(bundle map[string]any) (verify.Finding, bool) {
-	mismatch := verify.Finding{Code: "pack_rebuild", Verdict: verify.VerdictError, Detail: "frozen pack does not match the pack rebuilt from the snapshot and request"}
+	mismatch := verify.Finding{Code: verify.CodePackRebuild, Verdict: verify.VerdictError, Detail: "frozen pack does not match the pack rebuilt from the snapshot and request"}
 	contextBody, _ := bundle["context"].(map[string]any)
 	pack, _ := contextBody["pack"].(map[string]any)
 	snapshot, _ := contextBody["snapshot"].(map[string]any)
@@ -622,7 +622,7 @@ func recode(value any, dest any) error {
 }
 
 func packEnvelope(part string) (verify.Finding, bool) {
-	return verify.Finding{Code: "pack_envelope", Verdict: verify.VerdictError, Detail: "frozen pack envelope is not the embedded exact-phrase pack: " + part}, true
+	return verify.Finding{Code: verify.CodePackEnvelope, Verdict: verify.VerdictError, Detail: "frozen pack envelope is not the embedded exact-phrase pack: " + part}, true
 }
 
 func emptyList(value any) bool {

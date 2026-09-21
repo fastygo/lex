@@ -150,7 +150,7 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 			ProtocolVersion: "0.1-draft",
 			Verdict:         string(verify.VerdictInsufficient),
 			Findings: []verify.Finding{{
-				Code: "no_eligible_evidence", Verdict: verify.VerdictInsufficient,
+				Code: verify.CodeNoEligibleEvidence, Verdict: verify.VerdictInsufficient,
 				Detail: "exact retrieval selected no admissible evidence",
 			}},
 			ContextRuntime:  pack.Snapshot.RuntimeVersion,

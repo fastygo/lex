@@ -36,33 +36,33 @@ func ValidateAnswers(questions map[string]Question, answers map[string]Answer) [
 	for id, question := range questions {
 		answer, ok := answers[id]
 		if !ok {
-			findings = append(findings, errorFinding("missing_answer", id))
+			findings = append(findings, errorFinding(CodePrefixMissingAnswer, id))
 			continue
 		}
 		if answer.Type != question.Type {
-			findings = append(findings, errorFinding("answer_type_mismatch", id))
+			findings = append(findings, errorFinding(CodePrefixAnswerTypeMismatch, id))
 			continue
 		}
 		switch question.Type {
 		case QuestionNoul:
 			if answer.Noul == nil || !probability(*answer.Noul) {
-				findings = append(findings, errorFinding("invalid_noul", id))
+				findings = append(findings, errorFinding(CodePrefixInvalidNoul, id))
 			}
 		case QuestionChoice:
 			if !contains(question.Choices, answer.Choice) || !distribution(question.Choices, answer.Probabilities) {
-				findings = append(findings, errorFinding("invalid_choice", id))
+				findings = append(findings, errorFinding(CodePrefixInvalidChoice, id))
 			}
 		case QuestionScore:
 			if question.Levels < 2 || answer.Score == nil || math.IsNaN(*answer.Score) || math.IsInf(*answer.Score, 0) || *answer.Score < 0 || *answer.Score > float64(question.Levels-1) {
-				findings = append(findings, errorFinding("invalid_score", id))
+				findings = append(findings, errorFinding(CodePrefixInvalidScore, id))
 			}
 		default:
-			findings = append(findings, errorFinding("unsupported_question_type", id))
+			findings = append(findings, errorFinding(CodePrefixUnsupportedQuestion, id))
 		}
 	}
 	for id := range answers {
 		if _, ok := questions[id]; !ok {
-			findings = append(findings, errorFinding("unexpected_answer", id))
+			findings = append(findings, errorFinding(CodePrefixUnexpectedAnswer, id))
 		}
 	}
 	return findings
