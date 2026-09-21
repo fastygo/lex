@@ -5,11 +5,15 @@ import (
 	"context"
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
+	"io"
+	"mime"
 	"net/http"
 	"strings"
 
 	frameworkapp "github.com/fastygo/framework/pkg/app"
 	"github.com/fastygo/framework/pkg/web/security"
+	"github.com/fastygo/lex/internal/wire"
 )
 
 const problemMediaType = "application/problem+json"
@@ -26,6 +30,7 @@ func NewHandler(config Config) (http.Handler, error) {
 		WithHealthEndpoints("/healthz", "")
 	mux := builder.Mux()
 	mux.Handle("/v1/capabilities", authenticated(config, http.HandlerFunc(capabilities)))
+	mux.Handle("/v1/replays", authenticated(config, http.HandlerFunc(replay)))
 
 	return withRequestLimits(builder.Build().Handler(), config), nil
 }
@@ -94,6 +99,38 @@ func capabilities(w http.ResponseWriter, request *http.Request) {
 			"replay":     false,
 			"execution":  false,
 		},
+	})
+}
+
+func replay(w http.ResponseWriter, request *http.Request) {
+	if request.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		writeProblem(w, http.StatusMethodNotAllowed, "method_not_allowed", "only POST is supported")
+		return
+	}
+	contentType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
+	if err != nil || contentType != "application/json" {
+		writeProblem(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Content-Type must be application/json")
+		return
+	}
+	raw, err := io.ReadAll(request.Body)
+	if err != nil {
+		if errors.Is(err, http.ErrBodyReadAfterClose) {
+			writeProblem(w, http.StatusBadRequest, "invalid_body", "request body is unavailable")
+			return
+		}
+		writeProblem(w, http.StatusRequestEntityTooLarge, "body_too_large", "request body exceeds the configured limit")
+		return
+	}
+	if err := wire.VerifyReplayBundleHash(raw); err != nil {
+		writeProblem(w, http.StatusUnprocessableEntity, "invalid_replay_bundle", "replay bundle failed deterministic structural validation")
+		return
+	}
+
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"replay_status": "bundle_integrity_verified",
 	})
 }
 
