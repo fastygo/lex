@@ -65,6 +65,41 @@
       "sha256": "2bfd14f43d17fc7cea24e0917a8879b4b2f880b8baeec1b9d90fbaad655e71bd"
     },
     {
+      "name": "small-exponent",
+      "kind": "jcs",
+      "input": "{\"n\":1e-7}",
+      "canonical": "{\"n\":1e-7}",
+      "sha256": "747d6d23b64d1b2d579adb832b44de31c91c875bbef7a8e397f5d183a746b54b"
+    },
+    {
+      "name": "decimal-boundary",
+      "kind": "jcs",
+      "input": "{\"n\":1e-6}",
+      "canonical": "{\"n\":0.000001}",
+      "sha256": "28343867a0be00aee19f81aa90cfd6c646878b9303fa15410d16bfd3f8894578"
+    },
+    {
+      "name": "large-decimal",
+      "kind": "jcs",
+      "input": "{\"n\":1e20}",
+      "canonical": "{\"n\":100000000000000000000}",
+      "sha256": "58d2d5b8dd4228ab5775ce84f996718fa19ed49872271e9649b70cebaca26a09"
+    },
+    {
+      "name": "large-exponent",
+      "kind": "jcs",
+      "input": "{\"n\":1e21}",
+      "canonical": "{\"n\":1e+21}",
+      "sha256": "f1ee2b60ee95a3170fdc07a577e5f3514ced26867443d69da265acadead81007"
+    },
+    {
+      "name": "utf16-property-order",
+      "kind": "jcs",
+      "input": "{\"\\ufb33\":1,\"\\ud83d\\ude00\":2}",
+      "canonical": "{\"\ud83d\ude00\":2,\"\ufb33\":1}",
+      "sha256": "ec4e7d8c2963caa38dccc3d42693719ac9c6ecd783891b583d333565620ac2be"
+    },
+    {
       "name": "exponent",
       "kind": "jcs",
       "input": "{\"n\":1e2}",
@@ -130,6 +165,11 @@
       "kind": "source_bytes",
       "input": "caf\u00e9",
       "sha256": "850f7dc43910ff890f8879c0ed26fe697c93a067ad93a7d50f466a7028a9bf4e"
+    },
+    {
+      "name": "lone-surrogate",
+      "kind": "reject",
+      "input": "{\"text\":\"\\ud800\"}"
     },
     {
       "name": "duplicate-key",

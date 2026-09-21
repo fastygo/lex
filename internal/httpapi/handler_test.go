@@ -17,6 +17,7 @@ import (
 	"time"
 
 	contextmemory "github.com/fastygo/context/pkg/contextkit/runtime"
+	"github.com/fastygo/lex/internal/adapters/typesafe"
 	"github.com/fastygo/lex/internal/canonical"
 	"github.com/fastygo/lex/internal/evidence"
 	"github.com/fastygo/lex/internal/profile"
@@ -85,7 +86,7 @@ func TestHandlerRejectsUnauthorizedBearerToken(t *testing.T) {
 
 const evaluationBody = `{"project_id":"project-test","entity":{"id":"claim-1","type":"claim","schema_version":"0.1","version":"1"},"query":"account","sources":[{"id":"source-1","version":"v1","text":"The account is locked."}]}`
 
-const passingAnswers = `{"support":{"type":"noul","noul":0.9},"established":{"type":"noul","noul":0.9},"conflict":{"type":"noul","noul":0.1},"safe_to_auto_act":{"type":"noul","noul":0.9},"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}}`
+const passingAnswers = `{"support":{"type":"noul","noul":0.9},"refuted":{"type":"noul","noul":0.1},"established":{"type":"noul","noul":0.9},"conflict":{"type":"noul","noul":0.1},"safe_to_auto_act":{"type":"noul","noul":0.9},"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}}`
 
 func TestEvaluationUsesFrozenContextAndInjectedDecider(t *testing.T) {
 	handler := mustHandlerWithDecider(t, &scriptedDecider{answers: []byte(passingAnswers)})
@@ -904,7 +905,7 @@ func (holdDecider) AdapterVersion() string { return "0.1.0" }
 func (decider holdDecider) Evaluate(context.Context, any, map[string]any) (Decision, error) {
 	decider.entered <- struct{}{}
 	<-decider.release
-	return Decision{ResolvedModel: profile.DirectModel, Answers: decider.answers}, nil
+	return Decision{ResolvedModel: typesafe.Model, Answers: decider.answers}, nil
 }
 
 func TestSealedResponseOverBudgetIsNotTruncated(t *testing.T) {
@@ -952,6 +953,7 @@ func oversizedAnswers(t *testing.T) []byte {
 	t.Helper()
 	answers := map[string]any{
 		"support":          map[string]any{"type": "noul", "noul": 0.9, "note": strings.Repeat("OVERSIZED", 300000)},
+		"refuted":          map[string]any{"type": "noul", "noul": 0.1},
 		"established":      map[string]any{"type": "noul", "noul": 0.9},
 		"conflict":         map[string]any{"type": "noul", "noul": 0.1},
 		"safe_to_auto_act": map[string]any{"type": "noul", "noul": 0.9},
@@ -1163,7 +1165,7 @@ func (finishAfterDeadline) AdapterVersion() string { return "0.1.0" }
 
 func (finishAfterDeadline) Evaluate(ctx context.Context, _ any, _ map[string]any) (Decision, error) {
 	<-ctx.Done()
-	return Decision{ResolvedModel: profile.DirectModel, Answers: []byte(passingAnswers)}, nil
+	return Decision{ResolvedModel: typesafe.Model, Answers: []byte(passingAnswers)}, nil
 }
 
 type cancelDecider struct{}
@@ -1265,12 +1267,12 @@ func (decider *budgetProbe) Evaluate(ctx context.Context, _ any, _ map[string]an
 	if n, ok := AnswerBudget(ctx); ok {
 		decider.budget = int(n)
 	}
-	return Decision{ResolvedModel: profile.DirectModel, Answers: decider.answers}, nil
+	return Decision{ResolvedModel: typesafe.Model, Answers: decider.answers}, nil
 }
 
 func paddedAnswers(t *testing.T, size int) []byte {
 	t.Helper()
-	prefix := `{"action":{"choice":"proceed","probabilities":{"manual_review":0,"other":0,"proceed":1,"reject":0},"type":"choice"},"conflict":{"noul":0.1,"type":"noul"},"established":{"noul":0.9,"type":"noul"},"safe_to_auto_act":{"noul":0.9,"type":"noul"},"support":{"note":"`
+	prefix := `{"action":{"choice":"proceed","probabilities":{"manual_review":0,"other":0,"proceed":1,"reject":0},"type":"choice"},"conflict":{"noul":0.1,"type":"noul"},"established":{"noul":0.9,"type":"noul"},"refuted":{"noul":0.1,"type":"noul"},"safe_to_auto_act":{"noul":0.9,"type":"noul"},"support":{"note":"`
 	suffix := `","noul":0.9,"type":"noul"}}`
 	gap := size - len(prefix) - len(suffix)
 	if gap < 1 {
@@ -1345,7 +1347,7 @@ func (decider *scriptedDecider) Evaluate(context.Context, any, map[string]any) (
 	decider.calls++
 	decider.mu.Unlock()
 	return Decision{
-		ResolvedModel: profile.DirectModel, Answers: decider.answers,
+		ResolvedModel: typesafe.Model, Answers: decider.answers,
 		RequestID: decider.requestID, EvaluationTimeMS: decider.evaluationTime, Usage: decider.usage,
 	}, nil
 }
@@ -1365,11 +1367,11 @@ func (decider *capturingDecider) Evaluate(_ context.Context, state any, question
 	decider.state = state
 	decider.questions = questions
 	decider.mu.Unlock()
-	return Decision{ResolvedModel: profile.DirectModel, Answers: decider.answers}, nil
+	return Decision{ResolvedModel: typesafe.Model, Answers: decider.answers}, nil
 }
 
 func TestEvaluationClassifiesContradictoryEvidence(t *testing.T) {
-	const conflictAnswers = `{"support":{"type":"noul","noul":0.9},"established":{"type":"noul","noul":0.9},"conflict":{"type":"noul","noul":0.9},"safe_to_auto_act":{"type":"noul","noul":0.9},"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}}`
+	const conflictAnswers = `{"support":{"type":"noul","noul":0.9},"refuted":{"type":"noul","noul":0.1},"established":{"type":"noul","noul":0.9},"conflict":{"type":"noul","noul":0.9},"safe_to_auto_act":{"type":"noul","noul":0.9},"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}}`
 	handler := mustHandlerWithDecider(t, &scriptedDecider{answers: []byte(conflictAnswers)})
 	body := `{"project_id":"project-test","entity":{"id":"claim-1","type":"claim","schema_version":"0.1","version":"1"},"query":"account","sources":[{"id":"source-1","version":"v1","text":"The account is locked."},{"id":"source-2","version":"v1","text":"The account is open."}]}`
 	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(body))
@@ -1394,7 +1396,7 @@ func TestEvaluationReturnsEveryNonErrorVerdict(t *testing.T) {
 	}{
 		{
 			name:    "rejected",
-			answers: typedAnswers(0.2, 0.9, 0.1, 0.9, "reject"),
+			answers: strings.Replace(typedAnswers(0.2, 0.1, 0.1, 0.9, "reject"), `"refuted":{"type":"noul","noul":0.1}`, `"refuted":{"type":"noul","noul":0.9}`, 1),
 			verdict: "rejected",
 			finding: "negative_result",
 		},
@@ -1455,7 +1457,7 @@ func typedAnswers(support, established, conflict, safety float64, action string)
 	if err != nil {
 		panic(err)
 	}
-	return fmt.Sprintf(`{"support":{"type":"noul","noul":%g},"established":{"type":"noul","noul":%g},"conflict":{"type":"noul","noul":%g},"safe_to_auto_act":{"type":"noul","noul":%g},"action":{"type":"choice","choice":%q,"probabilities":%s}}`, support, established, conflict, safety, action, raw)
+	return fmt.Sprintf(`{"support":{"type":"noul","noul":%g},"refuted":{"type":"noul","noul":0.1},"established":{"type":"noul","noul":%g},"conflict":{"type":"noul","noul":%g},"safe_to_auto_act":{"type":"noul","noul":%g},"action":{"type":"choice","choice":%q,"probabilities":%s}}`, support, established, conflict, safety, action, raw)
 }
 
 func TestSourceByteChangeChangesPackHash(t *testing.T) {

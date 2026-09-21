@@ -3,6 +3,16 @@
 Status: local evidence on 2026-09-21. This is not an IETF, ISO, or vendor
 certification, and it does not close the 28-day SLO window.
 
+Profile hardening on 2026-09-22 supersedes the earlier profile-specific local
+results below. QuestionSet/policy/verifier `0.2.0` adds explicit refutation;
+regression tests distinguish refutation, missing evidence, contradictory signals,
+and operational review. The boundary truth table now contains 128 cells.
+Choice maxima, case-sensitive reserved fields, Unicode rejection, unchanged raw
+answer values in error bundles, immutable verifier configuration, and exact
+model pinning have regression coverage. Python hash verification now uses
+`rfc8785==0.1.4` with numeric-format boundaries and UTF-16 property-order vectors.
+Historical Vercel observations below do not validate this new revision.
+
 | Criterion | Result | Evidence |
 |---|---|---|
 | STD-01 requirement language | Local pass for MUST lines | `go test ./internal/conformance -count=1` fails if a MUST line in `protocol.md`, `checks.md`, or `integration-stack.md` has no test, or if a mapped test function is missing. `governance.md` only defines the keywords. This is not a certification that every test assertion is exhaustive. |

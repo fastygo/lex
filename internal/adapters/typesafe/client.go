@@ -14,7 +14,7 @@ const (
 	// Endpoint is the only production direct endpoint.
 	Endpoint = "https://api.typesafe.ai/v1/systemone"
 	// Model is the pinned request model. Aliases are rejected.
-	Model          = profile.DirectModel
+	Model          = "jev-1.13.0"
 	AdapterID      = "direct-systemone"
 	AdapterVersion = profile.AdapterVersion
 )

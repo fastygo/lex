@@ -9,8 +9,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/fastygo/lex/internal/adapters/openrouter"
+	"github.com/fastygo/lex/internal/adapters/typesafe"
 	"github.com/fastygo/lex/internal/canonical"
-	"github.com/fastygo/lex/internal/profile"
 )
 
 func TestGoldenReplayAgreesOnVerdictAndHash(t *testing.T) {
@@ -22,14 +23,14 @@ func TestGoldenReplayAgreesOnVerdictAndHash(t *testing.T) {
 	t.Cleanup(func() { http.DefaultTransport = previous })
 
 	cases := []goldenCase{
-		{name: "validated-direct", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "proceed"), verdict: "validated", hash: "a16adca26c13d7ddf23dce68564255d25c03d32a04ca6a174ccc6a879f392743"},
-		{name: "validated-hosted", adapter: "hosted-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "proceed"), verdict: "validated", hash: "794ca4065ef98b45febb49645fe6557269d44063b45a462e237055d9bbf2e15f"},
-		{name: "rejected", adapter: "direct-systemone", answers: goldenAnswers(0.1, 0.9, 0.1, 0.9, "reject"), verdict: "rejected", finding: "negative_result", hash: "aeb277fa59acd8ac118a5f5a1b1876546b826332147735707c2e975fce699cb3"},
-		{name: "insufficient", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.1, 0.1, 0.9, "proceed"), verdict: "insufficient", finding: "establishment_below_threshold", hash: "1b7ad52d8bfbc5aa052961c7fdca35a2de32fcf0bb499738c3712bda6fc4e6ea"},
-		{name: "conflict", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.9, 0.1, "proceed"), verdict: "conflict", finding: "evidence_conflict", hash: "8873ba2c22fff4a739227dd5dae91d49e5281c10608abb3e6a3d52414db16af2"},
-		{name: "manual-review", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "manual_review"), verdict: "manual_review", finding: "review_required", hash: "1739bf74c97c9398b66b722372d9c7c4fc51de35edd3cfb08be8b88565b6b1c9"},
-		{name: "error", adapter: "direct-systemone", answers: []byte(`{"support":{"type":"noul","noul":2}}`), verdict: "error", finding: "invalid_noul:support", hash: "71ad1d941125c76741e786ebcbd9a8546ade53c22a56277738c9606b1b520b1c"},
-		{name: "inference-only", adapter: "direct-systemone", inference: true, answers: goldenAnswers(0.99, 0.99, 0.01, 0.99, "proceed"), verdict: "insufficient", finding: "inference_only", hash: "050d81aeeafe347c272874993e10d26b34f4a3b168369a70cd6615d518f25d32"},
+		{name: "validated-direct", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "proceed"), verdict: "validated", hash: "0bbc4dd911b3cb85e0dcec38b3dae638470cd81b82eb0415efc2001cb40f07a3"},
+		{name: "validated-hosted", adapter: "hosted-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "proceed"), verdict: "validated", hash: "813332b8666234dc4b49fd7251410c5ff625b345c8815bda5580b863147a1630"},
+		{name: "rejected", adapter: "direct-systemone", answers: goldenRefutationAnswers(), verdict: "rejected", finding: "negative_result", hash: "041186fd201cc1c68c489f2b7d72b9f7ad1fd59538996570675adc61c79efbe3"},
+		{name: "insufficient", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.1, 0.1, 0.9, "proceed"), verdict: "insufficient", finding: "establishment_below_threshold", hash: "dbc534a407b712f5a5f644a85cf2410977a76d0822361953b7f4b79275e4505d"},
+		{name: "conflict", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.9, 0.1, "proceed"), verdict: "conflict", finding: "evidence_conflict", hash: "0ceca6b9b99a2392cefa8a4ee114159d7eb6064131817272292809d2253065df"},
+		{name: "manual-review", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "manual_review"), verdict: "manual_review", finding: "review_required", hash: "b88bac4cde8041f681aaf65b511eba49b92b20fe51cdf1697c30963bb4faddf4"},
+		{name: "error", adapter: "direct-systemone", answers: []byte(`{"support":{"type":"noul","noul":2}}`), verdict: "error", finding: "invalid_noul:support", hash: "3b3e313c52d55fe12c9222ed7ffdfc30a6106a0d074ed5685221c5ee3af905f3"},
+		{name: "inference-only", adapter: "direct-systemone", inference: true, answers: goldenAnswers(0.99, 0.99, 0.01, 0.99, "proceed"), verdict: "insufficient", finding: "inference_only", hash: "349f0f744a1138d088419d858123c2cff4e81762a649dd7c82370f3e89141a2c"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -90,15 +91,19 @@ func goldenBundle(t *testing.T, tc goldenCase) []byte {
 
 func goldenModel(adapter string) string {
 	if adapter == "hosted-systemone" {
-		return profile.HostedModel + "-20260901"
+		return openrouter.Model + "-20260901"
 	}
-	return profile.DirectModel
+	return typesafe.Model
 }
 
 func goldenAnswers(support, established, conflict, safety float64, choice string) []byte {
-	return []byte(fmt.Sprintf(`{"support":{"type":"noul","noul":%g},"established":{"type":"noul","noul":%g},"conflict":{"type":"noul","noul":%g},"safe_to_auto_act":{"type":"noul","noul":%g},"action":{"type":"choice","choice":%q,"probabilities":{"proceed":%g,"reject":%g,"manual_review":%g,"other":%g}}}`,
+	return []byte(fmt.Sprintf(`{"support":{"type":"noul","noul":%g},"refuted":{"type":"noul","noul":0.1},"established":{"type":"noul","noul":%g},"conflict":{"type":"noul","noul":%g},"safe_to_auto_act":{"type":"noul","noul":%g},"action":{"type":"choice","choice":%q,"probabilities":{"proceed":%g,"reject":%g,"manual_review":%g,"other":%g}}}`,
 		support, established, conflict, safety, choice,
 		choiceWeight(choice, "proceed"), choiceWeight(choice, "reject"), choiceWeight(choice, "manual_review"), choiceWeight(choice, "other")))
+}
+
+func goldenRefutationAnswers() []byte {
+	return bytes.Replace(goldenAnswers(0.1, 0.1, 0.1, 0.9, "reject"), []byte(`"refuted":{"type":"noul","noul":0.1}`), []byte(`"refuted":{"type":"noul","noul":0.9}`), 1)
 }
 
 func choiceWeight(choice, name string) float64 {

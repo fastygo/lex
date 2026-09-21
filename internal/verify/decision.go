@@ -56,7 +56,7 @@ func ValidateAnswers(questions map[string]Question, answers map[string]Answer) [
 				findings = append(findings, errorFinding(CodePrefixInvalidNoul, id))
 			}
 		case QuestionChoice:
-			if !contains(question.Choices, answer.Choice) || !distribution(question.Choices, answer.Probabilities) {
+			if !contains(question.Choices, answer.Choice) || !distribution(question.Choices, answer.Probabilities) || !winningChoice(answer.Choice, answer.Probabilities) {
 				findings = append(findings, errorFinding(CodePrefixInvalidChoice, id))
 			}
 		case QuestionScore:
@@ -110,4 +110,18 @@ func contains(values []string, target string) bool {
 		}
 	}
 	return false
+}
+
+// Ties are valid: the selected option must be one of the exact maxima.
+func winningChoice(choice string, probabilities map[string]float64) bool {
+	selected, ok := probabilities[choice]
+	if !ok {
+		return false
+	}
+	for _, value := range probabilities {
+		if value > selected {
+			return false
+		}
+	}
+	return true
 }

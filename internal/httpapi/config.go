@@ -6,7 +6,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fastygo/lex/internal/adapters/openrouter"
+	"github.com/fastygo/lex/internal/adapters/typesafe"
 	"github.com/fastygo/lex/internal/canonical"
+	"github.com/fastygo/lex/internal/wire"
 )
 
 const (
@@ -19,18 +22,20 @@ const (
 
 // Config contains deployment-owned settings for the HTTP boundary.
 type Config struct {
-	BearerTokens   map[string][]string
-	RequestTimeout time.Duration
-	MaxBodyBytes   int64
-	MaxInFlight    int
-	Decider        Decider
+	BearerTokens        map[string][]string
+	RequestTimeout      time.Duration
+	MaxBodyBytes        int64
+	MaxInFlight         int
+	Decider             Decider
+	HostedResolvedModel string
 }
 
 // LoadConfig reads the API boundary configuration without exposing secrets.
 func LoadConfig() (Config, error) {
 	config := Config{
-		RequestTimeout: defaultRequestTimeout,
-		MaxBodyBytes:   defaultMaxBodyBytes,
+		HostedResolvedModel: os.Getenv("LEX_HOSTED_RESOLVED_MODEL"),
+		RequestTimeout:      defaultRequestTimeout,
+		MaxBodyBytes:        defaultMaxBodyBytes,
 	}
 
 	rawTokens := strings.TrimSpace(os.Getenv("LEX_BEARER_TOKENS"))
@@ -49,6 +54,12 @@ func LoadConfig() (Config, error) {
 }
 
 func (c *Config) validate() error {
+	if c.HostedResolvedModel != "" && !openrouter.ValidResolvedPin(c.HostedResolvedModel) {
+		return fmt.Errorf("LEX_HOSTED_RESOLVED_MODEL must be an exact resolved identity")
+	}
+	if c.Decider != nil && c.Decider.AdapterID() == openrouter.AdapterID && c.HostedResolvedModel == "" {
+		return fmt.Errorf("hosted adapter requires a resolved model pin")
+	}
 	if c.MaxInFlight == 0 {
 		c.MaxInFlight = defaultMaxInFlight
 	}
@@ -111,4 +122,12 @@ func parseBearerTokens(raw string) (map[string][]string, error) {
 		tokens[token] = allowed
 	}
 	return tokens, nil
+}
+
+func (c Config) verifier() wire.Verifier {
+	pins := map[string]wire.AdapterPin{typesafe.AdapterID: {Version: typesafe.AdapterVersion, Model: typesafe.Model}}
+	if c.HostedResolvedModel != "" {
+		pins[openrouter.AdapterID] = wire.AdapterPin{Version: openrouter.AdapterVersion, Model: c.HostedResolvedModel}
+	}
+	return wire.NewVerifier(pins)
 }

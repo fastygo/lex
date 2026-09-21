@@ -66,10 +66,17 @@ An adapter that cannot preserve Noul/Choice/Score semantics is not a conforming
 typed-decision adapter. Supporting one primitive does not imply all are available;
 the requested QuestionSet must fit the declared capabilities.
 
+Deployment supplies exact adapter-version/model bindings to the verifier.
+The verifier freezes that map and performs equality checks; it does not infer
+immutable model identity from a suffix. Provider-specific pin configuration
+belongs to the HTTP composition and adapters. The direct default is pinned;
+the hosted path requires an explicitly configured, provider-confirmed identity.
+An echoed selector or a different resolved identity fails without fallback.
+
 ## Question design
 
 Use independent support Noul questions for each hypothesis; separate atomic
-establishment, conflict, and safety questions; one action Choice for mutually
+establishment, refutation, conflict, and safety questions; one action Choice for mutually
 exclusive operational alternatives; optional Score for a genuinely ordered rubric.
 Include `other` when the taxonomy is incomplete and an explicit non-action
 path such as `manual_review` for risky action recommendations.

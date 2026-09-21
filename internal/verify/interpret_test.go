@@ -8,10 +8,11 @@ import (
 
 func TestInterpretKeepsConflictAheadOfInsufficient(t *testing.T) {
 	verdict, findings, err := Interpret(claimQuestions(), Thresholds{
-		SupportMin: 0.7, EstablishMin: 0.8, ConflictMin: 0.5, SafetyMin: 0.8,
+		SupportMin: 0.7, EstablishMin: 0.8, RefuteMin: 0.8, ConflictMin: 0.5, SafetyMin: 0.8,
 	}, map[string]Answer{
 		"support":          noulAnswer(0.2),
 		"established":      noulAnswer(0.2),
+		"refuted":          noulAnswer(0.1),
 		"conflict":         noulAnswer(0.9),
 		"safe_to_auto_act": noulAnswer(0.1),
 		"action":           choiceAnswer("manual_review"),
@@ -29,7 +30,7 @@ func TestInterpretKeepsConflictAheadOfInsufficient(t *testing.T) {
 
 func TestInterpretAcceptsConsistentClaim(t *testing.T) {
 	verdict, findings, err := Interpret(claimQuestions(), Thresholds{
-		SupportMin: 0.7, EstablishMin: 0.8, ConflictMin: 0.5, SafetyMin: 0.8,
+		SupportMin: 0.7, EstablishMin: 0.8, RefuteMin: 0.8, ConflictMin: 0.5, SafetyMin: 0.8,
 	}, passingAnswers())
 	if err != nil {
 		t.Fatalf("Interpret() error = %v", err)
@@ -42,6 +43,8 @@ func TestInterpretAcceptsConsistentClaim(t *testing.T) {
 func TestInterpretRejectsEstablishedNegativeClaim(t *testing.T) {
 	answers := passingAnswers()
 	answers["support"] = noulAnswer(0.1)
+	answers["established"] = noulAnswer(0.1)
+	answers["refuted"] = noulAnswer(0.9)
 	answers["action"] = choiceAnswer("reject")
 	verdict, _, err := Interpret(claimQuestions(), testThresholds(), answers)
 	if err != nil {
@@ -61,7 +64,7 @@ func TestInterpretCoversEveryVerdict(t *testing.T) {
 		want    Verdict
 	}{
 		{name: "validated", answers: passingAnswers(), want: VerdictValidated},
-		{name: "rejected", answers: withChoice(withNoul(passingAnswers(), "support", 0.1), "reject"), want: VerdictRejected},
+		{name: "rejected", answers: withChoice(withNoul(withNoul(withNoul(passingAnswers(), "support", 0.1), "established", 0.1), "refuted", 0.9), "reject"), want: VerdictRejected},
 		{name: "insufficient", answers: withNoul(passingAnswers(), "established", 0.1), want: VerdictInsufficient},
 		{name: "conflict", answers: withNoul(passingAnswers(), "conflict", 0.9), want: VerdictConflict},
 		{name: "manual_review", answers: withChoice(passingAnswers(), "manual_review"), want: VerdictManualReview},
@@ -107,7 +110,7 @@ func TestInterpretKeepsSafetyGateBesideConflict(t *testing.T) {
 }
 
 func testThresholds() Thresholds {
-	return Thresholds{SupportMin: 0.7, EstablishMin: 0.8, ConflictMin: 0.5, SafetyMin: 0.8}
+	return Thresholds{SupportMin: 0.7, EstablishMin: 0.8, RefuteMin: 0.8, ConflictMin: 0.5, SafetyMin: 0.8}
 }
 
 func withNoul(answers map[string]Answer, id string, value float64) map[string]Answer {
@@ -124,6 +127,7 @@ func claimQuestions() map[string]Question {
 	return map[string]Question{
 		"support":          {Type: QuestionNoul},
 		"established":      {Type: QuestionNoul},
+		"refuted":          {Type: QuestionNoul},
 		"conflict":         {Type: QuestionNoul},
 		"safe_to_auto_act": {Type: QuestionNoul},
 		"action":           {Type: QuestionChoice, Choices: []string{"proceed", "reject", "manual_review", "other"}},
@@ -134,6 +138,7 @@ func passingAnswers() map[string]Answer {
 	return map[string]Answer{
 		"support":          noulAnswer(0.9),
 		"established":      noulAnswer(0.9),
+		"refuted":          noulAnswer(0.1),
 		"conflict":         noulAnswer(0.1),
 		"safe_to_auto_act": noulAnswer(0.9),
 		"action":           choiceAnswer("proceed"),
@@ -151,7 +156,7 @@ func choiceAnswer(choice string) Answer {
 }
 
 func TestInterpretRejectsUnusablePolicy(t *testing.T) {
-	thresholds := Thresholds{SupportMin: math.NaN(), EstablishMin: 0.8, ConflictMin: 0.5, SafetyMin: 0.8}
+	thresholds := Thresholds{SupportMin: math.NaN(), EstablishMin: 0.8, RefuteMin: 0.8, ConflictMin: 0.5, SafetyMin: 0.8}
 	verdict, findings, err := Interpret(claimQuestions(), thresholds, passingAnswers())
 	if verdict != "" || findings != nil || !errors.Is(err, ErrUnusablePolicy) {
 		t.Fatalf("verdict = %s findings = %#v err = %v", verdict, findings, err)

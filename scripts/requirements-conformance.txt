@@ -1,0 +1,2 @@
+# Independent RFC 8785 implementation used by Go conformance tests.
+rfc8785==0.1.4

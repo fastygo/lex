@@ -70,6 +70,33 @@ rejected > validated`. A policy denial is one of `safety_gate`,
 its thresholds is `policy_error`, not one of those denials.
 The precedence order does not erase lower-priority findings.
 
+## Embedded claim-validation profile 0.2.0
+
+The QuestionSet, policy, and verifier are versioned together as `0.2.0`.
+`established` concerns the positive claim. The separate atomic Noul `refuted`
+concerns sufficient evidence for its negation, with policy threshold
+`refute_min = 0.8`. Low support alone never establishes a negative result.
+`conflict` concerns mutually incompatible evidence conclusions, not merely
+an item contradicting the claim. Simultaneous support or establishment and
+refutation above their thresholds also produces a conflict finding.
+
+Established refutation produces `negative_result`; absent positive support or
+establishment does not add insufficiency in that case. Operational review and
+inconsistent action recommendations remain separate findings and retain the
+existing precedence. The thresholds remain uncalibrated.
+
+A Choice selects one of the maximum-probability options; exact ties are allowed.
+A non-winning selection is `invalid_choice`, without rewriting the raw answer.
+Reserved answer fields are case-sensitive. Case aliases such as `NOUL` are
+`invalid_answers`; unrelated provider additions remain metadata. The loose raw
+answer envelope allows malformed answer values to remain in an error bundle;
+this is distinct from the verifier's strict typed-answer acceptance contract.
+Invalid UTF-8 and unpaired escaped surrogates are rejected before decoding can
+repair data or a bundle can seal changed values.
+
+Previous profile/version bindings are refused rather than interpreted under
+these new rules. Historical replay requires the historical verifier.
+
 ## Failure stages
 
 - `retrieval_error`: a retrieval transport failed. This profile has no separate retrieval service. An empty exact selection is HTTP 200 `insufficient`, does not call a provider, and still returns a replay bundle. A failure while freezing sources is HTTP 422 `pack_error`. Cancellation remains HTTP 504 `deadline_exceeded` or HTTP 499 `client_canceled`. A canceled or expired pack rebuild stays that cancellation and is not reported as a pack mismatch.

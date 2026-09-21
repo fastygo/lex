@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
-"""Write RFC 8785 vectors with SHA-256 digests from this file, not from Go.
-
-The number formatter follows the ECMAScript conversion used by RFC 8785:
-non-finite values are rejected, negative zero is "0", and integral values
-inside the safe integer range have no fraction or exponent.
-"""
+"""Generate conformance vectors using the independent, pinned rfc8785 package."""
 
 import hashlib
 import json
-import math
 import pathlib
 import sys
+
+import rfc8785
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "internal" / "canonical" / "testdata" / "jcs-vectors.json"
@@ -26,41 +22,21 @@ ANCHORS = {
 }
 
 
-def es6_number(number):
-    if not math.isfinite(number):
-        raise ValueError("non-finite number")
-    if number == 0:
-        return "0"
-    sign = "-" if math.copysign(1.0, number) < 0 else ""
-    number = abs(number)
-    if number.is_integer() and number < 2**53:
-        return sign + str(int(number))
-    text = format(number, ".16g")
-    if float(text) != number:
-        text = format(number, ".17g")
-    return sign + text
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON key")
+        result[key] = value
+    return result
 
 
 def parse_json(raw):
-    return json.loads(raw, parse_int=lambda text: float(text), parse_float=float)
+    return json.loads(raw, parse_int=float, parse_float=float, object_pairs_hook=unique_object)
 
 
 def canonical(value):
-    if value is None:
-        return "null"
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, str):
-        return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
-    if isinstance(value, float):
-        return es6_number(value)
-    if isinstance(value, list):
-        return "[" + ",".join(canonical(item) for item in value) + "]"
-    if isinstance(value, dict):
-        keys = sorted(value)
-        parts = [json.dumps(key, ensure_ascii=False, separators=(",", ":")) + ":" + canonical(value[key]) for key in keys]
-        return "{" + ",".join(parts) + "}"
-    raise TypeError(type(value))
+    return rfc8785.dumps(value).decode("utf-8")
 
 
 def digest(text):
@@ -103,6 +79,11 @@ def main():
         jcs_vector("fractional-zero", '{"n":0.0}'),
         jcs_vector("negative-fractional-zero", '{"n":-0.0}'),
         jcs_vector("integral-float", '{"n":1.0}'),
+        jcs_vector("small-exponent", '{"n":1e-7}'),
+        jcs_vector("decimal-boundary", '{"n":1e-6}'),
+        jcs_vector("large-decimal", '{"n":1e20}'),
+        jcs_vector("large-exponent", '{"n":1e21}'),
+        jcs_vector("utf16-property-order", '{"\\ufb33":1,"\\ud83d\\ude00":2}'),
         jcs_vector("exponent", '{"n":1e2}'),
         jcs_vector("trailing-fraction-zeros", '{"n":1.2300}'),
         jcs_vector("solidus-not-escaped", '{"url":"https://example.com/a"}'),
@@ -113,6 +94,7 @@ def main():
         source_vector("source-bytes", "The account is locked."),
         source_vector("source-bytes-one-edit", "The account is lockd."),
         source_vector("source-bytes-unicode", "caf\u00e9"),
+        reject_vector("lone-surrogate", '{"text":"\\ud800"}'),
         reject_vector("duplicate-key", '{"id":"first","id":"second"}'),
         reject_vector("trailing-value", '{"id":"one"} {"id":"two"}'),
     ]

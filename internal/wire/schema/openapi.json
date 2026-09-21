@@ -282,7 +282,7 @@
         "required": ["id", "version", "calibration"],
         "properties": {
           "id": {"const": "claim-validation"},
-          "version": {"const": "0.1.0"},
+          "version": {"const": "0.2.0"},
           "calibration": {"const": "uncalibrated"}
         }
       },

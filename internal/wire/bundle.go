@@ -199,13 +199,30 @@ func BuildBundle(input BundleInput) ([]byte, error) {
 	return final, nil
 }
 
+// AdapterPin is deployment-owned authority for an adapter and resolved model.
+type AdapterPin struct {
+	Version string
+	Model   string
+}
+
+// Verifier checks frozen decisions against an immutable copy of deployment pins.
+type Verifier struct{ adapters map[string]AdapterPin }
+
+func NewVerifier(adapters map[string]AdapterPin) Verifier {
+	frozen := make(map[string]AdapterPin, len(adapters))
+	for id, pin := range adapters {
+		frozen[id] = pin
+	}
+	return Verifier{adapters: frozen}
+}
+
 // Replay reproduces the verdict from a sealed bundle. It does not retrieve evidence or call a provider.
-func Replay(raw []byte) (Report, error) {
-	return ReplayContext(context.Background(), raw)
+func (v Verifier) Replay(raw []byte) (Report, error) {
+	return v.ReplayContext(context.Background(), raw)
 }
 
 // ReplayContext is Replay bound to the caller's cancellation and deadline.
-func ReplayContext(ctx context.Context, raw []byte) (Report, error) {
+func (v Verifier) ReplayContext(ctx context.Context, raw []byte) (Report, error) {
 	if err := ctx.Err(); err != nil {
 		return Report{}, err
 	}
@@ -220,7 +237,7 @@ func ReplayContext(ctx context.Context, raw []byte) (Report, error) {
 	if !ok {
 		return Report{}, fmt.Errorf("replay bundle must be a JSON object")
 	}
-	findings := bindingFindings(bundle)
+	findings := v.bindingFindings(bundle)
 	if len(findings) > 0 {
 		verdict, err := verify.ResolveVerdict(findings)
 		if err != nil {
@@ -258,7 +275,7 @@ func ReplayContext(ctx context.Context, raw []byte) (Report, error) {
 	return Report{Verdict: verdict, Findings: findings}, nil
 }
 
-func bindingFindings(bundle map[string]any) []verify.Finding {
+func (v Verifier) bindingFindings(bundle map[string]any) []verify.Finding {
 	findings := make([]verify.Finding, 0)
 	questionSet, _ := bundle["question_set"].(map[string]any)
 	policyRef, _ := bundle["policy"].(map[string]any)
@@ -293,16 +310,16 @@ func bindingFindings(bundle map[string]any) []verify.Finding {
 	}
 	model, _ := decision["resolved_model"].(string)
 	adapterID, _ := decision["adapter_id"].(string)
-	switch adapterID {
-	case "direct-systemone", "hosted-systemone":
-		if decision["adapter_version"] != profile.AdapterVersion {
+	pin, ok := v.adapters[adapterID]
+	if !ok {
+		findings = append(findings, errorFinding(verify.CodeUnknownAdapter))
+	} else {
+		if pin.Version == "" || decision["adapter_version"] != pin.Version {
 			findings = append(findings, errorFinding(verify.CodeUnpinnedAdapter))
 		}
-		if !profile.ReproducibleModel(adapterID, model) {
+		if pin.Model == "" || model != pin.Model {
 			findings = append(findings, errorFinding(verify.CodeUnresolvedModel))
 		}
-	default:
-		findings = append(findings, errorFinding(verify.CodeUnknownAdapter))
 	}
 	return findings
 }
@@ -386,33 +403,6 @@ func skippedDecisionReport(ctx context.Context, bundle map[string]any) (Report, 
 		return Report{}, err
 	}
 	return Report{Verdict: verdict, Findings: findings}, nil
-}
-
-func parseAnswers(bundle map[string]any) (map[string]verify.Answer, []verify.Finding) {
-	decision, _ := bundle["decision_set"].(map[string]any)
-	raw, err := json.Marshal(decision["answers"])
-	if err != nil {
-		return nil, []verify.Finding{errorFinding(verify.CodeInvalidAnswers)}
-	}
-	var decoded map[string]struct {
-		Type          string             `json:"type"`
-		Noul          *float64           `json:"noul"`
-		Choice        string             `json:"choice"`
-		Probabilities map[string]float64 `json:"probabilities"`
-		Score         *float64           `json:"score"`
-	}
-	if err := json.Unmarshal(raw, &decoded); err != nil {
-		return nil, []verify.Finding{errorFinding(verify.CodeInvalidAnswers)}
-	}
-	answers := make(map[string]verify.Answer, len(decoded))
-	for id, answer := range decoded {
-		parsed := verify.Answer{
-			Type: verify.QuestionType(answer.Type), Noul: answer.Noul, Choice: answer.Choice,
-			Probabilities: answer.Probabilities, Score: answer.Score,
-		}
-		answers[id] = parsed
-	}
-	return answers, nil
 }
 
 func packHashMatches(contextBody map[string]any) bool {

@@ -9,6 +9,7 @@ import (
 type Thresholds struct {
 	SupportMin   float64
 	EstablishMin float64
+	RefuteMin    float64
 	ConflictMin  float64
 	SafetyMin    float64
 }
@@ -36,7 +37,7 @@ func Interpret(questions map[string]Question, thresholds Thresholds, answers map
 
 // ThresholdsUsable reports whether every gate is a finite probability.
 func ThresholdsUsable(thresholds Thresholds) bool {
-	return unitInterval(thresholds.SupportMin) && unitInterval(thresholds.EstablishMin) && unitInterval(thresholds.ConflictMin) && unitInterval(thresholds.SafetyMin)
+	return unitInterval(thresholds.SupportMin) && unitInterval(thresholds.EstablishMin) && unitInterval(thresholds.RefuteMin) && unitInterval(thresholds.ConflictMin) && unitInterval(thresholds.SafetyMin)
 }
 
 func unitInterval(value float64) bool {
@@ -46,23 +47,25 @@ func unitInterval(value float64) bool {
 func policyFindings(thresholds Thresholds, answers map[string]Answer) []Finding {
 	support, supportOK := noul(answers, "support")
 	established, establishedOK := noul(answers, "established")
+	refuted, refutedOK := noul(answers, "refuted")
 	conflict, conflictOK := noul(answers, "conflict")
 	safety, safetyOK := noul(answers, "safe_to_auto_act")
 	action, actionOK := choice(answers, "action")
 	findings := make([]Finding, 0)
 
-	negative := supportOK && establishedOK && conflictOK && support < thresholds.SupportMin && established >= thresholds.EstablishMin && conflict < thresholds.ConflictMin
-	if conflictOK && conflict >= thresholds.ConflictMin {
-		findings = append(findings, Finding{Code: CodeEvidenceConflict, Verdict: VerdictConflict, Detail: "admissible evidence supports an incompatible conclusion"})
+	negative := refutedOK && refuted >= thresholds.RefuteMin
+	contradictory := negative && ((establishedOK && established >= thresholds.EstablishMin) || (supportOK && support >= thresholds.SupportMin))
+	if (conflictOK && conflict >= thresholds.ConflictMin) || contradictory {
+		findings = append(findings, Finding{Code: CodeEvidenceConflict, Verdict: VerdictConflict, Detail: "admissible evidence supports mutually incompatible conclusions"})
 	}
 	if supportOK && support < thresholds.SupportMin && !negative {
 		findings = append(findings, Finding{Code: CodeSupportBelow, Verdict: VerdictInsufficient, Detail: "support is below the policy threshold"})
 	}
-	if establishedOK && established < thresholds.EstablishMin {
+	if establishedOK && established < thresholds.EstablishMin && !negative {
 		findings = append(findings, Finding{Code: CodeEstablishmentBelow, Verdict: VerdictInsufficient, Detail: "establishment is below the policy threshold"})
 	}
 	if negative {
-		findings = append(findings, Finding{Code: CodeNegativeResult, Verdict: VerdictRejected, Detail: "admissible evidence establishes that the claim is not supported"})
+		findings = append(findings, Finding{Code: CodeNegativeResult, Verdict: VerdictRejected, Detail: "admissible evidence establishes the negation of the claim"})
 	}
 	if !actionOK {
 		return findings
@@ -74,12 +77,12 @@ func policyFindings(thresholds Thresholds, answers map[string]Answer) []Finding 
 		if safetyOK && safety < thresholds.SafetyMin {
 			findings = append(findings, Finding{Code: CodeSafetyGate, Verdict: VerdictManualReview, Detail: "semantic safety is below the policy threshold"})
 		}
-		if (supportOK && support < thresholds.SupportMin) || (establishedOK && established < thresholds.EstablishMin) || (conflictOK && conflict >= thresholds.ConflictMin) {
+		if (supportOK && support < thresholds.SupportMin) || (establishedOK && established < thresholds.EstablishMin) || (conflictOK && conflict >= thresholds.ConflictMin) || negative {
 			findings = append(findings, Finding{Code: CodeActionInconsistent, Verdict: VerdictManualReview, Detail: "the proceed choice disagrees with the predicate signals"})
 		}
 	case "reject":
-		if supportOK && support >= thresholds.SupportMin {
-			findings = append(findings, Finding{Code: CodeActionInconsistent, Verdict: VerdictManualReview, Detail: "the reject choice disagrees with support"})
+		if !negative || (establishedOK && established >= thresholds.EstablishMin) {
+			findings = append(findings, Finding{Code: CodeActionInconsistent, Verdict: VerdictManualReview, Detail: "the reject choice lacks an established uncontested refutation"})
 		}
 	}
 	return findings

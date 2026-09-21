@@ -7,34 +7,8 @@ import (
 	"github.com/fastygo/lex/internal/canonical"
 )
 
-func TestReproducibleModelPinsAdapterIdentity(t *testing.T) {
-	if !ReproducibleModel("direct-systemone", DirectModel) {
-		t.Fatal("direct model was rejected")
-	}
-	if !ReproducibleModel("hosted-systemone", HostedModel+"-20260901") || !ReproducibleModel("hosted-systemone", HostedModel+".0") {
-		t.Fatal("resolved hosted model was rejected")
-	}
-	rejected := []struct{ adapter, model string }{
-		{"direct-systemone", "jev-latest"},
-		{"direct-systemone", "jev-1.14.0"},
-		{"hosted-systemone", HostedModel},
-		{"hosted-systemone", "typesafe/jev-1.130"},
-		{"hosted-systemone", HostedModel + "-latest"},
-		{"hosted-systemone", HostedModel + "-\n20260901"},
-		{"hosted-systemone", HostedModel + "-20260901\r"},
-		{"hosted-systemone", HostedModel + "-\u00a020260901"},
-		{"hosted-systemone", HostedModel + "-2026/09"},
-		{"hosted-systemone", ""},
-	}
-	for _, tc := range rejected {
-		if ReproducibleModel(tc.adapter, tc.model) {
-			t.Fatalf("accepted %s %q", tc.adapter, tc.model)
-		}
-	}
-}
-
 func TestQuestionsNameTheFrozenState(t *testing.T) {
-	if QuestionSetVersion != "0.1.1" {
+	if QuestionSetVersion != "0.2.0" {
 		t.Fatalf("question set version = %s", QuestionSetVersion)
 	}
 	for id, raw := range ProviderQuestions() {
@@ -70,8 +44,8 @@ func TestCriteriaChangeProducesNewQuestionSetHash(t *testing.T) {
 	if hash == QuestionSetHash() || QuestionSetHash() == "" {
 		t.Fatalf("question set hash = %s changed = %s", QuestionSetHash(), hash)
 	}
-	const questionSetHashPin = "4026ad3baf55334fccf0cb3008a01af913355adfeb9a2b0ac4f3bb4e4f1ae308"
-	const policyHashPin = "9ebb4842264e82d65390762b94d10664c9d03445ad1d0550c6baf379a277ebcc"
+	const questionSetHashPin = "b053e518f4aea6381d0cb4dd0597087406da262051325f1d0dff4536353fbca8"
+	const policyHashPin = "367f5b8ee7e0eb1106756737aec56bd9471145c1a38ec3df3949beb64fea4669"
 	if QuestionSetHash() != questionSetHashPin || PolicyHash() != policyHashPin {
 		t.Fatalf("question set hash = %s policy hash = %s", QuestionSetHash(), PolicyHash())
 	}

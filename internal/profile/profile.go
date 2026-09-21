@@ -3,7 +3,6 @@ package profile
 
 import (
 	"encoding/json"
-	"strings"
 
 	"github.com/fastygo/lex/internal/canonical"
 	"github.com/fastygo/lex/internal/verify"
@@ -13,13 +12,13 @@ const (
 	// QuestionSetID identifies the embedded claim-validation questions.
 	QuestionSetID = "claim-validation"
 	// QuestionSetVersion changes when question criteria change.
-	QuestionSetVersion = "0.1.1"
+	QuestionSetVersion = "0.2.0"
 	// PolicyID identifies the embedded threshold policy.
 	PolicyID = "claim-validation"
 	// PolicyVersion changes when thresholds change.
-	PolicyVersion = "0.1.0"
+	PolicyVersion = "0.2.0"
 	// VerifierVersion pins the deterministic interpreter.
-	VerifierVersion = "0.1.0"
+	VerifierVersion = "0.2.0"
 	// AdapterVersion is the only typed-decision adapter contract this verifier replays.
 	AdapterVersion = "0.1.0"
 	// Calibration discloses that these thresholds are not a measured calibration.
@@ -38,16 +37,12 @@ const (
 	EntityType = "claim"
 	// EntitySchemaVersion is the only entity schema this question set evaluates.
 	EntitySchemaVersion = "0.1"
-	// DirectModel is the only reproducible model identity for the direct adapter.
-	DirectModel = "jev-1.13.0"
-	// HostedModel is the request selector for the hosted adapter. A response
-	// must add a resolved suffix; the selector alone is not reproducible.
-	HostedModel = "typesafe/jev-1.13"
 )
 
 const (
 	questionSupport   = "support"
 	questionEstablish = "established"
+	questionRefute    = "refuted"
 	questionConflict  = "conflict"
 	questionSafety    = "safe_to_auto_act"
 	questionAction    = "action"
@@ -71,6 +66,7 @@ type policyDocument struct {
 	Calibration  string  `json:"calibration"`
 	SupportMin   float64 `json:"support_min"`
 	EstablishMin float64 `json:"establish_min"`
+	RefuteMin    float64 `json:"refute_min"`
 	ConflictMin  float64 `json:"conflict_min"`
 	SafetyMin    float64 `json:"safety_min"`
 }
@@ -96,12 +92,20 @@ var (
 					"false": "The `evidence` surfaces are missing, too weak, or not coherent enough to establish `claim`.",
 				},
 			},
+			questionRefute: {
+				Type:         "noul",
+				Instructions: "Do the frozen items in `evidence` establish that `claim` is false?",
+				Criteria: map[string]string{
+					"true":  "Sufficient admissible evidence establishes the negation of `claim`.",
+					"false": "The negation is not established; missing support for `claim` alone is not refutation.",
+				},
+			},
 			questionConflict: {
 				Type:         "noul",
-				Instructions: "Does any frozen item in `evidence` support a conclusion incompatible with `claim`?",
+				Instructions: "Do the frozen items in `evidence` support mutually incompatible conclusions about `claim`?",
 				Criteria: map[string]string{
-					"true":  "An `evidence` surface supports a conclusion that cannot hold together with `claim`.",
-					"false": "No `evidence` surface supports a conclusion incompatible with `claim`.",
+					"true":  "Admissible evidence supports both a conclusion about `claim` and an incompatible conclusion.",
+					"false": "The evidence does not support incompatible conclusions; a coherent refutation alone is not conflict.",
 				},
 			},
 			questionSafety: {
@@ -117,7 +121,7 @@ var (
 				Instructions: "Which disposition follows from `claim` and `evidence` alone? This choice is not permission to act.",
 				Criteria: map[string]string{
 					"proceed":       "The frozen evidence is sufficient to accept the claim without review",
-					"reject":        "The frozen evidence shows that the claim is not supported",
+					"reject":        "The frozen evidence sufficiently establishes that the claim is false",
 					"manual_review": "A person should review the claim because the evidence is weak, unsafe, or incomplete",
 					"other":         "None of the listed dispositions fit",
 				},
@@ -130,6 +134,7 @@ var (
 		Calibration:  Calibration,
 		SupportMin:   0.7,
 		EstablishMin: 0.8,
+		RefuteMin:    0.8,
 		ConflictMin:  0.5,
 		SafetyMin:    0.8,
 	}
@@ -152,45 +157,6 @@ func init() {
 	}
 }
 
-// ReproducibleModel reports whether a sealed model identity can support replay
-// for the named adapter. An alias containing "latest", an echoed hosted
-// selector, and a different model line are not reproducible.
-func ReproducibleModel(adapterID, model string) bool {
-	if model == "" || strings.Contains(model, "latest") {
-		return false
-	}
-	switch adapterID {
-	case "direct-systemone":
-		return model == DirectModel
-	case "hosted-systemone":
-		return hostedResolved(model)
-	default:
-		return false
-	}
-}
-
-func hostedResolved(model string) bool {
-	for _, separator := range []string{"-", "."} {
-		rest, ok := strings.CutPrefix(model, HostedModel+separator)
-		if ok && modelSuffix(rest) {
-			return true
-		}
-	}
-	return false
-}
-
-func modelSuffix(rest string) bool {
-	if rest == "" {
-		return false
-	}
-	for _, r := range rest {
-		if r < 0x21 || r > 0x7e || r == '/' {
-			return false
-		}
-	}
-	return true
-}
-
 // QuestionSetHash is the canonical hash of the question document, excluding the wire hash field.
 func QuestionSetHash() string { return questionSetHash }
 
@@ -202,6 +168,7 @@ func Thresholds() verify.Thresholds {
 	return verify.Thresholds{
 		SupportMin:   policy.SupportMin,
 		EstablishMin: policy.EstablishMin,
+		RefuteMin:    policy.RefuteMin,
 		ConflictMin:  policy.ConflictMin,
 		SafetyMin:    policy.SafetyMin,
 	}
@@ -212,6 +179,7 @@ func TypedQuestions() map[string]verify.Question {
 	return map[string]verify.Question{
 		questionSupport:   {Type: verify.QuestionNoul},
 		questionEstablish: {Type: verify.QuestionNoul},
+		questionRefute:    {Type: verify.QuestionNoul},
 		questionConflict:  {Type: verify.QuestionNoul},
 		questionSafety:    {Type: verify.QuestionNoul},
 		questionAction: {Type: verify.QuestionChoice, Choices: []string{

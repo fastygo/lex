@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/fastygo/lex/internal/profile"
+	"github.com/fastygo/lex/internal/adapters/typesafe"
 	"github.com/fastygo/lex/internal/wire"
 )
 
@@ -26,7 +26,7 @@ func (exampleDecider) AdapterVersion() string { return "0.1.0" }
 func (decider *exampleDecider) Evaluate(_ context.Context, state any, _ map[string]any) (Decision, error) {
 	decider.calls++
 	decider.state = state
-	return Decision{ResolvedModel: profile.DirectModel, Answers: decider.answers}, nil
+	return Decision{ResolvedModel: typesafe.Model, Answers: decider.answers}, nil
 }
 
 func TestExampleRequestsRunThroughTheProtocol(t *testing.T) {

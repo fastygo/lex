@@ -15,12 +15,13 @@ Use separate direct and hosted adapters behind a provider-neutral typed interfac
 The initial direct adapter allowlists `https://api.typesafe.ai/v1/systemone`
 and requests `jev-1.13.0`. The hosted adapter allowlists
 `https://openrouter.ai/api/v1/systemone`, requests `typesafe/jev-1.13`, and
-records the returned model only when it is a resolved refinement of
-`typesafe/jev-1.13`: a non-empty ASCII suffix after `-` or `.`, with no
-whitespace, controls, or `/`. An echo of that
-selector, an alias containing `latest`, or a different model line is a
-capability failure and is not retried. Neither adapter accepts a
-caller-provided endpoint, credential, or model alias such as `latest`.
+requires `LEX_HOSTED_RESOLVED_MODEL`, an exact immutable identity confirmed by
+the provider for the deployment. Both adapter transport and replay compare
+against that explicit pin. There is no default hosted resolved identity and
+no suffix-based inference of immutability. An echoed selector, `latest`,
+`stable`, `preview`, missing pin, or a different response identity is refused.
+The dated identities in conformance fixtures are synthetic, not release evidence.
+Neither adapter accepts caller-provided endpoints, credentials, or model pins.
 Deployment supplies `LEX_TYPESAFE_API_KEY` and `LEX_OPENROUTER_API_KEY` as
 separate secrets; neither value enters a request, bundle, trace, or log.
 

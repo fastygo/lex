@@ -174,9 +174,10 @@ Human-readable content outside `.manual/` is English only. Optional:
 npm run check:english
 ```
 
-Current foundation checks:
+Current foundation checks (Python with the pinned conformance dependency is required):
 
 ```bash
+python -m pip install -r scripts/requirements-conformance.txt
 go test ./... -count=1
 go vet ./...
 ```
@@ -203,6 +204,17 @@ export LEX_BEARER_TOKENS='{"development-token":["example-project"]}'
 export LEX_TYPESAFE_API_KEY='replace-with-secret'
 go run ./cmd/api
 ```
+
+The embedded QuestionSet, policy, and verifier are now version `0.2.0`.
+The wire envelope remains `0.1-draft`. The profile adds `refuted` and distinguishes
+coherent refutation from conflicting evidence. Bundles pinned to the old profile
+are rejected by this verifier; retain the previous verifier for historical replay.
+
+The hosted adapter additionally requires `LEX_HOSTED_RESOLVED_MODEL`: the exact
+immutable identity confirmed by the provider for your deployment. The response
+must match this pin. There is no inferred or default hosted resolved identity;
+`latest`, `stable`, and `preview` are not accepted. Synthetic dates in tests are
+fixtures, not verified provider releases. The same deployment pin governs replay.
 
 `LEX_BEARER_TOKENS` and provider credentials are deployment secrets. Never add
 them to source files, request payloads, traces, replay bundles, or logs.

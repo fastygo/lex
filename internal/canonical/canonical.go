@@ -10,6 +10,7 @@ import (
 	"io"
 	"math"
 	"strings"
+	"unicode/utf8"
 
 	jsoncanonicalizer "github.com/cyberphone/json-canonicalization/go/src/webpki.org/jsoncanonicalizer"
 )
@@ -88,6 +89,10 @@ func zeroLiteral(raw string) bool {
 }
 
 func validateSingleJSON(raw []byte) error {
+	if !utf8.Valid(raw) {
+		return fmt.Errorf("JSON must be valid UTF-8")
+	}
+
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.UseNumber()
 	if err := validateValue(decoder, true, 1); err != nil {
@@ -98,6 +103,10 @@ func validateSingleJSON(raw []byte) error {
 			return fmt.Errorf("trailing JSON value")
 		}
 		return fmt.Errorf("read trailing JSON: %w", err)
+	}
+	// Validate escaped Unicode before encoding/json can replace invalid surrogates.
+	if _, err := jsoncanonicalizer.Transform(raw); err != nil {
+		return fmt.Errorf("invalid canonical JSON: %w", err)
 	}
 	return nil
 }

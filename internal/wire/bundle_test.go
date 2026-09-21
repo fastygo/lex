@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	contextmemory "github.com/fastygo/context/pkg/contextkit/runtime"
+	"github.com/fastygo/lex/internal/adapters/openrouter"
+	"github.com/fastygo/lex/internal/adapters/typesafe"
 	"github.com/fastygo/lex/internal/canonical"
 	"github.com/fastygo/lex/internal/evidence"
 	"github.com/fastygo/lex/internal/profile"
@@ -39,10 +41,10 @@ func TestReplayAcceptsExactPhraseSelection(t *testing.T) {
 		PackRequest:    request,
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
-		ResolvedModel:  profile.DirectModel,
+		ResolvedModel:  typesafe.Model,
 		Answers: []byte(`{
 			"support":{"type":"noul","noul":0.9},
-			"established":{"type":"noul","noul":0.9},
+			"refuted":{"type":"noul","noul":0.1},"established":{"type":"noul","noul":0.9},
 			"conflict":{"type":"noul","noul":0.1},
 			"safe_to_auto_act":{"type":"noul","noul":0.9},
 			"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}
@@ -164,10 +166,10 @@ func sealedSelectionBundle(t *testing.T, sources []contextmemory.Source) []byte 
 		PackRequest:    request,
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
-		ResolvedModel:  profile.DirectModel,
+		ResolvedModel:  typesafe.Model,
 		Answers: []byte(`{
 			"support":{"type":"noul","noul":0.9},
-			"established":{"type":"noul","noul":0.9},
+			"refuted":{"type":"noul","noul":0.1},"established":{"type":"noul","noul":0.9},
 			"conflict":{"type":"noul","noul":0.1},
 			"safe_to_auto_act":{"type":"noul","noul":0.9},
 			"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}
@@ -207,10 +209,10 @@ func TestReplayAcceptsEscapedContextSnapshot(t *testing.T) {
 		PackRequest:    request,
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
-		ResolvedModel:  profile.DirectModel,
+		ResolvedModel:  typesafe.Model,
 		Answers: []byte(`{
 			"support":{"type":"noul","noul":0.9},
-			"established":{"type":"noul","noul":0.9},
+			"refuted":{"type":"noul","noul":0.1},"established":{"type":"noul","noul":0.9},
 			"conflict":{"type":"noul","noul":0.1},
 			"safe_to_auto_act":{"type":"noul","noul":0.9},
 			"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}
@@ -236,10 +238,10 @@ func TestBuildBundleReplaysValidatedClaim(t *testing.T) {
 		PackRequest:    addressableRequest(),
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
-		ResolvedModel:  profile.DirectModel,
+		ResolvedModel:  typesafe.Model,
 		Answers: []byte(`{
 			"support":{"type":"noul","noul":0.9},
-			"established":{"type":"noul","noul":0.9},
+			"refuted":{"type":"noul","noul":0.1},"established":{"type":"noul","noul":0.9},
 			"conflict":{"type":"noul","noul":0.1},
 			"safe_to_auto_act":{"type":"noul","noul":0.9},
 			"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}
@@ -331,10 +333,10 @@ func sealedBundle(t *testing.T) []byte {
 		PackRequest:    addressableRequest(),
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
-		ResolvedModel:  profile.DirectModel,
+		ResolvedModel:  typesafe.Model,
 		Answers: []byte(`{
 			"support":{"type":"noul","noul":0.9},
-			"established":{"type":"noul","noul":0.9},
+			"refuted":{"type":"noul","noul":0.1},"established":{"type":"noul","noul":0.9},
 			"conflict":{"type":"noul","noul":0.1},
 			"safe_to_auto_act":{"type":"noul","noul":0.9},
 			"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}
@@ -399,9 +401,9 @@ func TestReplayRejectsUnresolvedModelIdentity(t *testing.T) {
 	}{
 		{adapter: "direct-systemone", model: "jev-latest"},
 		{adapter: "direct-systemone", model: "jev-1.14.0"},
-		{adapter: "hosted-systemone", model: profile.HostedModel},
+		{adapter: "hosted-systemone", model: openrouter.Model},
 		{adapter: "hosted-systemone", model: "typesafe/jev-1.14-20260901"},
-		{adapter: "hosted-systemone", model: profile.DirectModel},
+		{adapter: "hosted-systemone", model: typesafe.Model},
 	}
 	for _, tc := range cases {
 		value, err := canonical.DecodeJSON(sealedBundle(t))
@@ -427,7 +429,7 @@ func TestReplayRejectsUnresolvedModelIdentity(t *testing.T) {
 	bundle := value.(map[string]any)
 	decision := bundle["decision_set"].(map[string]any)
 	decision["adapter_id"] = "hosted-systemone"
-	decision["resolved_model"] = profile.HostedModel + "-20260901"
+	decision["resolved_model"] = openrouter.Model + "-20260901"
 	report, err := Replay(reseal(t, bundle))
 	if err != nil {
 		t.Fatal(err)
@@ -848,10 +850,10 @@ func TestReplayDoesNotUseNetwork(t *testing.T) {
 		PackRequest:    addressableRequest(),
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
-		ResolvedModel:  profile.DirectModel,
+		ResolvedModel:  typesafe.Model,
 		Answers: []byte(`{
 			"support":{"type":"noul","noul":0.9},
-			"established":{"type":"noul","noul":0.9},
+			"refuted":{"type":"noul","noul":0.1},"established":{"type":"noul","noul":0.9},
 			"conflict":{"type":"noul","noul":0.1},
 			"safe_to_auto_act":{"type":"noul","noul":0.9},
 			"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}
@@ -888,7 +890,7 @@ func TestReplayRejectsUnpinnedPolicyWithoutProviderCall(t *testing.T) {
 		PackRequest:    addressableRequest(),
 		AdapterID:      "hosted-systemone",
 		AdapterVersion: "0.1.0",
-		ResolvedModel:  profile.HostedModel + "-20260901",
+		ResolvedModel:  openrouter.Model + "-20260901",
 		Answers:        []byte(`{"support":{"type":"noul","noul":0.9}}`),
 	})
 	if err != nil {
@@ -908,10 +910,10 @@ func TestReplayRefusesInferenceOnlyEvidence(t *testing.T) {
 		PackRequest:    map[string]any{"query": "claim"},
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
-		ResolvedModel:  profile.DirectModel,
+		ResolvedModel:  typesafe.Model,
 		Answers: []byte(`{
 			"support":{"type":"noul","noul":0.99},
-			"established":{"type":"noul","noul":0.99},
+			"refuted":{"type":"noul","noul":0.1},"established":{"type":"noul","noul":0.99},
 			"conflict":{"type":"noul","noul":0.01},
 			"safe_to_auto_act":{"type":"noul","noul":0.99},
 			"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}

@@ -31,6 +31,7 @@ func NewHandler(config Config) (http.Handler, error) {
 		return nil, err
 	}
 
+	verifier := config.verifier()
 	builder := frameworkapp.New(frameworkapp.Config{}).
 		DisableStatic().
 		WithSecurity(security.Config{Enabled: false}).
@@ -40,9 +41,9 @@ func NewHandler(config Config) (http.Handler, error) {
 		capabilities(w, request, config)
 	}))))
 	mux.Handle("/v1/evaluations", recoverProblem(authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		evaluate(w, request, config.Decider, config.MaxBodyBytes)
+		evaluate(w, request, config.Decider, config.MaxBodyBytes, verifier)
 	}))))
-	mux.Handle("/v1/replays", recoverProblem(authenticated(config, http.HandlerFunc(replay))))
+	mux.Handle("/v1/replays", recoverProblem(authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { replay(w, r, verifier) }))))
 
 	return withKnownRoutes(withRequestLimits(builder.Build().Handler(), config, newAdmission(config.MaxInFlight))), nil
 }
@@ -278,7 +279,7 @@ func capabilities(w http.ResponseWriter, request *http.Request, config Config) {
 	})
 }
 
-func replay(w http.ResponseWriter, request *http.Request) {
+func replay(w http.ResponseWriter, request *http.Request, verifier wire.Verifier) {
 	if request.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
 		writeProblem(w, http.StatusMethodNotAllowed, reasonMethodNotAllowed, "only POST is supported")
@@ -310,7 +311,7 @@ func replay(w http.ResponseWriter, request *http.Request) {
 		writeProblem(w, http.StatusForbidden, reasonProjectForbidden, "the authenticated principal cannot access this project")
 		return
 	}
-	report, err := wire.ReplayContext(request.Context(), raw)
+	report, err := verifier.ReplayContext(request.Context(), raw)
 	if err != nil {
 		if writeRequestStop(w, err, replayTraceStatus("failed")) {
 			return

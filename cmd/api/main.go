@@ -4,6 +4,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -67,7 +68,11 @@ func selectDecider() (httpapi.Decider, error) {
 	case adapters.KindDirect:
 		return typesafePort{client: typesafe.New(directKey)}, nil
 	case adapters.KindHosted:
-		return openrouterPort{client: openrouter.New(hostedKey)}, nil
+		pin := os.Getenv("LEX_HOSTED_RESOLVED_MODEL")
+		if !openrouter.ValidResolvedPin(pin) {
+			return nil, fmt.Errorf("hosted adapter requires LEX_HOSTED_RESOLVED_MODEL")
+		}
+		return openrouterPort{client: openrouter.New(hostedKey, pin)}, nil
 	default:
 		return nil, nil
 	}

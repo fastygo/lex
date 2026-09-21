@@ -68,7 +68,7 @@ type evidenceView struct {
 	} `json:"evidence_items"`
 }
 
-func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, maxBodyBytes int64) {
+func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, maxBodyBytes int64, verifier wire.Verifier) {
 	if request.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
 		writeProblem(w, http.StatusMethodNotAllowed, reasonMethodNotAllowed, "only POST is supported")
@@ -151,7 +151,7 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		if writeRequestStop(w, request.Context().Err(), trace("receive", "completed", "pack", "completed", "decide", "failed")) {
 			return
 		}
-		writeSkippedEvaluation(w, request, body, pack, packRequest, maxBodyBytes)
+		writeSkippedEvaluation(w, request, body, pack, packRequest, maxBodyBytes, verifier)
 		return
 	}
 	if decider == nil {
@@ -209,7 +209,7 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		tracedProblem(w, http.StatusBadGateway, reasonDecisionError, "the decision adapter returned answers that cannot be sealed", trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
 		return
 	}
-	report, err := wire.ReplayContext(request.Context(), bundle)
+	report, err := verifier.ReplayContext(request.Context(), bundle)
 	if err != nil {
 		if writeRequestStop(w, err, trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed")) {
 			return
@@ -267,7 +267,7 @@ func policyDisclosure() policyDisclosureView {
 	return policyDisclosureView{ID: profile.PolicyID, Version: profile.PolicyVersion, Calibration: profile.Calibration}
 }
 
-func writeSkippedEvaluation(w http.ResponseWriter, request *http.Request, body evaluationRequest, pack contextmemory.PackResult, packRequest contextmemory.PackRequest, maxBodyBytes int64) {
+func writeSkippedEvaluation(w http.ResponseWriter, request *http.Request, body evaluationRequest, pack contextmemory.PackResult, packRequest contextmemory.PackRequest, maxBodyBytes int64, verifier wire.Verifier) {
 	snapshotRaw, err := json.Marshal(pack.Snapshot)
 	if err != nil {
 		tracedProblem(w, http.StatusUnprocessableEntity, reasonPackError, "Context snapshot could not be measured", trace("receive", "completed", "pack", "failed"))
@@ -288,7 +288,7 @@ func writeSkippedEvaluation(w http.ResponseWriter, request *http.Request, body e
 		tracedProblem(w, http.StatusInternalServerError, reasonVerificationError, "the sealed bundle could not be verified", trace("receive", "completed", "pack", "completed", "decide", "failed"))
 		return
 	}
-	report, err := wire.ReplayContext(request.Context(), bundle)
+	report, err := verifier.ReplayContext(request.Context(), bundle)
 	if err != nil {
 		if writeRequestStop(w, err, trace("receive", "completed", "pack", "completed", "decide", "failed")) {
 			return
