@@ -85,6 +85,10 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		writeProblem(w, http.StatusBadRequest, "invalid_json", "request body must be one evaluation object")
 		return
 	}
+	if err = wire.ValidateEvaluationRequest(raw); err != nil {
+		writeProblem(w, http.StatusBadRequest, "invalid_json", "request body must be one evaluation object")
+		return
+	}
 	var body evaluationRequest
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()

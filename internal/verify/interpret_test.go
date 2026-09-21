@@ -83,6 +83,25 @@ func TestInterpretCoversEveryVerdict(t *testing.T) {
 	}
 }
 
+func TestInterpretKeepsSafetyGateBesideConflict(t *testing.T) {
+	answers := withNoul(passingAnswers(), "conflict", 0.9)
+	answers = withNoul(answers, "safe_to_auto_act", 0.1)
+	verdict, findings, err := Interpret(claimQuestions(), testThresholds(), answers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if verdict != VerdictConflict {
+		t.Fatalf("verdict = %s", verdict)
+	}
+	codes := map[string]bool{}
+	for _, finding := range findings {
+		codes[finding.Code] = true
+	}
+	if !codes["evidence_conflict"] || !codes["safety_gate"] {
+		t.Fatalf("findings = %#v", findings)
+	}
+}
+
 func testThresholds() Thresholds {
 	return Thresholds{SupportMin: 0.7, EstablishMin: 0.8, ConflictMin: 0.5, SafetyMin: 0.8}
 }

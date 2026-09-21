@@ -699,12 +699,62 @@ func TestEvaluationRejectsInvalidUTF8AndTooManySources(t *testing.T) {
 	overflow.Header.Set("Content-Type", "application/json")
 	overflowRecorder := httptest.NewRecorder()
 	handler.ServeHTTP(overflowRecorder, overflow)
-	if overflowRecorder.Code != http.StatusUnprocessableEntity || decider.calls != 0 || !strings.Contains(overflowRecorder.Body.String(), `"reason":"question_error"`) {
+	if overflowRecorder.Code != http.StatusBadRequest || decider.calls != 0 || !strings.Contains(overflowRecorder.Body.String(), `"reason":"invalid_json"`) {
 		t.Fatalf("status = %d calls = %d body = %s", overflowRecorder.Code, decider.calls, overflowRecorder.Body)
 	}
 }
 
 func contextmemoryMaxSources() int { return 128 }
+
+func TestEvaluationRejectsOversizedContextInput(t *testing.T) {
+	decider := &scriptedDecider{answers: []byte(passingAnswers)}
+	handler := mustHandlerWithDecider(t, decider)
+	oversized := strings.Repeat("a", 262130)
+	body := `{"project_id":"project-test","entity":{"id":"claim-1","type":"claim","schema_version":"0.1","version":"1"},"query":"account","sources":[{"id":"source-1","version":"v1","text":"` + oversized + `"}]}`
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(body))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusUnprocessableEntity || decider.calls != 0 || !strings.Contains(recorder.Body.String(), `"reason":"pack_error"`) || !strings.Contains(recorder.Body.String(), `"name":"pack","status":"failed"`) {
+		t.Fatalf("status = %d calls = %d body = %s", recorder.Code, decider.calls, recorder.Body)
+	}
+
+	duplicate := `{"project_id":"project-test","entity":{"id":"claim-1","type":"claim","schema_version":"0.1","version":"1"},"query":"account","sources":[{"id":"source-1","version":"v1","text":"The account is locked."},{"id":"source-1","version":"v2","text":"The account is open."}]}`
+	second := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(duplicate))
+	second.Header.Set("Authorization", "Bearer test-token")
+	second.Header.Set("Content-Type", "application/json")
+	secondRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(secondRecorder, second)
+	if secondRecorder.Code != http.StatusUnprocessableEntity || decider.calls != 0 || !strings.Contains(secondRecorder.Body.String(), `"reason":"pack_error"`) {
+		t.Fatalf("status = %d calls = %d body = %s", secondRecorder.Code, decider.calls, secondRecorder.Body)
+	}
+}
+
+func TestFreshInstancesIgnoreIdempotencyKey(t *testing.T) {
+	const key = "same-request-key"
+	firstDecider := &scriptedDecider{answers: []byte(passingAnswers)}
+	secondDecider := &scriptedDecider{answers: []byte(passingAnswers)}
+	first := evaluateWithKey(t, mustHandlerWithDecider(t, firstDecider), key)
+	second := evaluateWithKey(t, mustHandlerWithDecider(t, secondDecider), key)
+	if firstDecider.calls != 1 || secondDecider.calls != 1 || first != second || !strings.Contains(first, `"verdict":"validated"`) {
+		t.Fatalf("calls = %d %d first = %s second = %s", firstDecider.calls, secondDecider.calls, first, second)
+	}
+}
+
+func evaluateWithKey(t *testing.T, handler http.Handler, key string) string {
+	t.Helper()
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(evaluationBody))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Idempotency-Key", key)
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
+	}
+	return recorder.Body.String()
+}
 
 func TestReplayRejectsMalformedBundle(t *testing.T) {
 	handler := mustHandler(t)
