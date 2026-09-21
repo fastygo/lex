@@ -1,0 +1,21 @@
+{
+  "project_id": "example-project",
+  "entity": {
+    "id": "chaos-raw-sign-in",
+    "type": "claim",
+    "schema_version": "0.1",
+    "version": "1"
+  },
+  "query": "cannot sign in",
+  "sources": [
+    {
+      "id": "cases-raw",
+      "version": "v1",
+      "text": "## cases.raw\n\n- `customer_message` (`source_text`): “I paid yesterday. Today I cannot sign in. Please fix this before my meeting.”"
+    }
+  ],
+  "metadata": {
+    "example": "chaos",
+    "client_ref": "chaos-raw-sign-in"
+  }
+}

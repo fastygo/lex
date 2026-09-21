@@ -2,6 +2,7 @@ package wire
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -10,7 +11,9 @@ import (
 	"sort"
 	"strings"
 
+	contextmemory "github.com/fastygo/context/pkg/contextkit/runtime"
 	"github.com/fastygo/lex/internal/canonical"
+	"github.com/fastygo/lex/internal/evidence"
 	"github.com/fastygo/lex/internal/profile"
 	"github.com/fastygo/lex/internal/verify"
 )
@@ -302,6 +305,9 @@ func evidenceFindings(bundle map[string]any) []verify.Finding {
 	if finding, failed := packShapeFinding(bundle); failed {
 		return []verify.Finding{finding}
 	}
+	if finding, failed := rebuiltPackFinding(bundle); failed {
+		return []verify.Finding{finding}
+	}
 	if admissible == 0 {
 		return []verify.Finding{{Code: "no_eligible_evidence", Verdict: verify.VerdictInsufficient, Detail: "the frozen pack contains no admissible source text"}}
 	}
@@ -563,6 +569,55 @@ func packShapeFinding(bundle map[string]any) (verify.Finding, bool) {
 		}
 	}
 	return verify.Finding{}, false
+}
+
+func rebuiltPackFinding(bundle map[string]any) (verify.Finding, bool) {
+	mismatch := verify.Finding{Code: "pack_rebuild", Verdict: verify.VerdictError, Detail: "frozen pack does not match the pack rebuilt from the snapshot and request"}
+	contextBody, _ := bundle["context"].(map[string]any)
+	pack, _ := contextBody["pack"].(map[string]any)
+	snapshot, _ := contextBody["snapshot"].(map[string]any)
+	request, _ := contextBody["pack_request"].(map[string]any)
+	sources, err := snapshotSources(snapshot)
+	if err != nil {
+		return mismatch, true
+	}
+	var req contextmemory.PackRequest
+	if err = recode(request, &req); err != nil {
+		return mismatch, true
+	}
+	result, err := evidence.BuildPack(context.Background(), textField(snapshot["project_id"]), sources, req)
+	if err != nil {
+		return mismatch, true
+	}
+	saved, err := canonical.HashValue(pack)
+	if err != nil {
+		return mismatch, true
+	}
+	fresh, err := canonical.DecodeJSON(result.ContextPack)
+	if err != nil {
+		return mismatch, true
+	}
+	rebuilt, err := canonical.HashValue(fresh)
+	if err != nil || saved != rebuilt {
+		return mismatch, true
+	}
+	return verify.Finding{}, false
+}
+
+func snapshotSources(snapshot map[string]any) ([]contextmemory.Source, error) {
+	var sources []contextmemory.Source
+	if err := recode(snapshot["sources"], &sources); err != nil {
+		return nil, err
+	}
+	return sources, nil
+}
+
+func recode(value any, dest any) error {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(raw, dest)
 }
 
 func packEnvelope(part string) (verify.Finding, bool) {

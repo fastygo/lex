@@ -8,9 +8,14 @@
       "detail": "establishment is below the policy threshold"
     },
     {
-      "code": "review_required",
+      "code": "safety_gate",
       "verdict": "manual_review",
-      "detail": "the action choice requires review"
+      "detail": "semantic safety is below the policy threshold"
+    },
+    {
+      "code": "action_inconsistent",
+      "verdict": "manual_review",
+      "detail": "the proceed choice disagrees with the predicate signals"
     }
   ],
   "context_runtime": "memory-exact-v1",
@@ -40,19 +45,14 @@
     "version": "0.1.0",
     "calibration": "uncalibrated"
   },
-  "retention": {
-    "server_history": false,
-    "replay": "caller_owned",
-    "idempotency": "none"
-  },
+  "reason": null,
+  "detail": null,
   "adapter_id": "direct-systemone",
-  "adapter_version": "0.1.0",
-  "decision_resolved_model": "jev-1.13.0",
   "answers": {
     "action": {
       "type": "choice",
-      "choice": "manual_review",
-      "confidence": 0.49
+      "choice": "proceed",
+      "confidence": 0.35
     },
     "conflict": {
       "type": "noul",
@@ -64,7 +64,7 @@
     },
     "safe_to_auto_act": {
       "type": "noul",
-      "noul": 0.45
+      "noul": 0.39
     },
     "support": {
       "type": "noul",
@@ -73,6 +73,6 @@
   },
   "evidence_count": 1,
   "evidence_sources": [
-    "customer_message"
+    "cases-raw"
   ]
 }

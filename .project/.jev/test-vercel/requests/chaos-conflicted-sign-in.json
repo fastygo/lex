@@ -1,0 +1,21 @@
+{
+  "project_id": "example-project",
+  "entity": {
+    "id": "chaos-conflicted-sign-in",
+    "type": "claim",
+    "schema_version": "0.1",
+    "version": "1"
+  },
+  "query": "cannot sign in",
+  "sources": [
+    {
+      "id": "cases-context-conflicted",
+      "version": "v1",
+      "text": "## cases.context_conflicted\n\n- `customer_message` (`source_text`, trusted): “I paid yesterday. Today I cannot sign in. Please fix this before my meeting.”\n- `payment_ledger_primary` (`tool_output_authoritative`): two captured charges with the same order identifier are present.\n- `payment_ledger_replica` (`tool_output_authoritative`): exactly one captured charge is present; replication status is delayed.\n- `authentication_log` (`tool_output_authoritative`): the account is locked after repeated failed sign-in attempts.\n- `billing_policy` (`source_text`, trusted): confirmed duplicate charges are routed to billing and are eligible for review.\n- `account_runbook` (`source_text`, trusted): verified account lockouts are routed to account access support.\n- `data_quality_notice` (`source_text`, trusted): when authoritative payment systems disagree, do not assume which ledger is current; request reconciliation."
+    }
+  ],
+  "metadata": {
+    "example": "chaos",
+    "client_ref": "chaos-conflicted-sign-in"
+  }
+}

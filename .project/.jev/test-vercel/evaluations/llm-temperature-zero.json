@@ -1,11 +1,16 @@
 {
   "protocol_version": "0.1-draft",
-  "verdict": "manual_review",
+  "verdict": "insufficient",
   "findings": [
     {
-      "code": "safety_gate",
+      "code": "establishment_below_threshold",
+      "verdict": "insufficient",
+      "detail": "establishment is below the policy threshold"
+    },
+    {
+      "code": "review_required",
       "verdict": "manual_review",
-      "detail": "semantic safety is below the policy threshold"
+      "detail": "the action choice requires review"
     }
   ],
   "context_runtime": "memory-exact-v1",
@@ -41,16 +46,16 @@
   "answers": {
     "action": {
       "type": "choice",
-      "choice": "proceed",
-      "confidence": 0.92
+      "choice": "manual_review",
+      "confidence": 0.29
     },
     "conflict": {
       "type": "noul",
-      "noul": 0.09
+      "noul": 0.29
     },
     "established": {
       "type": "noul",
-      "noul": 0.9
+      "noul": 0.51
     },
     "safe_to_auto_act": {
       "type": "noul",
@@ -58,11 +63,11 @@
     },
     "support": {
       "type": "noul",
-      "noul": 0.94
+      "noul": 0.74
     }
   },
   "evidence_count": 1,
   "evidence_sources": [
-    "context-scenario"
+    "llm-note"
   ]
 }

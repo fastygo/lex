@@ -1,116 +1,121 @@
-# Deployed Jev scenario run
+# LeX protocol run on Vercel
 
 Status: research observation against `https://lexproto.vercel.app` on 2026-09-21.
-Raw statuses and compact Jev answers are in [results.json](results.json). Per-case
-captures are in [evaluations/](evaluations/). No credentials are recorded.
+No credentials are recorded. This run does not call TypeSafe or OpenRouter
+directly. The deployment adapter already holds the decision credential.
 
-This run sends example-like claims through the deployed LeX evaluation route.
-That route freezes exact-phrase evidence, calls Jev through
-`direct-systemone`, and verifies the raw answers against the embedded
-`claim-validation` policy. It is not a replay of the hand-authored TypeSafe
-question maps in [`examples/`](../examples/). Those maps still are not a LeX
-evaluation body.
+Request bodies are in [requests/](requests/). Compact verdicts are in
+[evaluations/](evaluations/). The index is [results.json](results.json).
 
-Direct `POST https://api.typesafe.ai/v1/systemone` with the four example
-question maps returned 401. Those unauthorized bodies are in [jev/](jev/).
+## Formulation
 
-## What Jev received
+Each original example question becomes one LeX `EvaluationRequest`:
 
-Each evaluation uses the pinned claim-validation questions:
+```text
+POST /v1/evaluations
+Authorization: Bearer <deployment token>
+Content-Type: application/json
 
-| ID | Type | Role |
-| --- | --- | --- |
-| `support` | Noul | Does admissible evidence directly support the claim? |
-| `established` | Noul | Is the claim sufficiently and coherently established? |
-| `conflict` | Noul | Does admissible evidence support an incompatible conclusion? |
-| `safe_to_auto_act` | Noul | Is automatic acceptance semantically safe? |
-| `action` | Choice | `proceed`, `reject`, `manual_review`, or `other` |
+{
+  "project_id": "example-project",
+  "entity": {
+    "id": "<claim-id>",
+    "type": "claim",
+    "schema_version": "0.1",
+    "version": "1"
+  },
+  "query": "<exact claim phrase>",
+  "sources": [{"id": "<source-id>", "version": "v1", "text": "<case or note>"}],
+  "metadata": {"example": "<playground|llm|context|chaos>", "client_ref": "<claim-id>"}
+}
+```
 
-The claim is the exact retrieval query. The deployment labels every source
-`source_text` / `project`, so `model_inference` and `tool_output` distinctions
-from the chaos and context notes are not preserved. `memory-exact-v1` keeps
-only spans that contain the query phrase.
+The wire schema accepts only this shape. Caller policy, custom TypeSafe
+question maps, and extra entity types are rejected. The embedded profile asks
+Jev `support`, `established`, `conflict`, `safe_to_auto_act`, and `action`.
+Policy is `claim-validation` 0.1.0, calibration `uncalibrated`.
 
-Uncalibrated thresholds: support 0.70, establishment 0.80, conflict 0.50,
-safety 0.80.
+The claim is the `query` phrase. Exact retrieval keeps a source only when that
+phrase appears in its text. Chaos and context cases are therefore one source
+each (the case section), so Jev sees the full narrative the way the original
+example state did.
 
-## Live answers
+## Live verdicts
 
-Resolved model was `jev-1.13.0` for every evaluation that reached decide.
-Every sealed bundle replayed to the same verdict.
+All 18 evaluations returned HTTP 200, resolved model `jev-1.13.0`, adapter
+`direct-systemone`. Every sealed bundle replayed to the same verdict.
 
-| Case | Query | Evidence kept | support | established | conflict | safe | action | Verdict |
-| --- | --- | ---: | ---: | ---: | ---: | ---: | --- | --- |
-| playground-structured-decisions | structured decisions | 1 | 0.78 | 0.60 | 0.11 | 0.50 | proceed (0.49) | insufficient |
-| llm-next-token | next token | 1 | 0.80 | 0.64 | 0.08 | 0.64 | proceed (0.41) | insufficient |
-| context-restore-access | restore access | 1 | 0.90 | 0.67 | 0.07 | 0.49 | manual_review (0.74) | insufficient |
-| context-refund | refund | 2 | 0.22 | 0.18 | 0.52 | 0.16 | manual_review (0.56) | conflict |
-| chaos-raw-sign-in | cannot sign in | 1 | 0.93 | 0.77 | 0.07 | 0.45 | manual_review (0.49) | insufficient |
-| chaos-llm-augmented-sign-in | cannot sign in | 1 | 0.93 | 0.78 | 0.07 | 0.46 | manual_review (0.40) | insufficient |
-| chaos-resolved-sign-in | cannot sign in | 1 | 0.93 | 0.77 | 0.07 | 0.47 | manual_review (0.40) | insufficient |
-| chaos-conflicted-sign-in | cannot sign in | 1 | 0.93 | 0.78 | 0.07 | 0.46 | manual_review (0.41) | insufficient |
-| chaos-conflicted-duplicate-charge | duplicate charge | 1 | 0.63 | 0.34 | 0.09 | 0.42 | manual_review (0.90) | insufficient |
+| Request | Query | support | established | conflict | safe | action | Verdict |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |
+| playground-structured-decisions | structured decisions | 0.80 | 0.62 | 0.11 | 0.54 | proceed | insufficient |
+| playground-cannot-generate-strings | cannot generate string responses | 0.97 | 0.92 | 0.05 | 0.58 | proceed | manual_review |
+| playground-parallel-questions | evaluated independently and in parallel | 0.97 | 0.91 | 0.07 | 0.65 | proceed | manual_review |
+| playground-noul-no-confidence | no separate confidence field | 0.89 | 0.85 | 0.41 | 0.63 | proceed | manual_review |
+| llm-next-token | next token | 0.81 | 0.65 | 0.09 | 0.64 | proceed | insufficient |
+| llm-temperature-zero | Temperature 0 | 0.74 | 0.51 | 0.29 | 0.54 | manual_review | insufficient |
+| llm-proposal-not-authority | treat the model output as a proposal | 0.97 | 0.88 | 0.05 | 0.42 | proceed | manual_review |
+| llm-hallucination-structural | Hallucination is structural | 0.95 | 0.78 | 0.06 | 0.54 | proceed | insufficient |
+| context-restore-access | restore access | 0.94 | 0.90 | 0.09 | 0.54 | proceed | manual_review |
+| context-refund | refund | 0.05 | 0.06 | 0.92 | 0.25 | reject | conflict |
+| context-account-access | account access | 0.95 | 0.93 | 0.08 | 0.57 | proceed | manual_review |
+| context-duplicate-charge | duplicate charge | 0.04 | 0.04 | 0.96 | 0.39 | reject | conflict |
+| chaos-raw-sign-in | cannot sign in | 0.93 | 0.77 | 0.07 | 0.39 | proceed | insufficient |
+| chaos-llm-augmented-sign-in | cannot sign in | 0.83 | 0.65 | 0.14 | 0.13 | manual_review | insufficient |
+| chaos-resolved-sign-in | cannot sign in | 0.90 | 0.81 | 0.13 | 0.50 | proceed | manual_review |
+| chaos-resolved-account-access | account access | 0.85 | 0.77 | 0.13 | 0.54 | proceed | insufficient |
+| chaos-conflicted-sign-in | cannot sign in | 0.88 | 0.76 | 0.14 | 0.10 | manual_review | insufficient |
+| chaos-conflicted-duplicate-charge | duplicate charge | 0.66 | 0.44 | 0.34 | 0.09 | manual_review | insufficient |
 
 ## Observations
 
-### 1. Jev is reachable through the deployment
+### 1. The protocol path is the evaluation route, not a Jev question map
 
-`GET /healthz` returned 200. Authenticated `GET /v1/capabilities` returned 200
-with caller-owned replay and no server history. Nine example-like evaluations
-called `jev-1.13.0` and returned typed Noul/Choice answers. This is one
-deployment sample, not a calibration study.
+The deployment accepted these bodies because they are LeX evaluation objects.
+The adapter then called Jev with the frozen pack and the pinned question set.
+Posting `questions-*.json` from the examples is still not a valid evaluation.
 
-### 2. Exact retrieval hid the extra chaos evidence
+### 2. Atomic claims over the same note still diverge
 
-Queries `cannot sign in` only kept `customer_message`. Payment records,
-authentication logs, runbooks, and ledger conflicts do not contain that phrase,
-so Jev never saw them. `chaos-raw`, `chaos-llm-augmented`, `chaos-resolved`,
-and `chaos-conflicted` therefore produced nearly the same distribution. That is
-a retrieval-stage effect, not a repeat of the original chaos DecisionSets.
+On the playground note, `cannot generate string responses` and
+`evaluated independently and in parallel` reached establishment above 0.90.
+`structured decisions` stayed at 0.62 and finished `insufficient`. Safety
+stayed below 0.80 in every playground and LLM case, so even strong support
+became `manual_review` rather than `validated`.
 
-The original chaos capture sent the full case text as Jev state and could
-distinguish resolved versus conflicted packs. This deployment cannot do that
-until the query overlaps the distinguishing sources or retrieval is no longer
-exact-phrase only.
+### 3. Context refund and duplicate-charge claims were rejected as conflict
 
-### 3. A refund claim over mixed billing text produced conflict
+With the full test scenario as one source, claim `refund` produced support
+0.05, conflict 0.92, and action `reject`. Claim `duplicate charge` was the
+same shape. Claims `restore access` and `account access` had high support and
+establishment, but safety ~0.55 kept the verdict at `manual_review`. That is
+the expected LeX split: access is supported; refund is not.
 
-`context-refund` kept `llm_report` and `refund_policy`. Jev returned low
-support (0.22), low establishment (0.18), and conflict 0.52. The verifier
-emitted `conflict` and retained `manual_review`. That matches the research
-intent: an LLM refund hypothesis plus a policy that requires an explicit
-refund request should not authorize a refund.
+### 4. Chaos cases are distinguishable once the whole case is one source
 
-`context-restore-access` kept only the customer message. Support was high
-(0.90) but establishment (0.67) and safety (0.49) stayed below threshold, so
-the verdict was `insufficient` with `manual_review`.
+Unlike the earlier split-source probe, Jev saw payment, lock, and policy text
+together.
 
-### 4. Typed output still needs the verifier
+- raw `cannot sign in`: high support, establishment 0.77, safety 0.39
+- LLM-augmented: safety dropped to 0.13 and action became `manual_review`
+- resolved `cannot sign in`: establishment 0.81, still gated by safety 0.50
+- conflicted `cannot sign in`: safety 0.10
+- conflicted `duplicate charge`: support 0.66, conflict 0.34, action
+  `manual_review` with confidence 0.99
 
-On the playground and LLM notes Jev chose `proceed` while establishment and
-safety were below threshold. The verifier recorded `action_inconsistent` and
-kept the overall verdict `insufficient`. A winning Choice is not authority.
+The LLM summary still did not establish a billing fact, but it lowered the
+safety signal. Unresolved ledgers kept automatic action unsafe.
 
-### 5. These results are not the original example question maps
+### 5. A proceed Choice is not a validated verdict
 
-The example files remain TypeSafe question maps and captured DecisionSets.
-Posting them as LeX bodies is still invalid. This run asked the embedded
-claim-validation questions over similar source text. It does not reproduce
-playground primitives, LLM taxonomy Choices, or chaos support/action fan-out.
-
-## Earlier HTTP-only probe
-
-An earlier capture in this folder posted the raw example files to
-`/v1/evaluations` and `/v1/replays`. Evaluations returned 404 at that time;
-replays returned 422 `invalid_replay_bundle`. That probe is superseded by the
-live Jev evaluations above. Health, bearer authentication, method rejection,
-and media-type rejection remain separate HTTP gates.
+Several cases chose `proceed` while safety or establishment failed the
+embedded thresholds. The verifier recorded `safety_gate` and sometimes
+`action_inconsistent`. No request in this sample returned `validated`.
 
 ## Limits
 
-- No direct TypeSafe question-map reproduction in this folder.
-- Exact-phrase retrieval, not Context hybrid retrieval.
-- All sources coerced to `source_text` / `project`.
-- Policy is explicitly `uncalibrated`.
-- One request per case; no repeatability or calibration measurement.
-- Not a 28-day SLO sample or conformance certification.
+- Embedded claim-validation questions only; original Noul/Choice/Score maps
+  were not sent.
+- Exact-phrase retrieval, not hybrid Context retrieval.
+- Caller sources are labeled `source_text` / `project` by the deployment.
+- Policy is explicitly uncalibrated.
+- One request per claim; not a calibration or SLO measurement.

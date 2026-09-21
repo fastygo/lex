@@ -42,27 +42,27 @@
     "action": {
       "type": "choice",
       "choice": "proceed",
-      "confidence": 0.92
+      "confidence": 0.99
     },
     "conflict": {
       "type": "noul",
-      "noul": 0.09
+      "noul": 0.07
     },
     "established": {
       "type": "noul",
-      "noul": 0.9
+      "noul": 0.91
     },
     "safe_to_auto_act": {
       "type": "noul",
-      "noul": 0.54
+      "noul": 0.65
     },
     "support": {
       "type": "noul",
-      "noul": 0.94
+      "noul": 0.97
     }
   },
   "evidence_count": 1,
   "evidence_sources": [
-    "context-scenario"
+    "typesafe-jev"
   ]
 }

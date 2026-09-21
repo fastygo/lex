@@ -46,19 +46,19 @@
     },
     "conflict": {
       "type": "noul",
-      "noul": 0.09
+      "noul": 0.08
     },
     "established": {
       "type": "noul",
-      "noul": 0.9
+      "noul": 0.93
     },
     "safe_to_auto_act": {
       "type": "noul",
-      "noul": 0.54
+      "noul": 0.57
     },
     "support": {
       "type": "noul",
-      "noul": 0.94
+      "noul": 0.95
     }
   },
   "evidence_count": 1,

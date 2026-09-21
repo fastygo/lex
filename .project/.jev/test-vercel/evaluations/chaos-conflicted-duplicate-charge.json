@@ -45,39 +45,34 @@
     "version": "0.1.0",
     "calibration": "uncalibrated"
   },
-  "retention": {
-    "server_history": false,
-    "replay": "caller_owned",
-    "idempotency": "none"
-  },
+  "reason": null,
+  "detail": null,
   "adapter_id": "direct-systemone",
-  "adapter_version": "0.1.0",
-  "decision_resolved_model": "jev-1.13.0",
   "answers": {
     "action": {
       "type": "choice",
       "choice": "manual_review",
-      "confidence": 0.9
+      "confidence": 0.99
     },
     "conflict": {
       "type": "noul",
-      "noul": 0.09
+      "noul": 0.34
     },
     "established": {
       "type": "noul",
-      "noul": 0.34
+      "noul": 0.44
     },
     "safe_to_auto_act": {
       "type": "noul",
-      "noul": 0.42
+      "noul": 0.09
     },
     "support": {
       "type": "noul",
-      "noul": 0.63
+      "noul": 0.66
     }
   },
   "evidence_count": 1,
   "evidence_sources": [
-    "billing_policy"
+    "cases-context-conflicted"
   ]
 }

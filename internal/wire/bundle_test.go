@@ -59,6 +59,24 @@ func TestReplayAcceptsExactPhraseSelection(t *testing.T) {
 	}
 }
 
+func TestReplayRejectsRewrittenPackChecksum(t *testing.T) {
+	value, err := canonical.DecodeJSON(sealedBundle(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	pack := bundle["context"].(map[string]any)["pack"].(map[string]any)
+	pack["checksum"] = "0000000000000000000000000000000000000000000000000000000000000000"
+	refreshPackHash(t, bundle)
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "error" || !hasFinding(report, "pack_rebuild") {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
 func TestReplayRejectsRewrittenPackEnvelope(t *testing.T) {
 	value, err := canonical.DecodeJSON(sealedBundle(t))
 	if err != nil {

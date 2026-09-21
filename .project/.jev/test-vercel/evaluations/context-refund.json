@@ -16,11 +16,6 @@
       "code": "establishment_below_threshold",
       "verdict": "insufficient",
       "detail": "establishment is below the policy threshold"
-    },
-    {
-      "code": "review_required",
-      "verdict": "manual_review",
-      "detail": "the action choice requires review"
     }
   ],
   "context_runtime": "memory-exact-v1",
@@ -50,40 +45,34 @@
     "version": "0.1.0",
     "calibration": "uncalibrated"
   },
-  "retention": {
-    "server_history": false,
-    "replay": "caller_owned",
-    "idempotency": "none"
-  },
+  "reason": null,
+  "detail": null,
   "adapter_id": "direct-systemone",
-  "adapter_version": "0.1.0",
-  "decision_resolved_model": "jev-1.13.0",
   "answers": {
     "action": {
       "type": "choice",
-      "choice": "manual_review",
-      "confidence": 0.56
+      "choice": "reject",
+      "confidence": 0.96
     },
     "conflict": {
       "type": "noul",
-      "noul": 0.52
+      "noul": 0.92
     },
     "established": {
       "type": "noul",
-      "noul": 0.18
+      "noul": 0.06
     },
     "safe_to_auto_act": {
       "type": "noul",
-      "noul": 0.16
+      "noul": 0.25
     },
     "support": {
       "type": "noul",
-      "noul": 0.22
+      "noul": 0.05
     }
   },
-  "evidence_count": 2,
+  "evidence_count": 1,
   "evidence_sources": [
-    "llm_report",
-    "refund_policy"
+    "context-scenario"
   ]
 }

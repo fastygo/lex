@@ -1,16 +1,11 @@
 {
   "protocol_version": "0.1-draft",
-  "verdict": "insufficient",
+  "verdict": "manual_review",
   "findings": [
     {
-      "code": "establishment_below_threshold",
-      "verdict": "insufficient",
-      "detail": "establishment is below the policy threshold"
-    },
-    {
-      "code": "review_required",
+      "code": "safety_gate",
       "verdict": "manual_review",
-      "detail": "the action choice requires review"
+      "detail": "semantic safety is below the policy threshold"
     }
   ],
   "context_runtime": "memory-exact-v1",
@@ -40,39 +35,34 @@
     "version": "0.1.0",
     "calibration": "uncalibrated"
   },
-  "retention": {
-    "server_history": false,
-    "replay": "caller_owned",
-    "idempotency": "none"
-  },
+  "reason": null,
+  "detail": null,
   "adapter_id": "direct-systemone",
-  "adapter_version": "0.1.0",
-  "decision_resolved_model": "jev-1.13.0",
   "answers": {
     "action": {
       "type": "choice",
-      "choice": "manual_review",
-      "confidence": 0.4
+      "choice": "proceed",
+      "confidence": 0.5
     },
     "conflict": {
       "type": "noul",
-      "noul": 0.07
+      "noul": 0.13
     },
     "established": {
       "type": "noul",
-      "noul": 0.77
+      "noul": 0.81
     },
     "safe_to_auto_act": {
       "type": "noul",
-      "noul": 0.47
+      "noul": 0.5
     },
     "support": {
       "type": "noul",
-      "noul": 0.93
+      "noul": 0.9
     }
   },
   "evidence_count": 1,
   "evidence_sources": [
-    "customer_message"
+    "cases-context-resolved"
   ]
 }

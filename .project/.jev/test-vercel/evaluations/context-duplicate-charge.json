@@ -1,11 +1,21 @@
 {
   "protocol_version": "0.1-draft",
-  "verdict": "manual_review",
+  "verdict": "conflict",
   "findings": [
     {
-      "code": "safety_gate",
-      "verdict": "manual_review",
-      "detail": "semantic safety is below the policy threshold"
+      "code": "evidence_conflict",
+      "verdict": "conflict",
+      "detail": "admissible evidence supports an incompatible conclusion"
+    },
+    {
+      "code": "support_below_threshold",
+      "verdict": "insufficient",
+      "detail": "support is below the policy threshold"
+    },
+    {
+      "code": "establishment_below_threshold",
+      "verdict": "insufficient",
+      "detail": "establishment is below the policy threshold"
     }
   ],
   "context_runtime": "memory-exact-v1",
@@ -41,24 +51,24 @@
   "answers": {
     "action": {
       "type": "choice",
-      "choice": "proceed",
-      "confidence": 0.92
+      "choice": "reject",
+      "confidence": 0.99
     },
     "conflict": {
       "type": "noul",
-      "noul": 0.09
+      "noul": 0.96
     },
     "established": {
       "type": "noul",
-      "noul": 0.9
+      "noul": 0.04
     },
     "safe_to_auto_act": {
       "type": "noul",
-      "noul": 0.54
+      "noul": 0.39
     },
     "support": {
       "type": "noul",
-      "noul": 0.94
+      "noul": 0.04
     }
   },
   "evidence_count": 1,
