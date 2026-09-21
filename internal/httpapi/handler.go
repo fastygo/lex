@@ -266,7 +266,7 @@ func replay(w http.ResponseWriter, request *http.Request) {
 		"findings":           report.Findings,
 		"policy_calibration": profile.Calibration,
 		"retention":          retentionDisclosure(),
-		"trace": replayTrace(),
+		"trace":              replayTrace(),
 	})
 }
 
