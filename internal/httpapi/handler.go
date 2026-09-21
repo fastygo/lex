@@ -230,14 +230,29 @@ func retentionDisclosure() retentionView {
 }
 
 func writeProblem(w http.ResponseWriter, status int, reason, detail string) {
+	writeProblemBody(w, status, reason, detail, nil)
+}
+
+func writeVerdictProblem(w http.ResponseWriter, status int, reason, detail string, report wire.Report) {
+	writeProblemBody(w, status, reason, detail, map[string]any{
+		"verdict":  report.Verdict,
+		"findings": report.Findings,
+	})
+}
+
+func writeProblemBody(w http.ResponseWriter, status int, reason, detail string, extra map[string]any) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", problemMediaType)
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(map[string]any{
+	body := map[string]any{
 		"type":   "https://lex.fastygo.dev/problems/" + reason,
 		"title":  http.StatusText(status),
 		"status": status,
 		"detail": detail,
 		"reason": reason,
-	})
+	}
+	for key, value := range extra {
+		body[key] = value
+	}
+	_ = json.NewEncoder(w).Encode(body)
 }

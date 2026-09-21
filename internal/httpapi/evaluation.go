@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"mime"
 	"net/http"
@@ -143,7 +144,7 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 			},
 			Policy:    policyDisclosure(),
 			Retention: retentionDisclosure(),
-		})
+		}, maxBodyBytes)
 		return
 	}
 	if decider == nil {
@@ -163,6 +164,10 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		"claim": body.Query, "evidence": items,
 	}, profile.ProviderQuestions())
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			writeProblem(w, http.StatusGatewayTimeout, "deadline_exceeded", "the decision adapter did not finish before the deadline")
+			return
+		}
 		writeProblem(w, http.StatusBadGateway, "decision_error", "the decision adapter failed")
 		return
 	}
@@ -184,6 +189,10 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		writeProblem(w, http.StatusInternalServerError, "verification_error", "the sealed bundle could not be verified")
 		return
 	}
+	if report.Verdict == verify.VerdictError {
+		writeVerdictProblem(w, http.StatusUnprocessableEntity, "decision_error", "typed answers failed deterministic checks", report)
+		return
+	}
 	writeEvaluation(w, evaluationResponse{
 		ProtocolVersion: "0.1-draft",
 		Verdict:         string(report.Verdict),
@@ -200,7 +209,7 @@ func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, max
 		},
 		Policy:    policyDisclosure(),
 		Retention: retentionDisclosure(),
-	})
+	}, maxBodyBytes)
 }
 
 type evaluationResponse struct {
@@ -232,13 +241,18 @@ func policyDisclosure() policyDisclosureView {
 	return policyDisclosureView{ID: profile.PolicyID, Version: profile.PolicyVersion, Calibration: profile.Calibration}
 }
 
-func writeEvaluation(w http.ResponseWriter, body evaluationResponse) {
+func writeEvaluation(w http.ResponseWriter, body evaluationResponse, maxBodyBytes int64) {
 	if body.Findings == nil {
 		body.Findings = []verify.Finding{}
 	}
+	encoded, err := json.Marshal(body)
+	if err != nil || int64(len(encoded)) > maxBodyBytes {
+		writeProblem(w, http.StatusUnprocessableEntity, "response_budget", "the evaluation response does not fit the response budget")
+		return
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(body)
+	_, _ = w.Write(encoded)
 }
 
 func admissibleEvidence(raw json.RawMessage) ([]map[string]string, error) {

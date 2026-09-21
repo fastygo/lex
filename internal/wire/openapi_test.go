@@ -1,8 +1,10 @@
 package wire
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/fastygo/lex/internal/canonical"
@@ -38,20 +40,21 @@ func TestOpenAPIMatchesSynchronousContract(t *testing.T) {
 		t.Fatal("evaluation lacks a synchronous 200 response")
 	}
 
+	if _, exists := responses["504"]; !exists {
+		t.Fatal("evaluation lacks a deadline response")
+	}
+
+	components, _ := document["components"].(map[string]any)
+	schemas, _ := components["schemas"].(map[string]any)
 	compiler := jsonschema.NewCompiler()
 	compiler.DefaultDraft(jsonschema.Draft2020)
-	schemaValue, err := canonical.DecodeJSON([]byte(`{"type":"object","additionalProperties":false,"required":["type","title","status","detail","reason"],"properties":{"type":{"type":"string"},"title":{"type":"string"},"status":{"type":"integer"},"detail":{"type":"string"},"reason":{"type":"string"}}}`))
+	if err := compiler.AddResource("https://lex.fastygo.dev/schema/v0.1/problem", schemas["Problem"]); err != nil {
+		t.Fatal(err)
+	}
+	schema, err := compiler.Compile("https://lex.fastygo.dev/schema/v0.1/problem")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := compiler.AddResource("problem.json", schemaValue); err != nil {
-		t.Fatal(err)
-	}
-	schema, err := compiler.Compile("problem.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	components, _ := document["components"].(map[string]any)
 	responseComponents, _ := components["responses"].(map[string]any)
 	problem, _ := responseComponents["Problem"].(map[string]any)
 	content, _ := problem["content"].(map[string]any)
@@ -59,4 +62,16 @@ func TestOpenAPIMatchesSynchronousContract(t *testing.T) {
 	if err := schema.Validate(media["example"]); err != nil {
 		t.Fatalf("problem example: %v", err)
 	}
+	technical := map[string]any{
+		"type": "https://lex.fastygo.dev/problems/decision_error", "title": "Unprocessable Entity",
+		"status": jsonNumber(422), "detail": "typed answers failed deterministic checks", "reason": "decision_error",
+		"verdict": "error", "findings": []any{},
+	}
+	if err := schema.Validate(technical); err != nil {
+		t.Fatalf("technical verdict problem: %v", err)
+	}
+}
+
+func jsonNumber(value int) json.Number {
+	return json.Number(strconv.Itoa(value))
 }

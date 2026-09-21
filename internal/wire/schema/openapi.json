@@ -40,7 +40,7 @@
         },
         "responses": {
           "200": {
-            "description": "Synchronous verdict. Epistemic outcomes use HTTP 200. The response creates no Location and no 202 job.",
+            "description": "Synchronous non-error verdict: validated, rejected, insufficient, conflict, or manual_review. A technical error verdict is not HTTP 200. No Location and no 202 job.",
             "headers": {"Cache-Control": {"schema": {"const": "no-store"}}}
           },
           "400": {"$ref": "#/components/responses/Problem"},
@@ -50,7 +50,8 @@
           "415": {"$ref": "#/components/responses/Problem"},
           "422": {"$ref": "#/components/responses/Problem"},
           "502": {"$ref": "#/components/responses/Problem"},
-          "503": {"$ref": "#/components/responses/Problem"}
+          "503": {"$ref": "#/components/responses/Problem"},
+          "504": {"$ref": "#/components/responses/Problem"}
         }
       }
     },
@@ -110,7 +111,9 @@
           "title": {"type": "string"},
           "status": {"type": "integer"},
           "detail": {"type": "string"},
-          "reason": {"type": "string"}
+          "reason": {"type": "string"},
+          "verdict": {"type": "string", "enum": ["validated", "rejected", "insufficient", "conflict", "manual_review", "error"]},
+          "findings": {"type": "array"}
         }
       },
       "Verdict": {

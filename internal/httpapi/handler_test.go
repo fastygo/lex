@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -184,6 +185,29 @@ func TestReplayReproducesEvaluationVerdict(t *testing.T) {
 	}
 }
 
+func TestProviderFailureDoesNotEchoSecrets(t *testing.T) {
+	const secret = "sk-test-secret-must-not-leak"
+	handler := mustHandlerWithDecider(t, secretDecider{secret: secret})
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(evaluationBody))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusBadGateway || strings.Contains(recorder.Body.String(), secret) {
+		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
+	}
+}
+
+type secretDecider struct{ secret string }
+
+func (secretDecider) AdapterID() string      { return "direct-systemone" }
+func (secretDecider) AdapterVersion() string { return "0.1.0" }
+func (decider secretDecider) Evaluate(context.Context, any, map[string]any) (Decision, error) {
+	return Decision{}, errors.New("provider rejected credential " + decider.secret)
+}
+
 func TestEvaluationReportsProviderFailure(t *testing.T) {
 	handler := mustHandlerWithDecider(t, failingDecider{})
 	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(evaluationBody))
@@ -203,7 +227,21 @@ type failingDecider struct{}
 func (failingDecider) AdapterID() string      { return "direct-systemone" }
 func (failingDecider) AdapterVersion() string { return "0.1.0" }
 func (failingDecider) Evaluate(context.Context, any, map[string]any) (Decision, error) {
-	return Decision{}, context.DeadlineExceeded
+	return Decision{}, errors.New("provider unavailable")
+}
+
+func TestTechnicalVerdictIsNotHTTPSuccess(t *testing.T) {
+	handler := mustHandlerWithDecider(t, &scriptedDecider{answers: []byte(`{"support":{"type":"noul","noul":0.9}}`)})
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(evaluationBody))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusUnprocessableEntity || !strings.Contains(recorder.Body.String(), `"verdict":"error"`) || !strings.Contains(recorder.Body.String(), `"reason":"decision_error"`) {
+		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
+	}
 }
 
 func TestEvaluationRejectsDuplicateJSONKeys(t *testing.T) {
@@ -387,6 +425,40 @@ func (decider holdDecider) Evaluate(context.Context, any, map[string]any) (Decis
 	return Decision{ResolvedModel: "fixture-v1", Answers: decider.answers}, nil
 }
 
+func TestSealedResponseOverBudgetIsNotTruncated(t *testing.T) {
+	decider := &scriptedDecider{answers: oversizedAnswers(t)}
+	handler := mustHandlerWithDecider(t, decider)
+	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(evaluationBody))
+	request.Header.Set("Authorization", "Bearer test-token")
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusUnprocessableEntity || !strings.Contains(recorder.Body.String(), `"reason":"response_budget"`) || decider.calls != 1 || strings.Contains(recorder.Body.String(), "OVERSIZED") {
+		t.Fatalf("status = %d calls = %d body = %s", recorder.Code, decider.calls, recorder.Body)
+	}
+}
+
+func oversizedAnswers(t *testing.T) []byte {
+	t.Helper()
+	answers := map[string]any{
+		"support":          map[string]any{"type": "noul", "noul": 0.9, "note": strings.Repeat("OVERSIZED", 300000)},
+		"established":      map[string]any{"type": "noul", "noul": 0.9},
+		"conflict":         map[string]any{"type": "noul", "noul": 0.1},
+		"safe_to_auto_act": map[string]any{"type": "noul", "noul": 0.9},
+		"action": map[string]any{
+			"type": "choice", "choice": "proceed",
+			"probabilities": map[string]float64{"proceed": 1, "reject": 0, "manual_review": 0, "other": 0},
+		},
+	}
+	raw, err := json.Marshal(answers)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
+}
+
 func TestResponseBudgetSkipsProvider(t *testing.T) {
 	decider := &scriptedDecider{answers: []byte(passingAnswers)}
 	handler, err := NewHandler(Config{
@@ -430,7 +502,7 @@ func TestEvaluationStopsWhenRequestIsCanceled(t *testing.T) {
 
 	handler.ServeHTTP(recorder, request)
 
-	if recorder.Code != http.StatusBadGateway || !strings.Contains(recorder.Body.String(), `"reason":"decision_error"`) {
+	if recorder.Code != http.StatusGatewayTimeout || !strings.Contains(recorder.Body.String(), `"reason":"deadline_exceeded"`) {
 		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
 	}
 }
