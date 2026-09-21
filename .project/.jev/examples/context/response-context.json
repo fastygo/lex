@@ -1,0 +1,116 @@
+{
+    "model": "jev-1.13.0",
+    "answers": {
+      "llm_report_can_justify_refund": {
+        "type": "noul",
+        "noul": 0.03,
+        "stats": {}
+      },
+      "jev_confidence_upgrades_evidence": {
+        "type": "noul",
+        "noul": 0.04,
+        "stats": {}
+      },
+      "should_abstain_on_overlapping_criteria": {
+        "type": "noul",
+        "noul": 0.98,
+        "stats": {}
+      },
+      "incident_route": {
+        "type": "choice",
+        "choice": "account_access",
+        "confidence": 1,
+        "probabilities": {
+          "account_access": 1,
+          "billing": 0,
+          "other": 0
+        },
+        "stats": {}
+      },
+      "jev_plugin_role": {
+        "type": "choice",
+        "choice": "typed_decision_plugin",
+        "confidence": 1,
+        "probabilities": {
+          "retrieval_engine": 0,
+          "typed_decision_plugin": 1,
+          "source_of_truth": 0,
+          "context_store": 0,
+          "prose_completer": 0
+        },
+        "stats": {}
+      },
+      "refund_decision_evidence": {
+        "type": "choice",
+        "choice": "customer_message_and_payment_record",
+        "confidence": 1,
+        "probabilities": {
+          "llm_report_only": 0,
+          "customer_message_and_payment_record": 1,
+          "jev_probability_only": 0,
+          "all_items_equally": 0
+        },
+        "stats": {}
+      },
+      "refund_support_strength": {
+        "type": "score",
+        "score": 0,
+        "legend": {
+          "0": "No support: there is no explicit refund request and no duplicate charge",
+          "1": "Weak support: the evidence only suggests a possible billing concern",
+          "2": "Moderate support: either an explicit refund request or a likely payment error exists",
+          "3": "Strong support: policy conditions for a refund are directly established"
+        },
+        "confidence": 1,
+        "probabilities": {
+          "0": 1,
+          "1": 0,
+          "2": 0,
+          "3": 0
+        },
+        "stats": {}
+      },
+      "jev_fit_for_context_runtime": {
+        "type": "score",
+        "score": 3,
+        "legend": {
+          "0": "Poor fit: typed judgments provide no useful role in the pipeline",
+          "1": "Limited fit: useful only as untrusted prose generation",
+          "2": "Good fit: useful for classification or scoring when evidence and criteria are narrow",
+          "3": "Strong fit: its typed probabilities complement retrieval, policy, abstention, and verification"
+        },
+        "confidence": 1,
+        "probabilities": {
+          "0": 0,
+          "1": 0,
+          "2": 0,
+          "3": 1
+        },
+        "stats": {}
+      },
+      "choice_taxonomy_ambiguity": {
+        "type": "score",
+        "score": 2.96,
+        "legend": {
+          "0": "Not ambiguous: the labels are mutually exclusive and independently evidenced",
+          "1": "Slightly ambiguous: the boundary is mostly clear",
+          "2": "Materially ambiguous: either label could reasonably win",
+          "3": "Unusable without refinement: the criteria do not define distinct decisions"
+        },
+        "confidence": 0.96,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0,
+          "2": 0.01,
+          "3": 0.98
+        },
+        "stats": {}
+      }
+    },
+    "usage": {
+      "input_tokens": 1777,
+      "output_tokens": 302
+    },
+    "request_id": "playground_11ee1b1225d2e9342b3a23cfd94d7cb21b5",
+    "evaluation_time_ms": 129.20628598658368
+  }

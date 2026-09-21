@@ -1,0 +1,36 @@
+---
+description: English-only text in the repo (.manual/ excluded)
+alwaysApply: false
+---
+# English-only content
+
+All human-readable text in this repository must be **English only**.
+
+## Allowed
+
+- Latin letters, digits, and standard ASCII punctuation used in code and docs
+- Common English typography in Markdown/JSON strings: em dash, curly quotes, arrow (→), multiplication sign (×)
+- Comments, commit messages, rules, docs, JSON string values, and identifiers that are meant for humans
+
+## Not allowed
+
+- Non-English natural language (e.g. Cyrillic, CJK, Arabic)
+- Emoji and decorative symbols used as language
+- Mixing another language into user-facing strings “for convenience”
+
+## Exception
+
+The **`.manual/`** directory is excluded from this rule (operator notes in any language).
+
+## Optional check
+
+`npm run check:english` scans repository text outside `.manual/` when you want
+automated help finding violations. It is not a required completion step.
+
+Fix violations or move non-English material into `.manual/`.
+
+## Authoring guidance
+
+- Write new docs, questions, and protocol text in English
+- Prefer ASCII quotes and `->` in machine-oriented JSON keys when possible
+- Keep Jev `instructions` and `criteria` in clear English; one atomic claim per question

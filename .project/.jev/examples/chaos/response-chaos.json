@@ -1,0 +1,187 @@
+{
+    "model": "jev-1.13.0",
+    "answers": {
+      "raw_billing_supported": {
+        "type": "noul",
+        "noul": 0.26,
+        "stats": {}
+      },
+      "raw_account_access_supported": {
+        "type": "noul",
+        "noul": 0.84,
+        "stats": {}
+      },
+      "raw_safe_to_auto_route": {
+        "type": "noul",
+        "noul": 0.09,
+        "stats": {}
+      },
+      "llm_augmented_billing_supported": {
+        "type": "noul",
+        "noul": 0.07,
+        "stats": {}
+      },
+      "llm_augmented_account_access_supported": {
+        "type": "noul",
+        "noul": 0.8,
+        "stats": {}
+      },
+      "llm_augmented_safe_to_auto_route": {
+        "type": "noul",
+        "noul": 0.05,
+        "stats": {}
+      },
+      "context_resolved_billing_supported": {
+        "type": "noul",
+        "noul": 0.04,
+        "stats": {}
+      },
+      "context_resolved_account_access_supported": {
+        "type": "noul",
+        "noul": 0.98,
+        "stats": {}
+      },
+      "context_resolved_safe_to_auto_route": {
+        "type": "noul",
+        "noul": 0.94,
+        "stats": {}
+      },
+      "context_conflicted_billing_supported": {
+        "type": "noul",
+        "noul": 0.69,
+        "stats": {}
+      },
+      "context_conflicted_account_access_supported": {
+        "type": "noul",
+        "noul": 0.98,
+        "stats": {}
+      },
+      "context_conflicted_safe_to_auto_route": {
+        "type": "noul",
+        "noul": 0.03,
+        "stats": {}
+      },
+      "raw_action": {
+        "type": "choice",
+        "choice": "manual_review",
+        "confidence": 0.95,
+        "probabilities": {
+          "manual_review": 0.96,
+          "route_billing": 0,
+          "route_account_access": 0.04
+        },
+        "stats": {}
+      },
+      "llm_augmented_action": {
+        "type": "choice",
+        "choice": "manual_review",
+        "confidence": 0.68,
+        "probabilities": {
+          "manual_review": 0.79,
+          "route_billing": 0,
+          "route_account_access": 0.21
+        },
+        "stats": {}
+      },
+      "context_resolved_action": {
+        "type": "choice",
+        "choice": "route_account_access",
+        "confidence": 1,
+        "probabilities": {
+          "manual_review": 0,
+          "route_billing": 0,
+          "route_account_access": 1
+        },
+        "stats": {}
+      },
+      "context_conflicted_action": {
+        "type": "choice",
+        "choice": "manual_review",
+        "confidence": 0.99,
+        "probabilities": {
+          "manual_review": 0.99,
+          "route_billing": 0,
+          "route_account_access": 0.01
+        },
+        "stats": {}
+      },
+      "raw_evidence_sufficiency": {
+        "type": "score",
+        "score": 1.01,
+        "legend": {
+          "0": "No usable evidence supports a routing decision",
+          "1": "Weak or ambiguous evidence suggests routes but does not distinguish them",
+          "2": "Meaningful evidence exists but is incomplete or internally conflicting",
+          "3": "Strong, coherent, authoritative evidence supports exactly one route"
+        },
+        "confidence": 0.97,
+        "probabilities": {
+          "0": 0.01,
+          "1": 0.98,
+          "2": 0.01,
+          "3": 0
+        },
+        "stats": {}
+      },
+      "llm_augmented_evidence_sufficiency": {
+        "type": "score",
+        "score": 0.9,
+        "legend": {
+          "0": "No usable evidence supports a routing decision",
+          "1": "Weak or ambiguous evidence suggests routes but does not distinguish them",
+          "2": "Meaningful evidence exists but is incomplete or internally conflicting",
+          "3": "Strong, coherent, authoritative evidence supports exactly one route"
+        },
+        "confidence": 0.71,
+        "probabilities": {
+          "0": 0.19,
+          "1": 0.72,
+          "2": 0.08,
+          "3": 0.01
+        },
+        "stats": {}
+      },
+      "context_resolved_evidence_sufficiency": {
+        "type": "score",
+        "score": 3,
+        "legend": {
+          "0": "No usable evidence supports a routing decision",
+          "1": "Weak or ambiguous evidence suggests routes but does not distinguish them",
+          "2": "Meaningful evidence exists but is incomplete or internally conflicting",
+          "3": "Strong, coherent, authoritative evidence supports exactly one route"
+        },
+        "confidence": 1,
+        "probabilities": {
+          "0": 0,
+          "1": 0,
+          "2": 0,
+          "3": 1
+        },
+        "stats": {}
+      },
+      "context_conflicted_evidence_sufficiency": {
+        "type": "score",
+        "score": 1.99,
+        "legend": {
+          "0": "No usable evidence supports a routing decision",
+          "1": "Weak or ambiguous evidence suggests routes but does not distinguish them",
+          "2": "Meaningful evidence exists but is incomplete or internally conflicting",
+          "3": "Strong, coherent, authoritative evidence supports exactly one route"
+        },
+        "confidence": 0.99,
+        "probabilities": {
+          "0": 0,
+          "1": 0.01,
+          "2": 0.99,
+          "3": 0
+        },
+        "stats": {}
+      }
+    },
+    "usage": {
+      "input_tokens": 2183,
+      "output_tokens": 543
+    },
+    "request_id": "playground_11ea7ac967db4c04be683b2fcc0a3a63d9f",
+    "evaluation_time_ms": 98.20958398631774
+  }

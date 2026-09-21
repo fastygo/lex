@@ -1,0 +1,114 @@
+{
+    "model": "jev-1.13.0",
+    "answers": {
+      "generates_autoregressively": {
+        "type": "noul",
+        "noul": 0.98,
+        "stats": {}
+      },
+      "can_guarantee_no_hallucination": {
+        "type": "noul",
+        "noul": 0.02,
+        "stats": {}
+      },
+      "temperature_zero_is_unique": {
+        "type": "noul",
+        "noul": 0.03,
+        "stats": {}
+      },
+      "what_llm_predicts": {
+        "type": "choice",
+        "choice": "The next token in a sequence, conditioned on the tokens so far",
+        "confidence": 1,
+        "probabilities": {
+          "A single global embedding of the whole document with no generation step": 0,
+          "The next token in a sequence, conditioned on the tokens so far": 1,
+          "A verified proof that the reply is factually true": 0,
+          "A calibrated distribution over an answer space the caller defined in advance": 0
+        },
+        "stats": {}
+      },
+      "what_rlhf_optimizes": {
+        "type": "choice",
+        "choice": "Answers that human raters prefer: helpful, fluent text",
+        "confidence": 1,
+        "probabilities": {
+          "Exact next-token log-likelihood on the pretraining corpus only": 0,
+          "Answers that human raters prefer: helpful, fluent text": 1,
+          "Zero type errors and no string generation": 0,
+          "Calibrated probabilities over a caller-defined option set": 0
+        },
+        "stats": {}
+      },
+      "how_structured_output_is_obtained": {
+        "type": "choice",
+        "choice": "They constrain or validate a generated string against a schema, then parse it",
+        "confidence": 1,
+        "probabilities": {
+          "They constrain or validate a generated string against a schema, then parse it": 1,
+          "They look up the answer in a relational database and skip the model": 0,
+          "They return only an emoji that the application maps to keys": 0,
+          "They sample a typed value in one parallel pass with no string to parse": 0
+        },
+        "stats": {}
+      },
+      "prose_confidence_reliability": {
+        "type": "score",
+        "score": 0,
+        "legend": {
+          "0": "Unreliable — the number is more generated text, not a statistic from a defined answer distribution",
+          "1": "Sometimes useful if the prompt asks the model to be honest",
+          "2": "As reliable as a probability computed over caller-defined options"
+        },
+        "confidence": 1,
+        "probabilities": {
+          "0": 1,
+          "1": 0,
+          "2": 0
+        },
+        "stats": {}
+      },
+      "generation_vs_typed_decisions": {
+        "type": "score",
+        "score": 0.37,
+        "legend": {
+          "0": "Nothing in common: one emits a string token by token, the other returns values over a predefined answer space",
+          "1": "Slight conceptual overlap — both can be asked questions — but the inner workings differ",
+          "2": "Substantial overlap in both concept and execution",
+          "3": "Nearly the same, differing only in surface syntax",
+          "4": "Identical"
+        },
+        "confidence": 0.69,
+        "probabilities": {
+          "0": 0.63,
+          "1": 0.37,
+          "2": 0,
+          "3": 0,
+          "4": 0
+        },
+        "stats": {}
+      },
+      "llm_as_sole_destructive_gate": {
+        "type": "score",
+        "score": 2,
+        "legend": {
+          "0": "Appropriate — fluent wording is enough authority to execute",
+          "1": "Acceptable if temperature is set to 0",
+          "2": "Poor — treat the model output as a proposal and apply an independent check or a human"
+        },
+        "confidence": 1,
+        "probabilities": {
+          "0": 0,
+          "1": 0,
+          "2": 1
+        },
+        "stats": {}
+      }
+    },
+    "usage": {
+      "input_tokens": 1543,
+      "output_tokens": 440
+    },
+    "request_id": "playground_11e8930c69372f74b359487b8f0935ba00d",
+    "evaluation_time_ms": 142.53362399176694
+  }

@@ -1,0 +1,131 @@
+{
+    "can_you_chat_with_jev": {
+      "type": "noul",
+      "instructions": "Can you chat with Jev, TypeSafe's new model?"
+    },
+    "understands_natural_language": {
+      "type": "noul",
+      "instructions": "Does Jev understand natural language input?"
+    },
+    "output_type": {
+      "type": "choice",
+      "instructions": "What kind of output does Jev produce?",
+      "criteria": {
+        "Free-form text generation": null,
+        "Machine-native structured decisions from an answer space defined by the human": null,
+        "Typed outputs with confidence values, shaped by the user when they declare the primitive as part of their question": null,
+        "Structured output converted from a text response": null,
+        "Emoji, exclusively thumbs up": null,
+        "Questions about your prompt": null,
+        "All of the above": null,
+        "None of the above": null
+      }
+    },
+    "similarity_to_wrappers": {
+      "type": "score",
+      "instructions": "How similar is Jev's architecture to an LLM wrapper prompted to output JSON?",
+      "criteria": [
+        "Nothing in common, in concept or in execution",
+        "Slight conceptual overlap, but fundamentally different inner workings",
+        "Substantial overlap in both concept and execution with similar inner workings",
+        "Nearly the same, differing only in the surface-level details",
+        "Identical"
+      ]
+    },
+    "confidence_mechanism": {
+      "type": "choice",
+      "instructions": "How does Jev arrive at the confidence behind an answer?",
+      "criteria": {
+        "With a calibrated confidence value derived from the probability distribution across the answer space": null,
+        "By semantically scoring a draft response, then converting it to structured output": null,
+        "By saying so in a written response, the way a person would": null
+      }
+    },
+    "who_shapes_the_answer": {
+      "type": "score",
+      "instructions": "Who defines the shape of Jev's answer space?",
+      "criteria": [
+        "The person asking — each question defines the structure of its own answer",
+        "Both — the asker and Jev share it",
+        "Jev alone — he picks his own format"
+      ]
+    },
+    "capital_of_america": {
+      "type": "choice",
+      "instructions": "Can Jev answer \"What's the capital of America?\" as a normal chat question?",
+      "criteria": {
+        "Yes, exactly as asked": null,
+        "Yes, if you shape the question": null,
+        "No": null
+      }
+    },
+    "noul_has_separate_confidence": {
+      "type": "noul",
+      "instructions": "Does a Noul answer include a separate confidence field in addition to the yes/no probability?"
+    },
+    "questions_evaluated_in_parallel": {
+      "type": "noul",
+      "instructions": "Are multiple questions in a single Jev request evaluated independently and in parallel against the same state?"
+    },
+    "can_invent_outside_criteria": {
+      "type": "noul",
+      "instructions": "Can a successful Jev answer return a value outside the options or levels the asker defined?"
+    },
+    "what_score_number_means": {
+      "type": "choice",
+      "instructions": "What does the numeric value of a Score answer represent?",
+      "criteria": {
+        "The index of the single most likely level, always an integer": "Argmax only; no in-between values",
+        "The probability-weighted mean of the ordered level numbers, which can land between two levels": "A distribution of 70% on level 1 and 30% on level 2 returns 1.3",
+        "A free-form rating the model invents outside the supplied scale": "The model writes its own number",
+        "The token log-probability of a generated sentence": "Derived from autoregressive text"
+      }
+    },
+    "primitive_for_yes_no_gate": {
+      "type": "choice",
+      "instructions": "Which primitive should you use when your code gates a single yes/no branch?",
+      "criteria": {
+        "Choice with two named options plus a confidence value": "Heavier shape for the same yes/no information",
+        "Score over unordered categories": "A weighted mean of things with no order",
+        "Noul, a probability from 0 to 1 that the answer is yes": "One number; near 0.5 is maximum uncertainty",
+        "Any of the three, they are interchangeable": "Type does not matter"
+      }
+    },
+    "what_confidence_summarizes": {
+      "type": "choice",
+      "instructions": "For Choice and Score, what does the confidence value summarize?",
+      "criteria": {
+        "How peaked the probability distribution already is": "Mass on one option is high; mass spread across several is low",
+        "How much a human rater would prefer the wording of the answer": "An RLHF-style preference score",
+        "The winning option's raw probability, and nothing else about the spread": "Ignores a close runner-up versus a scattered tail",
+        "A prose explanation of how sure the model feels": "The model is asked to say how confident it is"
+      }
+    },
+    "choice_for_ordered_scale": {
+      "type": "score",
+      "instructions": "How appropriate is a Choice with options like \"low\", \"medium\", and \"high\" when what you need is a position on an ordered scale?",
+      "criteria": [
+        "The right primitive — Choice preserves order and in-between values",
+        "Acceptable if you add confidence",
+        "The wrong primitive — you lose the ordering and the in-between Score value"
+      ]
+    },
+    "atomic_question_design": {
+      "type": "score",
+      "instructions": "How strongly should a complex Jev judgment be split into narrow, explicit, atomic questions in one request?",
+      "criteria": [
+        "Always prefer one broad question that does the whole analysis",
+        "Split only when latency would otherwise explode",
+        "Ask the most explicit, narrow, atomic questions you can; they run in parallel so four narrow ones beat one broad one"
+      ]
+    },
+    "noul_half_is_uncertainty": {
+      "type": "score",
+      "instructions": "How close is a Noul value of 0.5 to maximum uncertainty?",
+      "criteria": [
+        "It is maximum uncertainty — yes and no are equally likely, and there is no separate confidence field",
+        "It is a medium yes, like a mid-scale Score",
+        "It is a confident no"
+      ]
+    }
+  }

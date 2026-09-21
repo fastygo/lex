@@ -1,0 +1,9 @@
+{
+  "name": "lex-protocol",
+  "private": true,
+  "scripts": {
+    "check:english": "node scripts/check-english-only.mjs",
+    "check": "npm run check:english"
+  },
+  "devDependencies": {}
+}
