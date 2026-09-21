@@ -30,6 +30,21 @@ func TestEvaluateRecordsResolvedHostedModel(t *testing.T) {
 	}
 }
 
+func TestEvaluateRejectsUnresolvedHostedModel(t *testing.T) {
+	for _, model := range []string{Model, "typesafe/jev-1.14-20260901", "typesafe/jev-latest"} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = io.WriteString(w, `{"model":"`+model+`","answers":{"support":{"type":"noul","noul":0.9}}}`)
+		}))
+		client := newForTest("test-key", server.URL)
+		client.HTTP = server.Client()
+		_, err := client.Evaluate(context.Background(), "frozen evidence", map[string]any{"support": map[string]any{"type": "noul"}})
+		server.Close()
+		if err == nil || strings.Contains(err.Error(), model) {
+			t.Fatalf("model %s error = %v", model, err)
+		}
+	}
+}
+
 func TestEvaluateRejectsForeignEndpoint(t *testing.T) {
 	client := newForTest("test-key", "https://example.invalid/systemone")
 	if _, err := client.Evaluate(context.Background(), "state", nil); err == nil {

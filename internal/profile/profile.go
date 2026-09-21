@@ -3,6 +3,7 @@ package profile
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/fastygo/lex/internal/canonical"
 	"github.com/fastygo/lex/internal/verify"
@@ -37,6 +38,11 @@ const (
 	EntityType = "claim"
 	// EntitySchemaVersion is the only entity schema this question set evaluates.
 	EntitySchemaVersion = "0.1"
+	// DirectModel is the only reproducible model identity for the direct adapter.
+	DirectModel = "jev-1.13.0"
+	// HostedModel is the request selector for the hosted adapter. A response
+	// must add a resolved suffix; the selector alone is not reproducible.
+	HostedModel = "typesafe/jev-1.13"
 )
 
 const (
@@ -125,6 +131,33 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+// ReproducibleModel reports whether a sealed model identity can support replay
+// for the named adapter. An alias containing "latest", an echoed hosted
+// selector, and a different model line are not reproducible.
+func ReproducibleModel(adapterID, model string) bool {
+	if model == "" || strings.Contains(model, "latest") {
+		return false
+	}
+	switch adapterID {
+	case "direct-systemone":
+		return model == DirectModel
+	case "hosted-systemone":
+		return hostedResolved(model)
+	default:
+		return false
+	}
+}
+
+func hostedResolved(model string) bool {
+	for _, separator := range []string{"-", "."} {
+		rest, ok := strings.CutPrefix(model, HostedModel+separator)
+		if ok && rest != "" && !strings.ContainsAny(rest, "/ \t") {
+			return true
+		}
+	}
+	return false
 }
 
 // QuestionSetHash is the canonical hash of the question document, excluding the wire hash field.

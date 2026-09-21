@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/fastygo/lex/internal/canonical"
+	"github.com/fastygo/lex/internal/profile"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
@@ -603,7 +604,7 @@ func (holdDecider) AdapterVersion() string { return "0.1.0" }
 func (decider holdDecider) Evaluate(context.Context, any, map[string]any) (Decision, error) {
 	decider.entered <- struct{}{}
 	<-decider.release
-	return Decision{ResolvedModel: "fixture-v1", Answers: decider.answers}, nil
+	return Decision{ResolvedModel: profile.DirectModel, Answers: decider.answers}, nil
 }
 
 func TestSealedResponseOverBudgetIsNotTruncated(t *testing.T) {
@@ -796,7 +797,7 @@ func (finishAfterDeadline) AdapterVersion() string { return "0.1.0" }
 
 func (finishAfterDeadline) Evaluate(ctx context.Context, _ any, _ map[string]any) (Decision, error) {
 	<-ctx.Done()
-	return Decision{ResolvedModel: "fixture-v1", Answers: []byte(passingAnswers)}, nil
+	return Decision{ResolvedModel: profile.DirectModel, Answers: []byte(passingAnswers)}, nil
 }
 
 type cancelDecider struct{}
@@ -836,7 +837,7 @@ func (decider *scriptedDecider) Evaluate(context.Context, any, map[string]any) (
 	decider.mu.Lock()
 	decider.calls++
 	decider.mu.Unlock()
-	return Decision{ResolvedModel: "fixture-v1", Answers: decider.answers}, nil
+	return Decision{ResolvedModel: profile.DirectModel, Answers: decider.answers}, nil
 }
 
 type capturingDecider struct {
@@ -854,7 +855,7 @@ func (decider *capturingDecider) Evaluate(_ context.Context, state any, question
 	decider.state = state
 	decider.questions = questions
 	decider.mu.Unlock()
-	return Decision{ResolvedModel: "fixture-v1", Answers: decider.answers}, nil
+	return Decision{ResolvedModel: profile.DirectModel, Answers: decider.answers}, nil
 }
 
 func TestEvaluationClassifiesContradictoryEvidence(t *testing.T) {

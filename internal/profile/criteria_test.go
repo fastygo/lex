@@ -6,6 +6,28 @@ import (
 	"github.com/fastygo/lex/internal/canonical"
 )
 
+func TestReproducibleModelPinsAdapterIdentity(t *testing.T) {
+	if !ReproducibleModel("direct-systemone", DirectModel) {
+		t.Fatal("direct model was rejected")
+	}
+	if !ReproducibleModel("hosted-systemone", HostedModel+"-20260901") || !ReproducibleModel("hosted-systemone", HostedModel+".0") {
+		t.Fatal("resolved hosted model was rejected")
+	}
+	rejected := []struct{ adapter, model string }{
+		{"direct-systemone", "jev-latest"},
+		{"direct-systemone", "jev-1.14.0"},
+		{"hosted-systemone", HostedModel},
+		{"hosted-systemone", "typesafe/jev-1.130"},
+		{"hosted-systemone", HostedModel + "-latest"},
+		{"hosted-systemone", ""},
+	}
+	for _, tc := range rejected {
+		if ReproducibleModel(tc.adapter, tc.model) {
+			t.Fatalf("accepted %s %q", tc.adapter, tc.model)
+		}
+	}
+}
+
 func TestCriteriaChangeProducesNewQuestionSetHash(t *testing.T) {
 	changed := questionSet
 	questions := make(map[string]question, len(questionSet.Questions))

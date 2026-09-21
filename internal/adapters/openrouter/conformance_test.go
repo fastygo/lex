@@ -9,7 +9,7 @@ import (
 )
 
 func TestHostedAdapterConformanceFixture(t *testing.T) {
-	conformance.Run(t, Model, func(endpoint string, client *http.Client) conformance.Result {
+	conformance.Run(t, Model, Model+"-20260901", func(endpoint string, client *http.Client) conformance.Result {
 		adapter := newForTest("fixture-key", endpoint)
 		adapter.HTTP = client
 		decision, err := adapter.Evaluate(context.Background(), map[string]any{"claim": "fixture"}, map[string]any{

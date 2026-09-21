@@ -3,6 +3,7 @@ package openrouter
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -13,8 +14,8 @@ import (
 const (
 	// Endpoint is the only production hosted endpoint.
 	Endpoint = "https://openrouter.ai/api/v1/systemone"
-	// Model is the pinned request model. The response model is recorded separately.
-	Model          = "typesafe/jev-1.13"
+	// Model is the pinned request selector. The response must be a resolved refinement.
+	Model          = profile.HostedModel
 	AdapterID      = "hosted-systemone"
 	AdapterVersion = profile.AdapterVersion
 )
@@ -41,7 +42,7 @@ func newForTest(apiKey, endpoint string) Client {
 
 // Evaluate sends one frozen state and question map. It does not retry or fall back.
 func (c Client) Evaluate(ctx context.Context, state any, questions map[string]any) (Decision, error) {
-	return systemone.Evaluate(ctx, systemone.Call{
+	decision, err := systemone.Evaluate(ctx, systemone.Call{
 		APIKey:           c.APIKey,
 		Endpoint:         c.endpoint,
 		OfficialEndpoint: Endpoint,
@@ -49,4 +50,11 @@ func (c Client) Evaluate(ctx context.Context, state any, questions map[string]an
 		AllowLoopback:    c.allowLoopback,
 		HTTP:             c.HTTP,
 	}, state, questions)
+	if err != nil {
+		return Decision{}, err
+	}
+	if !profile.ReproducibleModel(AdapterID, decision.ResolvedModel) {
+		return Decision{}, fmt.Errorf("decision response model is not a resolved identity")
+	}
+	return decision, nil
 }

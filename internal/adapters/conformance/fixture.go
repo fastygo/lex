@@ -20,7 +20,9 @@ type Result struct {
 type Evaluate func(endpoint string, client *http.Client) Result
 
 // Run checks model pinning, raw-answer preservation, and a single failed attempt.
-func Run(t *testing.T, wantModel string, evaluate Evaluate) {
+// requestModel is what the adapter sends. responseModel is the resolved identity
+// the fixture returns; for the direct adapter they are the same value.
+func Run(t *testing.T, requestModel, responseModel string, evaluate Evaluate) {
 	t.Helper()
 	var calls int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
@@ -29,11 +31,11 @@ func Run(t *testing.T, wantModel string, evaluate Evaluate) {
 			t.Errorf("authorization = %q", request.Header.Get("Authorization"))
 		}
 		body, _ := io.ReadAll(request.Body)
-		if !strings.Contains(string(body), `"model":"`+wantModel+`"`) {
-			t.Errorf("request model missing %s in %s", wantModel, body)
+		if !strings.Contains(string(body), `"model":"`+requestModel+`"`) {
+			t.Errorf("request model missing %s in %s", requestModel, body)
 		}
 		if calls == 1 {
-			_, _ = io.WriteString(w, `{"model":"`+wantModel+`","answers":{"support":{"type":"noul","noul":0.42}}}`)
+			_, _ = io.WriteString(w, `{"model":"`+responseModel+`","answers":{"support":{"type":"noul","noul":0.42}}}`)
 			return
 		}
 		http.Error(w, "unavailable", http.StatusInternalServerError)
@@ -44,7 +46,7 @@ func Run(t *testing.T, wantModel string, evaluate Evaluate) {
 	if ok.Err != nil {
 		t.Fatalf("successful fixture error = %v", ok.Err)
 	}
-	if ok.ResolvedModel != wantModel || !strings.Contains(string(ok.Answers), `"noul":0.42`) {
+	if ok.ResolvedModel != responseModel || !strings.Contains(string(ok.Answers), `"noul":0.42`) {
 		t.Fatalf("result = %+v", ok)
 	}
 	failed := evaluate(server.URL, server.Client())

@@ -247,13 +247,14 @@ func bindingFindings(bundle map[string]any) []verify.Finding {
 		findings = append(findings, errorFinding(verify.CodeEntityChecksumMismatch))
 	}
 	model, _ := decision["resolved_model"].(string)
-	if model == "" || strings.Contains(model, "latest") {
-		findings = append(findings, errorFinding(verify.CodeUnresolvedModel))
-	}
-	switch decision["adapter_id"] {
+	adapterID, _ := decision["adapter_id"].(string)
+	switch adapterID {
 	case "direct-systemone", "hosted-systemone":
 		if decision["adapter_version"] != profile.AdapterVersion {
 			findings = append(findings, errorFinding(verify.CodeUnpinnedAdapter))
+		}
+		if !profile.ReproducibleModel(adapterID, model) {
+			findings = append(findings, errorFinding(verify.CodeUnresolvedModel))
 		}
 	default:
 		findings = append(findings, errorFinding(verify.CodeUnknownAdapter))

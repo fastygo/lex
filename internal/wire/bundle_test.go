@@ -38,7 +38,7 @@ func TestReplayAcceptsExactPhraseSelection(t *testing.T) {
 		PackRequest:    request,
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
-		ResolvedModel:  "fixture-v1",
+		ResolvedModel:  profile.DirectModel,
 		Answers: []byte(`{
 			"support":{"type":"noul","noul":0.9},
 			"established":{"type":"noul","noul":0.9},
@@ -163,7 +163,7 @@ func sealedSelectionBundle(t *testing.T, sources []contextmemory.Source) []byte 
 		PackRequest:    request,
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
-		ResolvedModel:  "fixture-v1",
+		ResolvedModel:  profile.DirectModel,
 		Answers: []byte(`{
 			"support":{"type":"noul","noul":0.9},
 			"established":{"type":"noul","noul":0.9},
@@ -206,7 +206,7 @@ func TestReplayAcceptsEscapedContextSnapshot(t *testing.T) {
 		PackRequest:    request,
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
-		ResolvedModel:  "fixture-v1",
+		ResolvedModel:  profile.DirectModel,
 		Answers: []byte(`{
 			"support":{"type":"noul","noul":0.9},
 			"established":{"type":"noul","noul":0.9},
@@ -235,7 +235,7 @@ func TestBuildBundleReplaysValidatedClaim(t *testing.T) {
 		PackRequest:    addressableRequest(),
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
-		ResolvedModel:  "fixture-v1",
+		ResolvedModel:  profile.DirectModel,
 		Answers: []byte(`{
 			"support":{"type":"noul","noul":0.9},
 			"established":{"type":"noul","noul":0.9},
@@ -289,7 +289,7 @@ func sealedBundle(t *testing.T) []byte {
 		PackRequest:    addressableRequest(),
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
-		ResolvedModel:  "fixture-v1",
+		ResolvedModel:  profile.DirectModel,
 		Answers: []byte(`{
 			"support":{"type":"noul","noul":0.9},
 			"established":{"type":"noul","noul":0.9},
@@ -348,6 +348,51 @@ func reseal(t *testing.T, bundle map[string]any) []byte {
 		t.Fatal(err)
 	}
 	return raw
+}
+
+func TestReplayRejectsUnresolvedModelIdentity(t *testing.T) {
+	cases := []struct {
+		adapter string
+		model   string
+	}{
+		{adapter: "direct-systemone", model: "jev-latest"},
+		{adapter: "direct-systemone", model: "jev-1.14.0"},
+		{adapter: "hosted-systemone", model: profile.HostedModel},
+		{adapter: "hosted-systemone", model: "typesafe/jev-1.14-20260901"},
+		{adapter: "hosted-systemone", model: profile.DirectModel},
+	}
+	for _, tc := range cases {
+		value, err := canonical.DecodeJSON(sealedBundle(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		bundle := value.(map[string]any)
+		decision := bundle["decision_set"].(map[string]any)
+		decision["adapter_id"] = tc.adapter
+		decision["resolved_model"] = tc.model
+		report, err := Replay(reseal(t, bundle))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if report.Verdict != "error" || !hasFinding(report, "unresolved_model") {
+			t.Fatalf("adapter %s model %s verdict = %s findings = %#v", tc.adapter, tc.model, report.Verdict, report.Findings)
+		}
+	}
+	value, err := canonical.DecodeJSON(sealedBundle(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := value.(map[string]any)
+	decision := bundle["decision_set"].(map[string]any)
+	decision["adapter_id"] = "hosted-systemone"
+	decision["resolved_model"] = profile.HostedModel + "-20260901"
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "validated" {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
 }
 
 func hasFinding(report Report, code string) bool {
@@ -749,7 +794,7 @@ func TestReplayDoesNotUseNetwork(t *testing.T) {
 		PackRequest:    addressableRequest(),
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
-		ResolvedModel:  "fixture-v1",
+		ResolvedModel:  profile.DirectModel,
 		Answers: []byte(`{
 			"support":{"type":"noul","noul":0.9},
 			"established":{"type":"noul","noul":0.9},
@@ -789,7 +834,7 @@ func TestReplayRejectsUnpinnedPolicyWithoutProviderCall(t *testing.T) {
 		PackRequest:    addressableRequest(),
 		AdapterID:      "hosted-systemone",
 		AdapterVersion: "0.1.0",
-		ResolvedModel:  "fixture-v1",
+		ResolvedModel:  profile.HostedModel + "-20260901",
 		Answers:        []byte(`{"support":{"type":"noul","noul":0.9}}`),
 	})
 	if err != nil {
@@ -809,7 +854,7 @@ func TestReplayRefusesInferenceOnlyEvidence(t *testing.T) {
 		PackRequest:    map[string]any{"query": "claim"},
 		AdapterID:      "direct-systemone",
 		AdapterVersion: "0.1.0",
-		ResolvedModel:  "fixture-v1",
+		ResolvedModel:  profile.DirectModel,
 		Answers: []byte(`{
 			"support":{"type":"noul","noul":0.99},
 			"established":{"type":"noul","noul":0.99},

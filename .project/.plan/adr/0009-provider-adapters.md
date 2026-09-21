@@ -15,7 +15,10 @@ Use separate direct and hosted adapters behind a provider-neutral typed interfac
 The initial direct adapter allowlists `https://api.typesafe.ai/v1/systemone`
 and requests `jev-1.13.0`. The hosted adapter allowlists
 `https://openrouter.ai/api/v1/systemone`, requests `typesafe/jev-1.13`, and
-records OpenRouter's exact returned model identity. Neither adapter accepts a
+records the returned model only when it is a resolved refinement of
+`typesafe/jev-1.13`: a non-empty suffix after `-` or `.`. An echo of that
+selector, an alias containing `latest`, or a different model line is a
+capability failure and is not retried. Neither adapter accepts a
 caller-provided endpoint, credential, or model alias such as `latest`.
 Deployment supplies `LEX_TYPESAFE_API_KEY` and `LEX_OPENROUTER_API_KEY` as
 separate secrets; neither value enters a request, bundle, trace, or log.

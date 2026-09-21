@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/fastygo/lex/internal/canonical"
+	"github.com/fastygo/lex/internal/profile"
 )
 
 func TestGoldenReplayAgreesOnVerdictAndHash(t *testing.T) {
@@ -17,14 +18,14 @@ func TestGoldenReplayAgreesOnVerdictAndHash(t *testing.T) {
 	t.Cleanup(func() { http.DefaultTransport = previous })
 
 	cases := []goldenCase{
-		{name: "validated-direct", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "proceed"), verdict: "validated", hash: "9328322c5b6b447ed2a97da5f6db2762125381b5ba615aa182ddf1c22b32b0b3"},
-		{name: "validated-hosted", adapter: "hosted-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "proceed"), verdict: "validated", hash: "6426fb976432543b6a70fe05be0bc67dd7e1863ce74f93765f1deb5fd84ea076"},
-		{name: "rejected", adapter: "direct-systemone", answers: goldenAnswers(0.1, 0.9, 0.1, 0.9, "reject"), verdict: "rejected", finding: "negative_result", hash: "0a2a35fa22a973c72f96f949630e7c8ab224318eacd5f8c8b942d334b0cfa17e"},
-		{name: "insufficient", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.1, 0.1, 0.9, "proceed"), verdict: "insufficient", finding: "establishment_below_threshold", hash: "87a56aae08ccf42a68ef95ca2c7e0af673ba55f96cf1a5b733111b6830812d42"},
-		{name: "conflict", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.9, 0.1, "proceed"), verdict: "conflict", finding: "evidence_conflict", hash: "c0292958eb00b862ddfdb349906621712b2e9959e42fc3e89bd9bef8bcfdcdaa"},
-		{name: "manual-review", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "manual_review"), verdict: "manual_review", finding: "review_required", hash: "8809b2b35c63fde45a1a48d01e57d00e0d0cf8d442d98cf88b57f6fb3bbe685b"},
-		{name: "error", adapter: "direct-systemone", answers: []byte(`{"support":{"type":"noul","noul":2}}`), verdict: "error", finding: "invalid_noul:support", hash: "4fad2913d57dd3e180e0da296e7aaa6febfb04c5b619e6c0cbc94b5eaff6b05c"},
-		{name: "inference-only", adapter: "direct-systemone", inference: true, answers: goldenAnswers(0.99, 0.99, 0.01, 0.99, "proceed"), verdict: "insufficient", finding: "inference_only", hash: "705b434cc1375a44c6ca88c3ae0f9f0a23de855d1e2a2fc0b3e4db0c2a7c56bb"},
+		{name: "validated-direct", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "proceed"), verdict: "validated", hash: "1ab63c5b2c0066780b334ec027b879b64aab1d96933061058040e840efa47781"},
+		{name: "validated-hosted", adapter: "hosted-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "proceed"), verdict: "validated", hash: "d0e4c1798985344d90734d98df66266ee14699117c5deb507bb7ed146818a1f0"},
+		{name: "rejected", adapter: "direct-systemone", answers: goldenAnswers(0.1, 0.9, 0.1, 0.9, "reject"), verdict: "rejected", finding: "negative_result", hash: "4938e79045aa6254828f4e1a7f366e1975e6f051b763f68d8ba8afd71e9e271a"},
+		{name: "insufficient", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.1, 0.1, 0.9, "proceed"), verdict: "insufficient", finding: "establishment_below_threshold", hash: "20469b1ee001e3837501856afe49c6ab53040a6934e3f31c489b41c6202f7dc3"},
+		{name: "conflict", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.9, 0.1, "proceed"), verdict: "conflict", finding: "evidence_conflict", hash: "c9e48cbf8bbe070489a887434120251f4a0cb21d272752ad90c8055fe21c539f"},
+		{name: "manual-review", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "manual_review"), verdict: "manual_review", finding: "review_required", hash: "4aeda624e0d412f9a11b4535b25fd59dd2a8115e9700da6644d549d3fd52c941"},
+		{name: "error", adapter: "direct-systemone", answers: []byte(`{"support":{"type":"noul","noul":2}}`), verdict: "error", finding: "invalid_noul:support", hash: "5b5fe4ecb0ea73e2654f8eeec83095d0230f9b146448495889a3901f8704160a"},
+		{name: "inference-only", adapter: "direct-systemone", inference: true, answers: goldenAnswers(0.99, 0.99, 0.01, 0.99, "proceed"), verdict: "insufficient", finding: "inference_only", hash: "d3aa46b7b8fb8fb3d8797e47e1a222dfe120fd287ae85c943dc5f79ae3f5b0f5"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -74,13 +75,20 @@ func goldenBundle(t *testing.T, tc goldenCase) []byte {
 		PackRequest:    request,
 		AdapterID:      tc.adapter,
 		AdapterVersion: "0.1.0",
-		ResolvedModel:  "fixture-v1",
+		ResolvedModel:  goldenModel(tc.adapter),
 		Answers:        tc.answers,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return raw
+}
+
+func goldenModel(adapter string) string {
+	if adapter == "hosted-systemone" {
+		return profile.HostedModel + "-20260901"
+	}
+	return profile.DirectModel
 }
 
 func goldenAnswers(support, established, conflict, safety float64, choice string) []byte {
