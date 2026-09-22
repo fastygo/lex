@@ -147,7 +147,39 @@ func TestDecisionRejectsMalformedQuestionSetBeforeProvider(t *testing.T) {
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
-	if recorder.Code != http.StatusBadRequest || decider.calls != 0 {
+	if recorder.Code != http.StatusUnprocessableEntity || decider.calls != 0 || !strings.Contains(recorder.Body.String(), `"reason":"question_error"`) || !strings.Contains(recorder.Body.String(), "/question_set/questions/fit") {
 		t.Fatalf("status = %d calls = %d body = %s", recorder.Code, decider.calls, recorder.Body)
+	}
+}
+
+func TestDecisionSchemaErrorsNameTheFieldAndKeepInvalidJSONSeparate(t *testing.T) {
+	decider := &scriptedDecider{answers: []byte(genericAnswers)}
+	handler := mustHandlerWithDecider(t, decider)
+	rawJev := `{"project_id":"project-test","decision":{"id":"step","version":"1"},"state":{"text":"hi"},"question_set":{"id":"set","version":"1","questions":{"route":{"type":"choice","instructions":"Which route?","criteria":{"a":"A","b":"B"}}}}}`
+	cases := []struct {
+		name   string
+		body   string
+		status int
+		want   []string
+	}{
+		{"raw jev criteria", rawJev, http.StatusUnprocessableEntity, []string{`"reason":"question_error"`, "/question_set/questions/route", "options"}},
+		{"missing decision", `{"project_id":"project-test","state":{},"question_set":{"id":"set","version":"1","questions":{"q":{"type":"noul","instructions":"x"}}}}`, http.StatusUnprocessableEntity, []string{`"reason":"question_error"`, "required"}},
+		{"broken json", `{"project_id":`, http.StatusBadRequest, []string{`"reason":"invalid_json"`}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			recorder := postJSON(t, handler, "/v1/decisions", tc.body)
+			if recorder.Code != tc.status || decider.calls != 0 {
+				t.Fatalf("status = %d calls = %d body = %s", recorder.Code, decider.calls, recorder.Body)
+			}
+			for _, want := range tc.want {
+				if !strings.Contains(recorder.Body.String(), want) {
+					t.Fatalf("body lacks %q: %s", want, recorder.Body)
+				}
+			}
+			if strings.Contains(recorder.Body.String(), "Which route?") {
+				t.Fatalf("problem echoed caller text: %s", recorder.Body)
+			}
+		})
 	}
 }

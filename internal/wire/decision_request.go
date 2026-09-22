@@ -2,7 +2,9 @@ package wire
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/fastygo/lex/internal/canonical"
@@ -35,6 +37,42 @@ func ValidateDecisionRequest(raw []byte) error {
 		return fmt.Errorf("decision request: %w", err)
 	}
 	return nil
+}
+
+// SchemaViolation locates the most specific schema failure as a JSON pointer
+// and keyword. It never includes caller values.
+func SchemaViolation(err error) (pointer, keyword string, ok bool) {
+	var validation *jsonschema.ValidationError
+	if !errors.As(err, &validation) {
+		return "", "", false
+	}
+	leaf := deepestCause(validation)
+	pointer = ""
+	for _, token := range leaf.InstanceLocation {
+		pointer += "/" + strings.NewReplacer("~", "~0", "/", "~1").Replace(token)
+	}
+	if pointer == "" {
+		pointer = "/"
+	}
+	if leaf.ErrorKind != nil {
+		if path := leaf.ErrorKind.KeywordPath(); len(path) > 0 {
+			keyword = path[len(path)-1]
+		}
+	}
+	return pointer, keyword, true
+}
+
+func deepestCause(err *jsonschema.ValidationError) *jsonschema.ValidationError {
+	if len(err.Causes) == 0 {
+		return err
+	}
+	best := deepestCause(err.Causes[0])
+	for _, cause := range err.Causes[1:] {
+		if candidate := deepestCause(cause); len(candidate.InstanceLocation) > len(best.InstanceLocation) {
+			best = candidate
+		}
+	}
+	return best
 }
 
 func compiledGenericDecisionRequest() (*jsonschema.Schema, error) {

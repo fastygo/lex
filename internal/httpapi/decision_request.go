@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
@@ -44,7 +45,7 @@ func readDecision(request *http.Request) (decisionRequest, error) {
 		return decisionRequest{}, invalid
 	}
 	if err = wire.ValidateDecisionRequest(raw); err != nil {
-		return decisionRequest{}, invalid
+		return decisionRequest{}, schemaProblem(err)
 	}
 	var body decisionRequest
 	decoder := json.NewDecoder(bytes.NewReader(raw))
@@ -60,6 +61,20 @@ func readDecision(request *http.Request) (decisionRequest, error) {
 		return decisionRequest{}, requestProblem{http.StatusUnprocessableEntity, reasonQuestionError, "question set is not a supported typed-decision contract"}
 	}
 	return body, nil
+}
+
+// schemaProblem names where a well-formed JSON body leaves the decision
+// contract. Choice uses options and Score uses levels, unlike raw Jev criteria.
+func schemaProblem(err error) requestProblem {
+	detail := "request body does not match the decision request schema; choice questions use options and score questions use levels"
+	if pointer, keyword, ok := wire.SchemaViolation(err); ok {
+		detail = fmt.Sprintf("request body does not match the decision request schema at %s", pointer)
+		if keyword != "" {
+			detail += fmt.Sprintf(" (%s)", keyword)
+		}
+		detail += "; choice questions use options and score questions use levels"
+	}
+	return requestProblem{http.StatusUnprocessableEntity, reasonQuestionError, detail}
 }
 
 func (body decisionRequest) contextRecord() (*wire.ContextRecord, error) {

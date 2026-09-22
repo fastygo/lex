@@ -43,7 +43,14 @@ are one of:
 - `score`: `type`, `instructions`, and two through ten unique ordered `levels`.
 
 LeX converts `options` and `levels` to the adapter-neutral criteria shape. It
-does not alter State meaning or question instructions.
+does not alter State meaning or question instructions. A raw Jev `criteria`
+field is not part of this request.
+
+A body that is not JSON is HTTP 400 `invalid_json`. Well-formed JSON that
+violates the request schema, or a QuestionSet that fails semantic checks, is
+HTTP 422 `question_error`. The problem `detail` names the JSON pointer and
+schema keyword of the most specific failure, never caller values. Neither
+case calls a provider.
 
 ## Response
 
