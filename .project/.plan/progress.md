@@ -59,7 +59,7 @@ are open until the stable release.
   Noul/Choice decisions; each bundle replayed as `decision_reproduced` with
   structural validity (`.project/.jev/test-vercel/generic-canary/20260922T133416Z`).
 
-## Canary
+## Earlier canaries
 
 - [x] Production on `beta`, revision `4bc5680ea2842357f14c440d1cb2f8637464cfbb` (deployment `6589372666`), declared in `.project/.plan/conformance-report.md`
 - [x] Two samples of the 19 evaluation bodies on `https://lexproto.vercel.app`: no HTTP 5xx, no `verification_error`, no `pack_rebuild`, no `snapshot_identity`, replay matched 19/19 in each sample (`.project/.jev/test-vercel/canary/20260922-1117`, `.project/.jev/test-vercel/canary/20260922-1142`)
@@ -85,6 +85,15 @@ are open until the stable release.
 - [x] ADR-0001, 0002, 0003, 0009, 0010, 0011, 0012, and 0013 accepted: each
   decision is implemented. Their remaining evidence is listed below as
   stable-release gates, not as open decisions.
+- [x] Canary release on production `beta`: revision
+  `20d876b0dab8d3321bc52d90bff3fb83069bb7fe` (deployment `6598250508`). Two
+  samples: generic 3/3 valid and replayed, negative probes 422
+  `question_error` and 400 `invalid_json`, legacy 19/19 replay match with no
+  HTTP 5xx, `verification_error`, `pack_rebuild`, `snapshot_identity`, or
+  wrong envelope (`generic-canary/20260922T185042Z`, `20260922T185113Z`;
+  `canary/20260922T185059Z`, `20260922T185130Z`). Rollback deployment
+  `6597698320` (`6b07b11`); alias not switched. Recorded in
+  `conformance-report.md`.
 
 ## Open until stable
 

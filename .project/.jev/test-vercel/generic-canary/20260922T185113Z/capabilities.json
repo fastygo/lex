@@ -1,0 +1,26 @@
+{
+  "protocol_status": "canary",
+  "operations": {
+    "decision": true,
+    "evaluation": true,
+    "execution": false,
+    "replay": true
+  },
+  "typed_decision": {
+    "adapter_contract": "0.1.0",
+    "context_binding": "optional",
+    "legacy_evaluation": "deprecated",
+    "max_choice_options": 255,
+    "max_questions": 64,
+    "max_score_levels": 10,
+    "max_state_bytes": 2097152,
+    "primitives": [
+      "noul",
+      "choice",
+      "score"
+    ],
+    "replay": true,
+    "resolved_model_policy": "exact_pin",
+    "semantic_verdict": false
+  }
+}

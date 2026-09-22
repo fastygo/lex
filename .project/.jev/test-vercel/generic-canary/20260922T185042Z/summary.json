@@ -1,0 +1,75 @@
+{
+  "origin": "https://lexproto.vercel.app",
+  "revision": "20d876b0dab8d3321bc52d90bff3fb83069bb7fe",
+  "deployment_id": 6598250508,
+  "probes": [
+    {
+      "name": "intent-noul-choice",
+      "primitives": [
+        "choice",
+        "noul"
+      ],
+      "context_bound": false,
+      "decision_http": 200,
+      "decision_elapsed_ms": 1468,
+      "structural_status": "valid",
+      "resolved_model": "jev-1.13.0",
+      "adapter_id": "direct-systemone",
+      "bundle_hash": "9c75259dda5edcf789dc43d6804dfb61821f95b062c14ab466d6e7c09f2dc9bb",
+      "replay_http": 200,
+      "replay_elapsed_ms": 303,
+      "replay_status": "decision_reproduced",
+      "replay_structural_status": "valid"
+    },
+    {
+      "name": "storage-noul-score",
+      "primitives": [
+        "noul",
+        "score"
+      ],
+      "context_bound": false,
+      "decision_http": 200,
+      "decision_elapsed_ms": 525,
+      "structural_status": "valid",
+      "resolved_model": "jev-1.13.0",
+      "adapter_id": "direct-systemone",
+      "bundle_hash": "11ef41019b68b48c93ea0920fcc80697bcb2ba6e93c555756204cd1304564c6a",
+      "replay_http": 200,
+      "replay_elapsed_ms": 282,
+      "replay_status": "decision_reproduced",
+      "replay_structural_status": "valid"
+    },
+    {
+      "name": "context-noul-choice",
+      "primitives": [
+        "choice",
+        "noul"
+      ],
+      "context_bound": true,
+      "decision_http": 200,
+      "decision_elapsed_ms": 454,
+      "structural_status": "valid",
+      "resolved_model": "jev-1.13.0",
+      "adapter_id": "direct-systemone",
+      "bundle_hash": "102b8cdbcf3057b681c78271dab5ef44f82f28807f3528416647147898dc1432",
+      "replay_http": 200,
+      "replay_elapsed_ms": 395,
+      "replay_status": "decision_reproduced",
+      "replay_structural_status": "valid"
+    }
+  ],
+  "negatives": [
+    {
+      "name": "raw-jev-criteria",
+      "http": 422,
+      "reason": "question_error",
+      "detail": "request body does not match the decision request schema at /question_set/questions/route/type (const); choice questions use options and score questions use levels"
+    },
+    {
+      "name": "broken-json",
+      "http": 400,
+      "reason": "invalid_json",
+      "detail": "request body must be one decision object"
+    }
+  ]
+}
