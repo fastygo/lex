@@ -52,15 +52,21 @@ adapter. Unchecked items are still open.
 - [x] Cross-domain intent and storage fixtures, malformed-domain and model-pin
   vectors, migration guidance, generic-boundary dependency test, full Go suite,
   vet, and editor lint checks.
-- [ ] Revision-pinned generic deployment proof. It requires a committed,
-  deployed revision and generic Noul, Choice, Score, and optional Context
-  probes; the existing `4bc5680` claim-validation canary is not evidence.
+- [x] Revision-pinned generic deployment proof: revision
+  `ad806d033d5aa26b304095cf2a6e38ec9de87867` (deployment `6591859966`)
+  returned valid generic Noul/Choice, Noul/Score, and Context-bound
+  Noul/Choice decisions; each bundle replayed as `decision_reproduced` with
+  structural validity (`.project/.jev/test-vercel/generic-canary/20260922T133416Z`).
 
 ## Canary
 
 - [x] Production on `beta`, revision `4bc5680ea2842357f14c440d1cb2f8637464cfbb` (deployment `6589372666`), declared in `.project/.plan/conformance-report.md`
 - [x] Two samples of the 19 evaluation bodies on `https://lexproto.vercel.app`: no HTTP 5xx, no `verification_error`, no `pack_rebuild`, no `snapshot_identity`, replay matched 19/19 in each sample (`.project/.jev/test-vercel/canary/20260922-1117`, `.project/.jev/test-vercel/canary/20260922-1142`)
 - [x] Rollback point `2e1a013551c3` (deployment `6579270758`) still answers; the production alias was not switched
+- [x] Generic API canary on revision `ad806d0` (deployment `6591859966`):
+  Noul/Choice, Noul/Score, and optional-Context Noul/Choice each returned
+  HTTP 200 `structural_status: valid` and replayed HTTP 200
+  `decision_reproduced` (`generic-canary/20260922T133416Z`).
 
 ## Deferred
 
