@@ -1,0 +1,78 @@
+---
+description: LeX code map and the procedure for adding typed-decision primitives, HTTP routes, adapters, and protocol entities without leaking domain meaning into the generic core
+globs: cmd/**,internal/**,scripts/**
+alwaysApply: false
+---
+
+# LeX code structure and growth
+
+## Package map (dependencies point downward)
+
+```text
+cmd/api                     wiring: env -> adapter -> httpapi.Config
+internal/httpapi            HTTP boundary: parse, auth, stages, problems, responses
+  decision*.go              generic /v1/decisions and generic replay dispatch
+  evaluation.go legacy*.go  deprecated /v1/evaluations compatibility only
+  reasons.go                stable problem reason codes (RFC 9457)
+internal/wire               schemas, typed records, bundle sealing, replay
+  schema/*.json             request/bundle schemas + openapi.json (normative wire)
+  decision*.go              generic 0.2-draft; bundle.go/replay.go legacy 0.1-draft
+internal/verify             deterministic structural checks and finding codes
+internal/lifecycle          legal stage graph per request kind
+internal/canonical          RFC 8785 JCS + SHA-256; the only hashing path
+internal/evidence           frozen Context binding; asks Context to rebuild
+internal/adapters/*         provider transport; systemone is the shared client
+internal/profile/claimvalidation  legacy policy, gate, verdict; compatibility only
+internal/conformance        boundary tests between packages
+```
+
+Hard boundaries, enforced by `internal/conformance/generic_boundary_test.go`:
+
+- Generic code (`wire/decision*`, `httpapi/decision*`, `verify/decision.go`)
+  never imports `internal/profile` or `claimvalidation`. Add every new
+  generic file to that test's path list.
+- No domain vocabulary from fixtures in generic code. Meaning lives in the
+  caller's State and QuestionSet.
+- Provider names, endpoints, keys, retries, and aliases stay in
+  `internal/adapters/<provider>`. The core sees only `httpapi.Decider`.
+
+## Adding a feature: decide the layer first
+
+1. A new question the caller wants answered? That is caller data, not code.
+   Add a fixture under `.project/.jev/generic/` if it proves something.
+2. A new typed primitive or answer field? Change both
+   `decision-request.schema.json` and `decision-bundle.schema.json`, the Go
+   record in `wire/decision.go` (`Validate`, `ProviderQuestions`,
+   `VerifierQuestions`), the check in `verify/decision.go`, and
+   `openapi.json`. Every conforming adapter must preserve it, or it is not a
+   primitive.
+3. A new route? Add a `<name>.go` + `<name>_request.go` pair in `httpapi`, a
+   `lifecycle.Kind` with its stage graph, a `trace.go` constructor, reasons in
+   `reasons.go`, the path in `openapi.json`, and a disclosure in
+   `/v1/capabilities` if callers need to discover it.
+4. A new provider? New package under `internal/adapters/`, implement
+   `Decider`, register it in `adapters/select.go`, `cmd/api/main.go`, and
+   `Config.adapterPins`, and pass `adapters/conformance` fixtures. Exact
+   resolved model pin; no fallback, no retry.
+5. A new protocol entity? It needs a schema, a typed record, a canonical hash,
+   a place in the sealed bundle, a replay check, and a normative definition in
+   `.project/.lex/protocol.md`. If it changes a durable boundary, write an ADR
+   in `.project/.plan/adr/`.
+
+## Change discipline
+
+- Schema first, then typed record, then verifier, then handler, then docs.
+- Wire changes bump the envelope version; old bundles keep their verifier.
+  Additive fields only within a version.
+- Hash only through `internal/canonical`. Never hash `metadata` or transport
+  details into a bundle.
+- Request errors never reach a provider: 400 `invalid_json` for non-JSON, 422
+  `question_error` for schema or QuestionSet violations, with a JSON pointer in
+  `detail` and no caller values.
+- Do not add retrieval, profiles, thresholds, or verdicts to the generic path.
+  Put caller-specific behavior in the caller.
+- Tests with the change: table tests beside the code, a negative case that
+  proves the provider was not called, and a replay case for anything sealed.
+- Update `.project/.lex/` when behavior changes, and `README.md`/`AGENTS.md`
+  when the public surface changes. Run `go test ./... -count=1` and
+  `go vet ./...`.

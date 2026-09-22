@@ -55,13 +55,22 @@ provider names into core protocol object names or verdict semantics.
 Read in this order:
 
 1. `.project/.lex/README.md` - canonical index and core path.
-2. `.project/.lex/concept.md` - subject-neutral concept and boundaries.
-3. `.project/.lex/protocol.md` - canonical entities, lifecycle, invariants.
-4. `.project/.lex/checks.md` - checks, verdicts, and error classes.
-5. `.project/.lex/integration-stack.md` - Context and decision integration.
-6. `.project/.lex/scope.md` - complete in/out boundary.
-7. `.project/.lex/analysis.md` - v0.1 priorities and deliberate deferrals.
-8. `.project/.vsa/README.md` - vertical slices and ICOM control contracts.
+2. `.project/.lex/generic-decision-api.md` - canonical `/v1/decisions` contract.
+3. `.project/.lex/concept.md` - subject-neutral concept and boundaries.
+4. `.project/.lex/protocol.md` - canonical entities, lifecycle, invariants.
+5. `.project/.lex/checks.md` - checks, verdicts, and error classes.
+6. `.project/.lex/integration-stack.md` - Context and decision integration.
+7. `.project/.lex/scope.md` - complete in/out boundary.
+8. `.project/.lex/analysis.md` - v0.1 priorities and deliberate deferrals.
+9. `.project/.vsa/README.md` - vertical slices and ICOM control contracts.
+
+Agent tooling in this repository:
+
+- `.cursor/skills/lex-api/SKILL.md` - how to call the deployed or local API,
+  build requests, read responses, and replay bundles.
+- `.cursor/rules/lex-code-structure.mdc` - package map and the procedure for
+  adding primitives, routes, adapters, and entities without leaking domain
+  meaning into the generic core.
 
 `.project/.jev/` is research evidence, not normative protocol text:
 
@@ -220,6 +229,13 @@ provider, and still returns a replay bundle. Replay refuses a bundle outside
 the authenticated principal's projects. The generic wire envelope is
 `0.2-draft`; the legacy envelope remains `0.1-draft`.
 
+Generic request errors never call a provider. A body that is not JSON is 400
+`invalid_json`. Well-formed JSON that violates the decision request schema, or
+a QuestionSet that fails semantic checks, is 422 `question_error`; its
+`detail` names the failing JSON pointer and schema keyword and never echoes
+caller values. A raw Jev `criteria` field is not part of the generic request:
+Choice uses `options` and Score uses `levels`.
+
 Do not add a universal ontology, automatic question generation, a new retrieval
 engine, provider orchestration, server-side history, or an executor inside this
 slice.
@@ -237,6 +253,12 @@ Local tests already cover a real embedded ContextPack, versioned schemas and
 canonical hashes, raw answers retained only in the response bundle, the
 verifier, golden and invalid fixtures, adversarial evidence and provider
 failures, network-free replay, and direct plus hosted adapter fixtures.
+
+Deployment probes: `scripts/probe-generic-canary.mjs` exercises the generic
+route and replay; `scripts/run-vercel-scenarios.mjs` runs the legacy scenario
+bodies; `scripts/lex-request.mjs` sends one authenticated request with the
+token from `.env` and never prints it. Record revision-pinned outcomes in
+`.project/.plan/conformance-report.md`.
 
 Still open: a calibration report, race evidence on a gcc-capable runner, a
 28-day SLO, hosted-adapter proof on a deployment, and proof of the latest
