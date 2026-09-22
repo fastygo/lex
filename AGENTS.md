@@ -171,25 +171,34 @@ not a conforming typed-decision adapter.
 
 ## Current slice
 
-Keep LeX thin. Context Runtime owns retrieval and ContextPack construction.
-The service uses the embedded `memory-exact-v1` runtime. It does not call the
-Context HTTP API and it does not contain a second retrieval engine. Decision
-adapters own provider transport. LeX owns:
+Keep LeX thin. Context Runtime owns retrieval, selection, budgeting, rejection,
+and ContextPack construction. The service uses the embedded `memory-exact-v1`
+runtime. It does not call the Context HTTP API, it does not contain a second
+retrieval engine, and it does not recompute Context's selection: the verifier
+asks Context to rebuild the frozen state and compares. Decision adapters own
+provider transport. LeX owns:
 
 - protocol schemas and hashes;
-- the embedded `claim-validation` `0.2.0` profile and QuestionSet;
-- preflight checks;
-- the deterministic verifier and policy gates;
-- the verdict state machine;
-- EvaluationTrace and the caller-owned replay bundle.
+- profiles as objects (`internal/profile`): question set, policy document and
+  gate, entity kind, and Context focus, composed into a registry by the
+  deployment; `claim-validation` `0.2.0` lives in
+  `internal/profile/claimvalidation`;
+- the evidence plane adapter (`internal/evidence`): two inputs, `sources` and
+  `frozen_context`, ending in one frozen state;
+- preflight checks and the evidence controls (binding, focus, provenance,
+  checksums, admissibility);
+- the deterministic verifier, generic over profiles;
+- the verdict state machine and the request lifecycle trace;
+- the typed replay bundle mirrored from the published schema.
 
 The implemented path is:
 
 ```text
 ValidationIntent
-  -> embedded FocusProfile
-  -> frozen ContextPack from memory-exact-v1
-  -> embedded QuestionSet 0.2.0
+  -> profile from the registry (focus, questions, policy gate)
+  -> frozen state: freeze sources through memory-exact-v1,
+     or accept a Context frozen state and have Context reproduce it
+  -> QuestionSet 0.2.0
   -> provider-neutral DecisionSet
   -> verifier
   -> Verdict + trace + replay bundle

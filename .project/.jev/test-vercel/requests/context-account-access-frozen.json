@@ -1,0 +1,107 @@
+{
+  "context": {
+    "pack": {
+      "id": "pack_65145b88105f926ce3a9edc150ff9adc1fb795a940e045a0ef251e8a382f01dc",
+      "project_id": "example-project",
+      "retrieval_plan_id": "plan_65145b88105f926ce3a9edc150ff9adc1fb795a940e045a0ef251e8a382f01dc",
+      "purpose": "Select admissible source text for the stated claim.",
+      "budget": {
+        "max_items": 8,
+        "max_chars": 65536,
+        "budget_estimator_version": "chars-div4-v1",
+        "reject_score_floor": 0.3
+      },
+      "instructions": null,
+      "evidence_items": [
+        {
+          "id": "chunk_0000",
+          "class": "source_text",
+          "trust_level": "project",
+          "source_ref": {
+            "project_id": "example-project",
+            "source_id": "context-scenario",
+            "chunk_id": "chunk_0000",
+            "span": {
+              "start": 0,
+              "end": 1336
+            },
+            "checksum": "042fcef51e5bd90935f3d3266c44c33e686776ff81ada14b2cb0ae1c47d55bce"
+          },
+          "surface": "## Test scenario\n\nAn LLM-generated incident report says: “The customer probably wants a refund because the account page failed after payment.” The report is stored as `model_inference`.\n\nThe retrieved source evidence contains:\n\n- `customer_message` (`source_text`, trusted): “I paid yesterday. Today I cannot sign in. Please restore access.”\n- `payment_record` (`tool_output`, authoritative): the payment succeeded and no duplicate charge exists.\n- `refund_policy` (`source_text`, trusted): refunds require an explicit refund request or a confirmed duplicate charge.\n- `account_runbook` (`source_text`, trusted): sign-in failures after successful payment are routed to account access support.\n\nThe candidate routing criteria are:\n\n- `billing`: charges, invoices, duplicate payments, or explicit refund requests.\n- `account_access`: sign-in, authentication, locked-account, or access-restoration issues.\n- `other`: none of the listed categories is adequately supported.\n\nThe LLM report is useful as a hypothesis, but it cannot justify a refund. The authoritative evidence supports `account_access`. If `billing` and `account_access` had overlapping definitions or were supported by the same indistinguishable spans, the plugin should abstain and request taxonomy refinement rather than hide the ambiguity behind a winning Choice.",
+          "candidate": {
+            "chunk_id": "chunk_0000",
+            "source_ref": {
+              "project_id": "example-project",
+              "source_id": "context-scenario",
+              "chunk_id": "chunk_0000",
+              "span": {
+                "start": 0,
+                "end": 1336
+              },
+              "checksum": "042fcef51e5bd90935f3d3266c44c33e686776ff81ada14b2cb0ae1c47d55bce"
+            },
+            "merged_score": 1,
+            "contributions": [
+              {
+                "retriever_id": "exact",
+                "raw_score": 1,
+                "normalized_score": 1,
+                "weight": 1,
+                "reasons": [
+                  "exact_phrase"
+                ],
+                "explanation": "exact phrase match in chunk text",
+                "snapshot_id": "snapshot_ea353acb358e918d68c955cffb66fcfe9013ab488320c619d514444e747a5bbb",
+                "project_id": "example-project"
+              }
+            ],
+            "trust_level": "project",
+            "text_checksum": "042fcef51e5bd90935f3d3266c44c33e686776ff81ada14b2cb0ae1c47d55bce"
+          }
+        }
+      ],
+      "checksum": "ace3f320206aed910fb6de3db15c75db49850e65166306f3c5063ec6cfce948d",
+      "budget_estimator_version": "chars-div4-v1"
+    },
+    "pack_request": {
+      "project_id": "example-project",
+      "query": "account access",
+      "focus": {
+        "id": "claim-validation-v1",
+        "objective": "Select admissible source text for the stated claim.",
+        "required_trust_level": "project",
+        "context_budget": {
+          "max_items": 8,
+          "max_chars": 65536
+        }
+      }
+    },
+    "snapshot": {
+      "id": "snapshot_ea353acb358e918d68c955cffb66fcfe9013ab488320c619d514444e747a5bbb",
+      "project_id": "example-project",
+      "runtime_version": "memory-exact-v1",
+      "sources": [
+        {
+          "source_id": "context-scenario",
+          "version": "v1",
+          "text": "## Test scenario\n\nAn LLM-generated incident report says: “The customer probably wants a refund because the account page failed after payment.” The report is stored as `model_inference`.\n\nThe retrieved source evidence contains:\n\n- `customer_message` (`source_text`, trusted): “I paid yesterday. Today I cannot sign in. Please restore access.”\n- `payment_record` (`tool_output`, authoritative): the payment succeeded and no duplicate charge exists.\n- `refund_policy` (`source_text`, trusted): refunds require an explicit refund request or a confirmed duplicate charge.\n- `account_runbook` (`source_text`, trusted): sign-in failures after successful payment are routed to account access support.\n\nThe candidate routing criteria are:\n\n- `billing`: charges, invoices, duplicate payments, or explicit refund requests.\n- `account_access`: sign-in, authentication, locked-account, or access-restoration issues.\n- `other`: none of the listed categories is adequately supported.\n\nThe LLM report is useful as a hypothesis, but it cannot justify a refund. The authoritative evidence supports `account_access`. If `billing` and `account_access` had overlapping definitions or were supported by the same indistinguishable spans, the plugin should abstain and request taxonomy refinement rather than hide the ambiguity behind a winning Choice.",
+          "trust_level": "project",
+          "evidence_class": "source_text"
+        }
+      ]
+    }
+  },
+  "entity": {
+    "id": "context-account-access-frozen",
+    "schema_version": "0.1",
+    "type": "claim",
+    "version": "1"
+  },
+  "metadata": {
+    "client_ref": "context-account-access-frozen",
+    "example": "context",
+    "input": "frozen_context"
+  },
+  "project_id": "example-project",
+  "query": "account access"
+}

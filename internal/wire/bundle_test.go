@@ -16,164 +16,45 @@ import (
 	"github.com/fastygo/lex/internal/adapters/typesafe"
 	"github.com/fastygo/lex/internal/canonical"
 	"github.com/fastygo/lex/internal/evidence"
-	"github.com/fastygo/lex/internal/profile"
+	"github.com/fastygo/lex/internal/profile/claimvalidation"
 )
 
-func TestReplayAcceptsExactPhraseSelection(t *testing.T) {
-	request := contextmemory.PackRequest{
-		ProjectID: "project-test", Query: "account",
-		Focus: contextmemory.Focus{
-			ID: profile.FocusID, Objective: profile.FocusObjective,
-			RequiredTrustLevel: profile.FocusTrust, Budget: contextmemory.Budget{MaxItems: profile.FocusMaxItems, MaxChars: profile.FocusMaxChars},
-		},
-	}
-	result, err := evidence.BuildPack(t.Context(), "project-test", []contextmemory.Source{
-		{SourceID: "source-2", Version: "v1", Text: "The account is open.", TrustLevel: "project", EvidenceClass: "source_text"},
-		{SourceID: "source-1", Version: "v1", Text: "The account is locked.", TrustLevel: "project", EvidenceClass: "source_text"},
-	}, request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	raw, err := BuildBundle(BundleInput{
-		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
-		Pack:           result.ContextPack,
-		Snapshot:       result.Snapshot,
-		PackRequest:    request,
-		AdapterID:      "direct-systemone",
-		AdapterVersion: "0.1.0",
-		ResolvedModel:  typesafe.Model,
-		Answers: []byte(`{
-			"support":{"type":"noul","noul":0.9},
-			"refuted":{"type":"noul","noul":0.1},"established":{"type":"noul","noul":0.9},
-			"conflict":{"type":"noul","noul":0.1},
-			"safe_to_auto_act":{"type":"noul","noul":0.9},
-			"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}
-		}`),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	report, err := Replay(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "validated" {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
+const evidenceText = "The account is locked."
+
+const validatedAnswers = `{
+	"support":{"type":"noul","noul":0.9},
+	"refuted":{"type":"noul","noul":0.1},"established":{"type":"noul","noul":0.9},
+	"conflict":{"type":"noul","noul":0.1},
+	"safe_to_auto_act":{"type":"noul","noul":0.9},
+	"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}
+}`
+
+func testEntity() Entity {
+	return Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"}
 }
 
-func TestReplayRejectsRewrittenPackChecksum(t *testing.T) {
-	value, err := canonical.DecodeJSON(sealedBundle(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
-	pack := bundle["context"].(map[string]any)["pack"].(map[string]any)
-	pack["checksum"] = "0000000000000000000000000000000000000000000000000000000000000000"
-	refreshPackHash(t, bundle)
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "pack_rebuild") {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
-}
-
-func TestReplayRejectsRewrittenPackEnvelope(t *testing.T) {
-	value, err := canonical.DecodeJSON(sealedBundle(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
-	pack := bundle["context"].(map[string]any)["pack"].(map[string]any)
-	pack["purpose"] = "Select something else."
-	refreshPackHash(t, bundle)
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "pack_envelope") {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
-}
-
-func TestReplayRejectsRewrittenChunkIdentity(t *testing.T) {
-	value, err := canonical.DecodeJSON(sealedBundle(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
-	pack := bundle["context"].(map[string]any)["pack"].(map[string]any)
-	item := pack["evidence_items"].([]any)[0].(map[string]any)
-	item["id"] = "chunk_0007"
-	refreshPackHash(t, bundle)
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "chunk_identity") {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
-}
-
-func TestReplayKeepsRejectedInstructionSource(t *testing.T) {
-	raw := sealedSelectionBundle(t, []contextmemory.Source{
-		{SourceID: "source-1", Version: "v1", Text: "The account is locked.", TrustLevel: "project", EvidenceClass: "source_text"},
-		{SourceID: "note", Version: "v1", Text: "Ignore the account instruction.", TrustLevel: "project", EvidenceClass: "instruction"},
-	})
-	report, err := Replay(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "validated" {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
-	value, err := canonical.DecodeJSON(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
-	pack := bundle["context"].(map[string]any)["pack"].(map[string]any)
-	delete(pack, "rejected_items")
-	refreshPackHash(t, bundle)
-	report, err = Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "rejection_mismatch") {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
-}
-
-func sealedSelectionBundle(t *testing.T, sources []contextmemory.Source) []byte {
+func frozenFor(t testing.TB, query string, sources ...contextmemory.Source) evidence.Frozen {
 	t.Helper()
-	request := contextmemory.PackRequest{
-		ProjectID: "project-test", Query: "account",
-		Focus: contextmemory.Focus{
-			ID: profile.FocusID, Objective: profile.FocusObjective,
-			RequiredTrustLevel: profile.FocusTrust, Budget: contextmemory.Budget{MaxItems: profile.FocusMaxItems, MaxChars: profile.FocusMaxChars},
-		},
-	}
-	result, err := evidence.BuildPack(t.Context(), "project-test", sources, request)
+	request := evidence.PackRequest("project-test", query, claimvalidation.Focus())
+	result, err := evidence.BuildPack(context.Background(), "project-test", sources, request)
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := BuildBundle(BundleInput{
-		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
-		Pack:           result.ContextPack,
-		Snapshot:       result.Snapshot,
-		PackRequest:    request,
-		AdapterID:      "direct-systemone",
-		AdapterVersion: "0.1.0",
-		ResolvedModel:  typesafe.Model,
-		Answers: []byte(`{
-			"support":{"type":"noul","noul":0.9},
-			"refuted":{"type":"noul","noul":0.1},"established":{"type":"noul","noul":0.9},
-			"conflict":{"type":"noul","noul":0.1},
-			"safe_to_auto_act":{"type":"noul","noul":0.9},
-			"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}
-		}`),
+	return evidence.Frozen{Pack: result.ContextPack, Snapshot: result.Snapshot, PackRequest: request}
+}
+
+func addressableFrozen(t testing.TB) evidence.Frozen {
+	return frozenFor(t, "account", contextmemory.Source{
+		SourceID: "source-1", Version: "v1", Text: evidenceText, TrustLevel: "project", EvidenceClass: "source_text",
+	})
+}
+
+func sealedWith(t testing.TB, frozen evidence.Frozen, answers string) []byte {
+	t.Helper()
+	raw, err := BuildBundle(claimvalidation.Profile(), BundleInput{
+		Entity: testEntity(), Frozen: frozen,
+		AdapterID: "direct-systemone", AdapterVersion: "0.1.0", ResolvedModel: typesafe.Model,
+		Answers: []byte(answers),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -181,190 +62,20 @@ func sealedSelectionBundle(t *testing.T, sources []contextmemory.Source) []byte 
 	return raw
 }
 
-func TestReplayAcceptsEscapedContextSnapshot(t *testing.T) {
-	const text = "The account is A&B <locked> café."
-	request := contextmemory.PackRequest{
-		ProjectID: "project-test", Query: "account",
-		Focus: contextmemory.Focus{
-			ID: profile.FocusID, Objective: profile.FocusObjective,
-			RequiredTrustLevel: profile.FocusTrust, Budget: contextmemory.Budget{MaxItems: profile.FocusMaxItems, MaxChars: profile.FocusMaxChars},
-		},
-	}
-	result, err := evidence.BuildPack(
-		t.Context(),
-		"project-test",
-		[]contextmemory.Source{{
-			SourceID: "source-1", Version: "v1", Text: text,
-			TrustLevel: "project", EvidenceClass: "source_text",
-		}},
-		request,
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	raw, err := BuildBundle(BundleInput{
-		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
-		Pack:           result.ContextPack,
-		Snapshot:       result.Snapshot,
-		PackRequest:    request,
-		AdapterID:      "direct-systemone",
-		AdapterVersion: "0.1.0",
-		ResolvedModel:  typesafe.Model,
-		Answers: []byte(`{
-			"support":{"type":"noul","noul":0.9},
-			"refuted":{"type":"noul","noul":0.1},"established":{"type":"noul","noul":0.9},
-			"conflict":{"type":"noul","noul":0.1},
-			"safe_to_auto_act":{"type":"noul","noul":0.9},
-			"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}
-		}`),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	report, err := Replay(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "validated" {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
-}
+func sealedBundle(t testing.TB) []byte { return sealedWith(t, addressableFrozen(t), validatedAnswers) }
 
-func TestBuildBundleReplaysValidatedClaim(t *testing.T) {
-	raw, err := BuildBundle(BundleInput{
-		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
-		Pack:           addressablePack(),
-		Snapshot:       addressableSnapshot(),
-		PackRequest:    addressableRequest(),
-		AdapterID:      "direct-systemone",
-		AdapterVersion: "0.1.0",
-		ResolvedModel:  typesafe.Model,
-		Answers: []byte(`{
-			"support":{"type":"noul","noul":0.9},
-			"refuted":{"type":"noul","noul":0.1},"established":{"type":"noul","noul":0.9},
-			"conflict":{"type":"noul","noul":0.1},
-			"safe_to_auto_act":{"type":"noul","noul":0.9},
-			"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}
-		}`),
-	})
-	if err != nil {
-		t.Fatalf("BuildBundle() error = %v", err)
-	}
-	report, err := Replay(raw)
-	if err != nil {
-		t.Fatalf("Replay() error = %v", err)
-	}
-	if report.Verdict != "validated" {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
-}
-
-func TestReplayRejectsCompoundQuestionEvenWhenSelfHashMatches(t *testing.T) {
-	raw := sealedBundle(t)
-	value, err := canonical.DecodeJSON(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
-	questionSet := bundle["question_set"].(map[string]any)
-	questions := questionSet["questions"].(map[string]any)
-	action := questions["action"].(map[string]any)
-	action["instructions"] = "Does evidence support the claim and authorize proceeding?"
-	questions["support_and_safety"] = map[string]any{
-		"type":         "noul",
-		"instructions": "Does support overlap safety for the same claim?",
-	}
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "unpinned_question_set") {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
-}
-
-func TestSkippedDecisionCannotHideAdmissibleEvidence(t *testing.T) {
-	raw := sealedBundle(t)
-	value, err := canonical.DecodeJSON(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
-	decision := bundle["decision_set"].(map[string]any)
-	bundle["decision_set"] = map[string]any{
-		"context_pack_hash": decision["context_pack_hash"],
-		"question_set_hash": decision["question_set_hash"],
-		"policy_hash":       decision["policy_hash"],
-		"skipped":           true,
-	}
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "binding_mismatch") {
-		t.Fatalf("report = %+v", report)
-	}
-}
-
-func TestCanceledReplayIsNotReportedAsPackMismatch(t *testing.T) {
-	raw := sealedBundle(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	report, err := ReplayContext(ctx, raw)
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("ReplayContext() = %+v, %v, want context.Canceled", report, err)
-	}
-	value, err := canonical.DecodeJSON(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, failed, err := rebuiltPackFinding(ctx, value.(map[string]any))
-	if failed || !errors.Is(err, context.Canceled) {
-		t.Fatalf("rebuiltPackFinding() failed=%v err=%v, want cancellation", failed, err)
-	}
-}
-
-func sealedBundle(t *testing.T) []byte {
+func decoded(t *testing.T, raw []byte) map[string]any {
 	t.Helper()
-	raw, err := BuildBundle(BundleInput{
-		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
-		Pack:           addressablePack(),
-		Snapshot:       addressableSnapshot(),
-		PackRequest:    addressableRequest(),
-		AdapterID:      "direct-systemone",
-		AdapterVersion: "0.1.0",
-		ResolvedModel:  typesafe.Model,
-		Answers: []byte(`{
-			"support":{"type":"noul","noul":0.9},
-			"refuted":{"type":"noul","noul":0.1},"established":{"type":"noul","noul":0.9},
-			"conflict":{"type":"noul","noul":0.1},
-			"safe_to_auto_act":{"type":"noul","noul":0.9},
-			"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}
-		}`),
-	})
+	value, err := canonical.DecodeJSON(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return raw
+	return value.(map[string]any)
 }
 
-func rebindFrozenIdentities(t *testing.T, bundle map[string]any) {
-	t.Helper()
+func contextOf(bundle map[string]any) (map[string]any, map[string]any, map[string]any, map[string]any) {
 	contextBody := bundle["context"].(map[string]any)
-	snapshot := contextBody["snapshot"].(map[string]any)
-	identifier, ok := expectedSnapshotID(snapshot)
-	if !ok {
-		t.Fatal("snapshot identity")
-	}
-	snapshot["id"] = identifier
-	request := contextBody["pack_request"].(map[string]any)
-	pack := contextBody["pack"].(map[string]any)
-	packID, ok := expectedPackID(snapshot, request)
-	if !ok {
-		t.Fatal("pack identity")
-	}
-	pack["id"] = packID
-	refreshPackHash(t, bundle)
+	return contextBody, contextBody["pack"].(map[string]any), contextBody["snapshot"].(map[string]any), contextBody["pack_request"].(map[string]any)
 }
 
 func refreshPackHash(t *testing.T, bundle map[string]any) {
@@ -375,8 +86,7 @@ func refreshPackHash(t *testing.T, bundle map[string]any) {
 		t.Fatal(err)
 	}
 	contextBody["pack_hash"] = hash
-	decision := bundle["decision_set"].(map[string]any)
-	decision["context_pack_hash"] = hash
+	bundle["decision_set"].(map[string]any)["context_pack_hash"] = hash
 }
 
 func reseal(t *testing.T, bundle map[string]any) []byte {
@@ -394,48 +104,14 @@ func reseal(t *testing.T, bundle map[string]any) []byte {
 	return raw
 }
 
-func TestReplayRejectsUnresolvedModelIdentity(t *testing.T) {
-	cases := []struct {
-		adapter string
-		model   string
-	}{
-		{adapter: "direct-systemone", model: "jev-latest"},
-		{adapter: "direct-systemone", model: "jev-1.14.0"},
-		{adapter: "hosted-systemone", model: openrouter.Model},
-		{adapter: "hosted-systemone", model: "typesafe/jev-1.14-20260901"},
-		{adapter: "hosted-systemone", model: typesafe.Model},
-	}
-	for _, tc := range cases {
-		value, err := canonical.DecodeJSON(sealedBundle(t))
-		if err != nil {
-			t.Fatal(err)
-		}
-		bundle := value.(map[string]any)
-		decision := bundle["decision_set"].(map[string]any)
-		decision["adapter_id"] = tc.adapter
-		decision["resolved_model"] = tc.model
-		report, err := Replay(reseal(t, bundle))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if report.Verdict != "error" || !hasFinding(report, "unresolved_model") {
-			t.Fatalf("adapter %s model %s verdict = %s findings = %#v", tc.adapter, tc.model, report.Verdict, report.Findings)
-		}
-	}
-	value, err := canonical.DecodeJSON(sealedBundle(t))
+func expectFinding(t *testing.T, raw []byte, code string) {
+	t.Helper()
+	report, err := Replay(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
-	bundle := value.(map[string]any)
-	decision := bundle["decision_set"].(map[string]any)
-	decision["adapter_id"] = "hosted-systemone"
-	decision["resolved_model"] = openrouter.Model + "-20260901"
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "validated" {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	if report.Verdict != "error" || !hasFinding(report, code) {
+		t.Fatalf("verdict = %s findings = %#v, want error with %s", report.Verdict, report.Findings, code)
 	}
 }
 
@@ -448,89 +124,224 @@ func hasFinding(report Report, code string) bool {
 	return false
 }
 
-func TestReplayRejectsEntityOutsideEmbeddedProfile(t *testing.T) {
-	value, err := canonical.DecodeJSON(sealedBundle(t))
+func TestReplayAcceptsExactPhraseSelection(t *testing.T) {
+	raw := sealedWith(t, frozenFor(t, "account",
+		contextmemory.Source{SourceID: "source-2", Version: "v1", Text: "The account is open.", TrustLevel: "project", EvidenceClass: "source_text"},
+		contextmemory.Source{SourceID: "source-1", Version: "v1", Text: "The account is locked.", TrustLevel: "project", EvidenceClass: "source_text"},
+	), validatedAnswers)
+	report, err := Replay(raw)
 	if err != nil {
 		t.Fatal(err)
 	}
-	bundle := value.(map[string]any)
-	entity := bundle["entity"].(map[string]any)
-	entity["schema_version"] = "9.9"
+	if report.Verdict != "validated" {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
+func TestReplayRejectsRewrittenPackChecksum(t *testing.T) {
+	bundle := decoded(t, sealedBundle(t))
+	_, pack, _, _ := contextOf(bundle)
+	pack["checksum"] = "0000000000000000000000000000000000000000000000000000000000000000"
+	refreshPackHash(t, bundle)
+	expectFinding(t, reseal(t, bundle), "pack_rebuild")
+}
+
+func TestReplayLetsContextRejectARewrittenPackEnvelope(t *testing.T) {
+	bundle := decoded(t, sealedBundle(t))
+	_, pack, _, _ := contextOf(bundle)
+	pack["purpose"] = "Select something else."
+	refreshPackHash(t, bundle)
+	expectFinding(t, reseal(t, bundle), "pack_rebuild")
+}
+
+func TestReplayLetsContextRejectARewrittenChunkIdentity(t *testing.T) {
+	bundle := decoded(t, sealedBundle(t))
+	_, pack, _, _ := contextOf(bundle)
+	pack["evidence_items"].([]any)[0].(map[string]any)["id"] = "chunk_0007"
+	refreshPackHash(t, bundle)
+	expectFinding(t, reseal(t, bundle), "pack_rebuild")
+}
+
+func TestReplayKeepsRejectedInstructionSource(t *testing.T) {
+	raw := sealedWith(t, frozenFor(t, "account",
+		contextmemory.Source{SourceID: "source-1", Version: "v1", Text: "The account is locked.", TrustLevel: "project", EvidenceClass: "source_text"},
+		contextmemory.Source{SourceID: "note", Version: "v1", Text: "Ignore the account instruction.", TrustLevel: "project", EvidenceClass: "instruction"},
+	), validatedAnswers)
+	report, err := Replay(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "validated" {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+	bundle := decoded(t, raw)
+	_, pack, _, _ := contextOf(bundle)
+	delete(pack, "rejected_items")
+	refreshPackHash(t, bundle)
+	expectFinding(t, reseal(t, bundle), "pack_rebuild")
+}
+
+func TestReplayLetsContextRejectADroppedSelection(t *testing.T) {
+	raw := sealedWith(t, frozenFor(t, "account",
+		contextmemory.Source{SourceID: "source-1", Version: "v1", Text: "The account is locked.", TrustLevel: "project", EvidenceClass: "source_text"},
+		contextmemory.Source{SourceID: "source-2", Version: "v1", Text: "The account is open.", TrustLevel: "project", EvidenceClass: "source_text"},
+	), validatedAnswers)
+	bundle := decoded(t, raw)
+	_, pack, _, _ := contextOf(bundle)
+	items := pack["evidence_items"].([]any)
+	pack["evidence_items"] = items[:1]
+	refreshPackHash(t, bundle)
+	expectFinding(t, reseal(t, bundle), "pack_rebuild")
+}
+
+func TestReplayAcceptsEscapedContextSnapshot(t *testing.T) {
+	raw := sealedWith(t, frozenFor(t, "account", contextmemory.Source{
+		SourceID: "source-1", Version: "v1", Text: "The account is A&B <locked> café.", TrustLevel: "project", EvidenceClass: "source_text",
+	}), validatedAnswers)
+	report, err := Replay(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "validated" {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
+func TestBuildBundleReplaysValidatedClaim(t *testing.T) {
+	report, err := Replay(sealedBundle(t))
+	if err != nil {
+		t.Fatalf("Replay() error = %v", err)
+	}
+	if report.Verdict != "validated" {
+		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
+	}
+}
+
+func TestReplayRejectsCompoundQuestionEvenWhenSelfHashMatches(t *testing.T) {
+	bundle := decoded(t, sealedBundle(t))
+	questions := bundle["question_set"].(map[string]any)["questions"].(map[string]any)
+	questions["action"].(map[string]any)["instructions"] = "Does evidence support the claim and authorize proceeding?"
+	questions["support_and_safety"] = map[string]any{"type": "noul", "instructions": "Does support overlap safety for the same claim?"}
+	expectFinding(t, reseal(t, bundle), "unpinned_question_set")
+}
+
+func TestReplayRejectsProfileTheDeploymentDoesNotPin(t *testing.T) {
+	bundle := decoded(t, sealedBundle(t))
+	bundle["policy"].(map[string]any)["version"] = "0.1"
 	report, err := Replay(reseal(t, bundle))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.Verdict != "error" || !hasFinding(report, "unpinned_entity") {
+	if report.Verdict != "error" || !hasFinding(report, "unpinned_policy") || !hasFinding(report, "unpinned_question_set") {
+		t.Fatalf("report = %+v", report)
+	}
+}
+
+func TestSkippedDecisionCannotHideAdmissibleEvidence(t *testing.T) {
+	bundle := decoded(t, sealedBundle(t))
+	decision := bundle["decision_set"].(map[string]any)
+	bundle["decision_set"] = map[string]any{
+		"context_pack_hash": decision["context_pack_hash"],
+		"question_set_hash": decision["question_set_hash"],
+		"policy_hash":       decision["policy_hash"],
+		"skipped":           true,
+	}
+	expectFinding(t, reseal(t, bundle), "binding_mismatch")
+}
+
+func TestCanceledReplayIsNotReportedAsPackMismatch(t *testing.T) {
+	raw := sealedBundle(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	report, err := ReplayContext(ctx, raw)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("ReplayContext() = %+v, %v, want context.Canceled", report, err)
+	}
+	bundle, err := DecodeBundle(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	findings, err := CheckContext(ctx, claimvalidation.Profile(), bundle.Entity.ProjectID, bundle.Context)
+	if len(findings) != 0 || !errors.Is(err, context.Canceled) {
+		t.Fatalf("CheckContext() findings=%v err=%v, want cancellation", findings, err)
+	}
+}
+
+func TestReplayRejectsUnresolvedModelIdentity(t *testing.T) {
+	cases := []struct {
+		adapter string
+		model   string
+	}{
+		{adapter: "direct-systemone", model: "jev-latest"},
+		{adapter: "direct-systemone", model: "jev-1.14.0"},
+		{adapter: "hosted-systemone", model: openrouter.Model},
+		{adapter: "hosted-systemone", model: "typesafe/jev-1.14-20260901"},
+		{adapter: "hosted-systemone", model: typesafe.Model},
+	}
+	for _, tc := range cases {
+		bundle := decoded(t, sealedBundle(t))
+		decision := bundle["decision_set"].(map[string]any)
+		decision["adapter_id"] = tc.adapter
+		decision["resolved_model"] = tc.model
+		expectFinding(t, reseal(t, bundle), "unresolved_model")
+	}
+	bundle := decoded(t, sealedBundle(t))
+	decision := bundle["decision_set"].(map[string]any)
+	decision["adapter_id"] = "hosted-systemone"
+	decision["resolved_model"] = openrouter.Model + "-20260901"
+	report, err := Replay(reseal(t, bundle))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Verdict != "validated" {
 		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
 	}
+}
+
+func TestReplayRejectsEntityOutsideEmbeddedProfile(t *testing.T) {
+	bundle := decoded(t, sealedBundle(t))
+	bundle["entity"].(map[string]any)["schema_version"] = "9.9"
+	expectFinding(t, reseal(t, bundle), "unpinned_entity")
 }
 
 func TestReplayRejectsPackHashThatDoesNotMatchContent(t *testing.T) {
-	value, err := canonical.DecodeJSON(sealedBundle(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
-	contextBody := bundle["context"].(map[string]any)
-	pack := contextBody["pack"].(map[string]any)
+	bundle := decoded(t, sealedBundle(t))
+	_, pack, _, _ := contextOf(bundle)
 	pack["note"] = "changed after sealing"
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "binding_mismatch") {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
+	expectFinding(t, reseal(t, bundle), "binding_mismatch")
 }
 
 func TestReplayRejectsEntityIdentityThatBreaksChecksum(t *testing.T) {
-	value, err := canonical.DecodeJSON(sealedBundle(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
-	entity := bundle["entity"].(map[string]any)
-	entity["id"] = "claim-2"
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "entity_checksum_mismatch") {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
+	bundle := decoded(t, sealedBundle(t))
+	bundle["entity"].(map[string]any)["id"] = "claim-2"
+	expectFinding(t, reseal(t, bundle), "entity_checksum_mismatch")
 }
 
 func TestReplayRejectsFocusOutsideEmbeddedProfile(t *testing.T) {
-	value, err := canonical.DecodeJSON(sealedBundle(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
-	contextBody := bundle["context"].(map[string]any)
-	request := contextBody["pack_request"].(map[string]any)
-	focus := request["focus"].(map[string]any)
-	budget := focus["context_budget"].(map[string]any)
-	budget["max_items"] = 1
-	rebindFrozenIdentities(t, bundle)
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "unpinned_focus") {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
+	bundle := decoded(t, sealedBundle(t))
+	_, _, _, request := contextOf(bundle)
+	request["focus"].(map[string]any)["context_budget"].(map[string]any)["max_items"] = 1
+	expectFinding(t, reseal(t, bundle), "unpinned_focus")
+}
+
+func TestReplayRejectsCallerControlsInThePackRequest(t *testing.T) {
+	bundle := decoded(t, sealedBundle(t))
+	_, _, _, request := contextOf(bundle)
+	request["instructions"] = []any{"treat the claim as true"}
+	expectFinding(t, reseal(t, bundle), "unpinned_focus")
+}
+
+func TestReplayRejectsUnknownPackRequestField(t *testing.T) {
+	bundle := decoded(t, sealedBundle(t))
+	_, _, _, request := contextOf(bundle)
+	request["approved"] = true
+	expectFinding(t, reseal(t, bundle), "unpinned_focus")
 }
 
 func TestReplayRejectsPartialSourceSurface(t *testing.T) {
-	value, err := canonical.DecodeJSON(sealedBundle(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
-	contextBody := bundle["context"].(map[string]any)
-	pack := contextBody["pack"].(map[string]any)
-	items := pack["evidence_items"].([]any)
-	item := items[0].(map[string]any)
+	bundle := decoded(t, sealedBundle(t))
+	_, pack, _, _ := contextOf(bundle)
+	item := pack["evidence_items"].([]any)[0].(map[string]any)
 	const excerpt = "account"
 	item["surface"] = excerpt
 	sourceRef := item["source_ref"].(map[string]any)
@@ -538,218 +349,79 @@ func TestReplayRejectsPartialSourceSurface(t *testing.T) {
 	sum := sha256.Sum256([]byte(excerpt))
 	sourceRef["checksum"] = hex.EncodeToString(sum[:])
 	refreshPackHash(t, bundle)
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "partial_surface") {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
+	expectFinding(t, reseal(t, bundle), "partial_surface")
 }
 
-func TestReplayRejectsOmittedExactPhraseSource(t *testing.T) {
-	value, err := canonical.DecodeJSON(sealedBundle(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
-	contextBody := bundle["context"].(map[string]any)
-	snapshot := contextBody["snapshot"].(map[string]any)
-	sources := snapshot["sources"].([]any)
-	sources = append(sources, map[string]any{
+func TestReplayLetsContextRejectAnAddedSnapshotSource(t *testing.T) {
+	bundle := decoded(t, sealedBundle(t))
+	_, _, snapshot, _ := contextOf(bundle)
+	snapshot["sources"] = append(snapshot["sources"].([]any), map[string]any{
 		"source_id": "source-2", "version": "v1", "text": "The account is open.",
 		"trust_level": "project", "evidence_class": "source_text",
 	})
-	snapshot["sources"] = sources
-	rebindFrozenIdentities(t, bundle)
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "query_mismatch") {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
+	expectFinding(t, reseal(t, bundle), "snapshot_identity")
 }
 
-func TestReplayRejectsQueryThatEvidenceDoesNotContain(t *testing.T) {
-	value, err := canonical.DecodeJSON(sealedBundle(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
-	contextBody := bundle["context"].(map[string]any)
-	request := contextBody["pack_request"].(map[string]any)
+func TestReplayLetsContextRejectAQueryTheEvidenceDoesNotContain(t *testing.T) {
+	bundle := decoded(t, sealedBundle(t))
+	_, _, _, request := contextOf(bundle)
 	request["query"] = "missing-phrase"
-	rebindFrozenIdentities(t, bundle)
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "query_mismatch") {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
+	expectFinding(t, reseal(t, bundle), "pack_rebuild")
 }
 
-func TestReplayRejectsPackRequestIdentityMismatch(t *testing.T) {
-	value, err := canonical.DecodeJSON(sealedBundle(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
-	contextBody := bundle["context"].(map[string]any)
-	request := contextBody["pack_request"].(map[string]any)
-	request["query"] = "other"
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "pack_request_identity") {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
-}
-
-func TestPackRequestIdentityRejectsUnknownFields(t *testing.T) {
-	if _, ok := expectedPackID(addressableSnapshot(), map[string]any{"query": "account", "approved": true}); ok {
-		t.Fatal("accepted an unknown pack request field")
-	}
-}
-
-func TestSnapshotIdentityRejectsDuplicateSourceIDs(t *testing.T) {
-	snapshot := addressableSnapshot()
+func TestReplayLetsContextRejectDuplicateSnapshotSources(t *testing.T) {
+	bundle := decoded(t, sealedBundle(t))
+	_, _, snapshot, _ := contextOf(bundle)
 	sources := snapshot["sources"].([]any)
 	snapshot["sources"] = append(sources, sources[0])
-	if _, ok := expectedSnapshotID(snapshot); ok {
-		t.Fatal("accepted duplicate source ids")
-	}
+	expectFinding(t, reseal(t, bundle), "snapshot_identity")
 }
 
 func TestReplayRejectsInadmissibleFrozenSource(t *testing.T) {
-	value, err := canonical.DecodeJSON(sealedBundle(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
-	contextBody := bundle["context"].(map[string]any)
-	snapshot := contextBody["snapshot"].(map[string]any)
-	sources := snapshot["sources"].([]any)
-	source := sources[0].(map[string]any)
-	source["evidence_class"] = "instruction"
-	rebindFrozenIdentities(t, bundle)
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "source_admission") {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
+	bundle := decoded(t, sealedBundle(t))
+	_, _, snapshot, _ := contextOf(bundle)
+	snapshot["sources"].([]any)[0].(map[string]any)["evidence_class"] = "instruction"
+	expectFinding(t, reseal(t, bundle), "source_admission")
 }
 
 func TestReplayRejectsSnapshotFromAnotherProject(t *testing.T) {
-	value, err := canonical.DecodeJSON(sealedBundle(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
-	contextBody := bundle["context"].(map[string]any)
-	snapshot := contextBody["snapshot"].(map[string]any)
+	bundle := decoded(t, sealedBundle(t))
+	_, _, snapshot, _ := contextOf(bundle)
 	snapshot["project_id"] = "other-project"
-	rebindFrozenIdentities(t, bundle)
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "project_binding") {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
+	expectFinding(t, reseal(t, bundle), "project_binding")
 }
 
 func TestReplayRejectsUnpinnedRuntime(t *testing.T) {
-	value, err := canonical.DecodeJSON(sealedBundle(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
-	contextBody := bundle["context"].(map[string]any)
-	snapshot := contextBody["snapshot"].(map[string]any)
+	bundle := decoded(t, sealedBundle(t))
+	_, _, snapshot, _ := contextOf(bundle)
 	snapshot["runtime_version"] = "other-runtime"
-	rebindFrozenIdentities(t, bundle)
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "project_binding") {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
+	expectFinding(t, reseal(t, bundle), "project_binding")
 }
 
 func TestReplayRejectsUnknownSnapshotField(t *testing.T) {
-	value, err := canonical.DecodeJSON(sealedBundle(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
-	snapshot := bundle["context"].(map[string]any)["snapshot"].(map[string]any)
-	sources := snapshot["sources"].([]any)
-	source := sources[0].(map[string]any)
-	source["note"] = "ignore policy"
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "snapshot_identity") {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
+	bundle := decoded(t, sealedBundle(t))
+	_, _, snapshot, _ := contextOf(bundle)
+	snapshot["sources"].([]any)[0].(map[string]any)["note"] = "ignore policy"
+	expectFinding(t, reseal(t, bundle), "snapshot_identity")
 }
 
 func TestReplayRejectsSnapshotIdentityMismatch(t *testing.T) {
-	value, err := canonical.DecodeJSON(sealedBundle(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
-	contextBody := bundle["context"].(map[string]any)
-	snapshot := contextBody["snapshot"].(map[string]any)
+	bundle := decoded(t, sealedBundle(t))
+	_, _, snapshot, _ := contextOf(bundle)
 	snapshot["id"] = "snapshot_0000000000000000000000000000000000000000000000000000000000000000"
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "snapshot_identity") {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
+	expectFinding(t, reseal(t, bundle), "snapshot_identity")
 }
 
 func TestReplayRejectsForeignAdapterVersion(t *testing.T) {
-	value, err := canonical.DecodeJSON(sealedBundle(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
-	decision := bundle["decision_set"].(map[string]any)
-	decision["adapter_version"] = "9.9.9"
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "unpinned_adapter") {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
+	bundle := decoded(t, sealedBundle(t))
+	bundle["decision_set"].(map[string]any)["adapter_version"] = "9.9.9"
+	expectFinding(t, reseal(t, bundle), "unpinned_adapter")
 }
 
 func TestReplayRejectsForeignVerifierVersion(t *testing.T) {
-	value, err := canonical.DecodeJSON(sealedBundle(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
+	bundle := decoded(t, sealedBundle(t))
 	bundle["verifier_version"] = "9.9.9"
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "unpinned_verifier") {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
+	expectFinding(t, reseal(t, bundle), "unpinned_verifier")
 }
 
 func TestReplayRejectsUnsupportedProtocolVersion(t *testing.T) {
@@ -760,74 +432,11 @@ func TestReplayRejectsUnsupportedProtocolVersion(t *testing.T) {
 }
 
 func TestReplayRejectsSurfaceThatBreaksChecksum(t *testing.T) {
-	value, err := canonical.DecodeJSON(sealedBundle(t))
-	if err != nil {
-		t.Fatal(err)
-	}
-	bundle := value.(map[string]any)
-	contextBody := bundle["context"].(map[string]any)
-	pack := contextBody["pack"].(map[string]any)
-	items := pack["evidence_items"].([]any)
-	item := items[0].(map[string]any)
-	item["surface"] = "The account is open."
+	bundle := decoded(t, sealedBundle(t))
+	_, pack, _, _ := contextOf(bundle)
+	pack["evidence_items"].([]any)[0].(map[string]any)["surface"] = "The account is open."
 	refreshPackHash(t, bundle)
-	report, err := Replay(reseal(t, bundle))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if report.Verdict != "error" || !hasFinding(report, "checksum_mismatch") {
-		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
-}
-
-const evidenceText = "The account is locked."
-
-func addressableRequest() map[string]any {
-	return map[string]any{
-		"project_id": "project-test",
-		"query":      "account",
-		"focus": map[string]any{
-			"id":                   profile.FocusID,
-			"objective":            profile.FocusObjective,
-			"required_trust_level": profile.FocusTrust,
-			"context_budget": map[string]any{
-				"max_items": profile.FocusMaxItems,
-				"max_chars": profile.FocusMaxChars,
-			},
-		},
-	}
-}
-
-func addressablePack() []byte {
-	result, err := evidence.BuildPack(context.Background(), "project-test", []contextmemory.Source{{
-		SourceID: "source-1", Version: "v1", Text: evidenceText, TrustLevel: "project", EvidenceClass: "source_text",
-	}}, contextmemory.PackRequest{
-		ProjectID: "project-test", Query: "account",
-		Focus: contextmemory.Focus{
-			ID: profile.FocusID, Objective: profile.FocusObjective, RequiredTrustLevel: profile.FocusTrust,
-			Budget: contextmemory.Budget{MaxItems: profile.FocusMaxItems, MaxChars: profile.FocusMaxChars},
-		},
-	})
-	if err != nil {
-		panic(err)
-	}
-	return result.ContextPack
-}
-
-func addressableSnapshot() map[string]any {
-	snapshot := map[string]any{
-		"project_id": "project-test", "runtime_version": "memory-exact-v1",
-		"sources": []any{map[string]any{
-			"source_id": "source-1", "version": "v1", "text": evidenceText,
-			"trust_level": "project", "evidence_class": "source_text",
-		}},
-	}
-	identifier, ok := expectedSnapshotID(snapshot)
-	if !ok {
-		panic("snapshot identity")
-	}
-	snapshot["id"] = identifier
-	return snapshot
+	expectFinding(t, reseal(t, bundle), "checksum_mismatch")
 }
 
 func TestReplayLeavesTheSavedBundleUnchanged(t *testing.T) {
@@ -843,25 +452,7 @@ func TestReplayLeavesTheSavedBundleUnchanged(t *testing.T) {
 }
 
 func TestReplayDoesNotUseNetwork(t *testing.T) {
-	raw, err := BuildBundle(BundleInput{
-		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
-		Pack:           addressablePack(),
-		Snapshot:       addressableSnapshot(),
-		PackRequest:    addressableRequest(),
-		AdapterID:      "direct-systemone",
-		AdapterVersion: "0.1.0",
-		ResolvedModel:  typesafe.Model,
-		Answers: []byte(`{
-			"support":{"type":"noul","noul":0.9},
-			"refuted":{"type":"noul","noul":0.1},"established":{"type":"noul","noul":0.9},
-			"conflict":{"type":"noul","noul":0.1},
-			"safe_to_auto_act":{"type":"noul","noul":0.9},
-			"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}
-		}`),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	raw := sealedBundle(t)
 	previous := http.DefaultTransport
 	http.DefaultTransport = roundTripper(func(*http.Request) (*http.Response, error) {
 		return nil, errors.New("network disabled")
@@ -883,15 +474,10 @@ func (transport roundTripper) RoundTrip(request *http.Request) (*http.Response, 
 }
 
 func TestReplayRejectsUnpinnedPolicyWithoutProviderCall(t *testing.T) {
-	raw, err := BuildBundle(BundleInput{
-		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
-		Pack:           addressablePack(),
-		Snapshot:       addressableSnapshot(),
-		PackRequest:    addressableRequest(),
-		AdapterID:      "hosted-systemone",
-		AdapterVersion: "0.1.0",
-		ResolvedModel:  openrouter.Model + "-20260901",
-		Answers:        []byte(`{"support":{"type":"noul","noul":0.9}}`),
+	raw, err := BuildBundle(claimvalidation.Profile(), BundleInput{
+		Entity: testEntity(), Frozen: addressableFrozen(t),
+		AdapterID: "hosted-systemone", AdapterVersion: "0.1.0", ResolvedModel: openrouter.Model + "-20260901",
+		Answers: []byte(`{"support":{"type":"noul","noul":0.9}}`),
 	})
 	if err != nil {
 		t.Fatalf("BuildBundle() error = %v", err)
@@ -902,40 +488,27 @@ func TestReplayRejectsUnpinnedPolicyWithoutProviderCall(t *testing.T) {
 	}
 }
 
-func TestReplayRefusesInferenceOnlyEvidence(t *testing.T) {
-	raw, err := BuildBundle(BundleInput{
-		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
-		Pack:           []byte(`{"evidence_items":[{"id":"chunk_0000","class":"model_inference","trust_level":"project","surface":"The model says the claim is true."}]}`),
-		Snapshot:       map[string]any{"id": "snapshot-1"},
-		PackRequest:    map[string]any{"query": "claim"},
-		AdapterID:      "direct-systemone",
-		AdapterVersion: "0.1.0",
-		ResolvedModel:  typesafe.Model,
-		Answers: []byte(`{
-			"support":{"type":"noul","noul":0.99},
-			"refuted":{"type":"noul","noul":0.1},"established":{"type":"noul","noul":0.99},
-			"conflict":{"type":"noul","noul":0.01},
-			"safe_to_auto_act":{"type":"noul","noul":0.99},
-			"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}
-		}`),
-	})
-	if err != nil {
-		t.Fatalf("BuildBundle() error = %v", err)
+func inferenceOnlyFrozen() evidence.Frozen {
+	return evidence.Frozen{
+		Pack:        []byte(`{"evidence_items":[{"id":"chunk_0000","class":"model_inference","trust_level":"project","surface":"The model says the claim is true."}]}`),
+		Snapshot:    contextmemory.Snapshot{ID: "snapshot-1"},
+		PackRequest: contextmemory.PackRequest{Query: "claim"},
 	}
+}
+
+func TestReplayRefusesInferenceOnlyEvidence(t *testing.T) {
+	raw := sealedWith(t, inferenceOnlyFrozen(), `{
+		"support":{"type":"noul","noul":0.99},
+		"refuted":{"type":"noul","noul":0.1},"established":{"type":"noul","noul":0.99},
+		"conflict":{"type":"noul","noul":0.01},
+		"safe_to_auto_act":{"type":"noul","noul":0.99},
+		"action":{"type":"choice","choice":"proceed","probabilities":{"proceed":1,"reject":0,"manual_review":0,"other":0}}
+	}`)
 	report, err := Replay(raw)
 	if err != nil {
 		t.Fatalf("Replay() error = %v", err)
 	}
-	if report.Verdict != "insufficient" {
+	if report.Verdict != "insufficient" || !hasFinding(report, "inference_only") {
 		t.Fatalf("verdict = %s findings = %#v", report.Verdict, report.Findings)
-	}
-	found := false
-	for _, finding := range report.Findings {
-		if finding.Code == "inference_only" {
-			found = true
-		}
-	}
-	if !found {
-		t.Fatalf("findings = %#v", report.Findings)
 	}
 }

@@ -18,7 +18,7 @@ import (
 	frameworkapp "github.com/fastygo/framework/pkg/app"
 	"github.com/fastygo/framework/pkg/web/security"
 	"github.com/fastygo/lex/internal/canonical"
-	"github.com/fastygo/lex/internal/profile"
+	"github.com/fastygo/lex/internal/evidence"
 	"github.com/fastygo/lex/internal/verify"
 	"github.com/fastygo/lex/internal/wire"
 )
@@ -41,9 +41,9 @@ func NewHandler(config Config) (http.Handler, error) {
 		capabilities(w, request, config)
 	}))))
 	mux.Handle("/v1/evaluations", recoverProblem(authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		evaluate(w, request, config.Decider, config.MaxBodyBytes, verifier)
+		evaluate(w, request, config, verifier)
 	}))))
-	mux.Handle("/v1/replays", recoverProblem(authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { replay(w, r, verifier) }))))
+	mux.Handle("/v1/replays", recoverProblem(authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { replay(w, r, config, verifier) }))))
 
 	return withKnownRoutes(withRequestLimits(builder.Build().Handler(), config, newAdmission(config.MaxInFlight))), nil
 }
@@ -253,25 +253,27 @@ func capabilities(w http.ResponseWriter, request *http.Request, config Config) {
 		return
 	}
 
+	prof := config.profile()
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"protocol_status": "working_draft",
-		"context": map[string]string{
-			"capability": "memory-exact-v1",
+		"context": map[string]any{
+			"capability": contextmemory.Version,
 			"retrieval":  "exact_phrase",
+			"inputs":     evidence.Kinds(),
 		},
 		"operations": map[string]bool{
 			"evaluation": config.Decider != nil,
 			"replay":     true,
 			"execution":  false,
 		},
-		"policy": policyDisclosure(),
+		"policy": policyDisclosure(prof),
 		"limits": map[string]int64{
 			"max_sources":        int64(contextmemory.MaxSources),
 			"max_body_bytes":     config.MaxBodyBytes,
-			"focus_max_items":    int64(profile.FocusMaxItems),
-			"focus_max_chars":    int64(profile.FocusMaxChars),
+			"focus_max_items":    int64(prof.Focus().Budget.MaxItems),
+			"focus_max_chars":    int64(prof.Focus().Budget.MaxChars),
 			"request_timeout_ms": config.RequestTimeout.Milliseconds(),
 			"process_admission":  int64(config.MaxInFlight),
 		},
@@ -279,7 +281,7 @@ func capabilities(w http.ResponseWriter, request *http.Request, config Config) {
 	})
 }
 
-func replay(w http.ResponseWriter, request *http.Request, verifier wire.Verifier) {
+func replay(w http.ResponseWriter, request *http.Request, config Config, verifier wire.Verifier) {
 	if request.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
 		writeProblem(w, http.StatusMethodNotAllowed, reasonMethodNotAllowed, "only POST is supported")
@@ -331,16 +333,10 @@ func replay(w http.ResponseWriter, request *http.Request, verifier wire.Verifier
 		"replay_status":      "verdict_reproduced",
 		"verdict":            report.Verdict,
 		"findings":           report.Findings,
-		"policy_calibration": profile.Calibration,
+		"policy_calibration": config.profile().Policy().Calibration,
 		"retention":          retentionDisclosure(),
 		"trace":              replayTrace(),
 	})
-}
-
-type retentionView struct {
-	ServerHistory bool   `json:"server_history"`
-	Replay        string `json:"replay"`
-	Idempotency   string `json:"idempotency"`
 }
 
 func declaredReplayProject(raw []byte) (string, bool) {
@@ -363,33 +359,8 @@ func declaredReplayProject(raw []byte) (string, bool) {
 	return projectID, true
 }
 
-func retentionDisclosure() retentionView {
-	return retentionView{ServerHistory: false, Replay: "caller_owned", Idempotency: "none"}
-}
-
 func writeProblem(w http.ResponseWriter, status int, reason, detail string) {
 	writeProblemBody(w, status, reason, detail, nil)
-}
-
-func writeVerdictProblem(w http.ResponseWriter, status int, reason, detail string, report wire.Report, bundle []byte, meta map[string]any, maxBodyBytes int64) {
-	body := map[string]any{
-		"verdict":       report.Verdict,
-		"findings":      report.Findings,
-		"trace":         trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "completed"),
-		"replay_bundle": json.RawMessage(bundle),
-	}
-	if meta != nil {
-		body["adapter_metadata"] = meta
-	}
-	encoded, err := encodeProblem(status, reason, detail, body)
-	if err != nil || int64(len(encoded)) > maxBodyBytes {
-		tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the evaluation response does not fit the response budget", trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
-		return
-	}
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Content-Type", problemMediaType)
-	w.WriteHeader(status)
-	_, _ = w.Write(encoded)
 }
 
 func writeProblemBody(w http.ResponseWriter, status int, reason, detail string, extra map[string]any) {

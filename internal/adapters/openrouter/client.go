@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fastygo/lex/internal/adapters"
 	"github.com/fastygo/lex/internal/adapters/systemone"
-	"github.com/fastygo/lex/internal/profile"
 )
 
 const (
@@ -18,7 +18,7 @@ const (
 	// Model is the pinned request selector. The response must be a resolved refinement.
 	Model          = "typesafe/jev-1.13"
 	AdapterID      = "hosted-systemone"
-	AdapterVersion = profile.AdapterVersion
+	AdapterVersion = adapters.ContractVersion
 )
 
 // Client calls one allowlisted hosted endpoint. The zero value is not usable.

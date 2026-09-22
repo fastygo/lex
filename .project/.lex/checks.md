@@ -50,6 +50,18 @@ Malformed answers are decision failures. A valid answer below a threshold is
 not automatically a decision failure. A failed policy gate is not the same as
 a broken policy evaluator. Verification cannot create missing provenance.
 
+The evidence checks are the same whether the frozen state was built by LeX
+from caller text or accepted from the caller as a Context frozen state, and
+the same at evaluation time and at replay. LeX owns the controls: pack hash
+binding, project and runtime binding, the profile focus with no caller
+controls, per-item provenance, byte checksum, full-source surface, and
+admissibility. Context owns the mechanism: the verifier asks the pinned
+runtime to rebuild the snapshot and pack from the frozen sources and pack
+request and compares identities and canonical hashes. It does not recompute
+retrieval, selection, budgeting, or rejection itself. A snapshot Context
+does not reproduce is `snapshot_identity`; a pack it does not reproduce is
+`pack_rebuild`.
+
 ## Verdict meanings
 
 - `validated`: the declared validation obligations pass deterministic checks;
@@ -100,8 +112,8 @@ these new rules. Historical replay requires the historical verifier.
 ## Failure stages
 
 - `retrieval_error`: a retrieval transport failed. This profile has no separate retrieval service. An empty exact selection is HTTP 200 `insufficient`, does not call a provider, and still returns a replay bundle. A failure while freezing sources is HTTP 422 `pack_error`. Cancellation remains HTTP 504 `deadline_exceeded` or HTTP 499 `client_canceled`. A canceled or expired pack rebuild stays that cancellation and is not reported as a pack mismatch.
-- `pack_error`: pack construction, integrity, or contract validation fails. HTTP 422.
-- `question_error`: the QuestionSet or the request shape violates its contract. HTTP 422. A query that is empty after trimming is this error. It is not an `insufficient` verdict.
+- `pack_error`: pack construction, integrity, or contract validation fails. HTTP 422. A caller-frozen `context` that is not a Context frozen state, or that Context cannot reproduce, is this error before any provider call; the response lists the same findings the verifier would emit at replay.
+- `question_error`: the QuestionSet or the request shape violates its contract. HTTP 422. A query that is empty after trimming is this error. A caller-frozen `context` whose pack request query differs from `query` is this error. It is not an `insufficient` verdict.
 - `decision_error`: provider execution or typed-answer validation fails. A provider contract failure is HTTP 502. A technical `error` verdict is HTTP 422 and still returns the sealed bundle. A retryable provider status is HTTP 503 `provider_unavailable` and is not retried. A refused provider redirect is a contract failure, not a temporary outage, and the endpoint address is not returned. A provider client timeout is `provider_unavailable` while the request context is still active. The request deadline stays `deadline_exceeded`. A response that contains the decision credential, including a Unicode-escaped copy, is rejected and that credential is not retained. Provider JSON deeper than 32 levels is a decision failure, and that body is not retained.
 - `policy_error`: the evaluator cannot apply its thresholds. HTTP 500. A threshold denial stays a finding on the verdict response.
 - `verification_error`: deterministic verification cannot complete correctly. HTTP 500.

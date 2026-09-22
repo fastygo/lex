@@ -5,26 +5,28 @@ import (
 	"math"
 )
 
-// Thresholds are explicit policy gates. They are not a universal calibration.
-type Thresholds struct {
-	SupportMin   float64
-	EstablishMin float64
-	RefuteMin    float64
-	ConflictMin  float64
-	SafetyMin    float64
+// Gate is one deployment-owned policy applied to validated typed answers.
+// The verifier does not know which questions a gate reads; the profile does.
+type Gate interface {
+	// Usable reports whether the gate can be applied at all. An unusable gate
+	// is a technical failure, not a denial finding.
+	Usable() bool
+	// Findings returns the policy findings for one answer set. It must be
+	// deterministic and must not rewrite the answers.
+	Findings(answers map[string]Answer) []Finding
 }
 
 // ErrUnusablePolicy means the policy evaluator cannot apply its thresholds.
 // It is not a denial finding.
 var ErrUnusablePolicy = errors.New("policy thresholds are not usable")
 
-// Interpret applies answer-domain checks and policy gates, then selects a verdict.
-func Interpret(questions map[string]Question, thresholds Thresholds, answers map[string]Answer) (Verdict, []Finding, error) {
-	if !ThresholdsUsable(thresholds) {
+// Interpret applies answer-domain checks and one policy gate, then selects a verdict.
+func Interpret(questions map[string]Question, gate Gate, answers map[string]Answer) (Verdict, []Finding, error) {
+	if gate == nil || !gate.Usable() {
 		return "", nil, ErrUnusablePolicy
 	}
 	findings := ValidateAnswers(questions, answers)
-	findings = append(findings, policyFindings(thresholds, answers)...)
+	findings = append(findings, gate.Findings(answers)...)
 	verdict, err := ResolveVerdict(findings)
 	if err != nil {
 		return "", nil, err
@@ -35,60 +37,13 @@ func Interpret(questions map[string]Question, thresholds Thresholds, answers map
 	return verdict, findings, nil
 }
 
-// ThresholdsUsable reports whether every gate is a finite probability.
-func ThresholdsUsable(thresholds Thresholds) bool {
-	return unitInterval(thresholds.SupportMin) && unitInterval(thresholds.EstablishMin) && unitInterval(thresholds.RefuteMin) && unitInterval(thresholds.ConflictMin) && unitInterval(thresholds.SafetyMin)
-}
-
-func unitInterval(value float64) bool {
+// UnitInterval reports whether value is a finite probability.
+func UnitInterval(value float64) bool {
 	return !math.IsNaN(value) && !math.IsInf(value, 0) && value >= 0 && value <= 1
 }
 
-func policyFindings(thresholds Thresholds, answers map[string]Answer) []Finding {
-	support, supportOK := noul(answers, "support")
-	established, establishedOK := noul(answers, "established")
-	refuted, refutedOK := noul(answers, "refuted")
-	conflict, conflictOK := noul(answers, "conflict")
-	safety, safetyOK := noul(answers, "safe_to_auto_act")
-	action, actionOK := choice(answers, "action")
-	findings := make([]Finding, 0)
-
-	negative := refutedOK && refuted >= thresholds.RefuteMin
-	contradictory := negative && ((establishedOK && established >= thresholds.EstablishMin) || (supportOK && support >= thresholds.SupportMin))
-	if (conflictOK && conflict >= thresholds.ConflictMin) || contradictory {
-		findings = append(findings, Finding{Code: CodeEvidenceConflict, Verdict: VerdictConflict, Detail: "admissible evidence supports mutually incompatible conclusions"})
-	}
-	if supportOK && support < thresholds.SupportMin && !negative {
-		findings = append(findings, Finding{Code: CodeSupportBelow, Verdict: VerdictInsufficient, Detail: "support is below the policy threshold"})
-	}
-	if establishedOK && established < thresholds.EstablishMin && !negative {
-		findings = append(findings, Finding{Code: CodeEstablishmentBelow, Verdict: VerdictInsufficient, Detail: "establishment is below the policy threshold"})
-	}
-	if negative {
-		findings = append(findings, Finding{Code: CodeNegativeResult, Verdict: VerdictRejected, Detail: "admissible evidence establishes the negation of the claim"})
-	}
-	if !actionOK {
-		return findings
-	}
-	switch action {
-	case "manual_review", "other":
-		findings = append(findings, Finding{Code: CodeReviewRequired, Verdict: VerdictManualReview, Detail: "the action choice requires review"})
-	case "proceed":
-		if safetyOK && safety < thresholds.SafetyMin {
-			findings = append(findings, Finding{Code: CodeSafetyGate, Verdict: VerdictManualReview, Detail: "semantic safety is below the policy threshold"})
-		}
-		if (supportOK && support < thresholds.SupportMin) || (establishedOK && established < thresholds.EstablishMin) || (conflictOK && conflict >= thresholds.ConflictMin) || negative {
-			findings = append(findings, Finding{Code: CodeActionInconsistent, Verdict: VerdictManualReview, Detail: "the proceed choice disagrees with the predicate signals"})
-		}
-	case "reject":
-		if !negative || (establishedOK && established >= thresholds.EstablishMin) {
-			findings = append(findings, Finding{Code: CodeActionInconsistent, Verdict: VerdictManualReview, Detail: "the reject choice lacks an established uncontested refutation"})
-		}
-	}
-	return findings
-}
-
-func noul(answers map[string]Answer, id string) (float64, bool) {
+// Noul returns the probability answered for id when it is a valid Noul answer.
+func Noul(answers map[string]Answer, id string) (float64, bool) {
 	answer, ok := answers[id]
 	if !ok || answer.Type != QuestionNoul || answer.Noul == nil || !probability(*answer.Noul) {
 		return 0, false
@@ -96,7 +51,8 @@ func noul(answers map[string]Answer, id string) (float64, bool) {
 	return *answer.Noul, true
 }
 
-func choice(answers map[string]Answer, id string) (string, bool) {
+// Choice returns the option answered for id when it is a valid Choice answer.
+func Choice(answers map[string]Answer, id string) (string, bool) {
 	answer, ok := answers[id]
 	if !ok || answer.Type != QuestionChoice || answer.Choice == "" {
 		return "", false

@@ -34,6 +34,24 @@ Context field definitions remain upstream; local EvidenceBinding maps those
 fields without inventing an alternative ContextPack schema. See
 [sources.md](sources.md) for the public API and evidence-contract references.
 
+## Evidence inputs
+
+An evaluation obtains its frozen state through one of two inputs. Both end in
+the same frozen state, the same replay bundle, and the same verifier checks;
+capabilities disclose which inputs a deployment accepts.
+
+- `sources`: the caller sends versioned text. LeX labels it as project source
+  text, builds the pack request from the profile focus, and freezes it with the
+  embedded Context runtime.
+- `frozen_context`: the caller sends a pack, snapshot, and pack request it
+  already obtained from the pinned Context runtime. LeX does not trust it: the
+  pack request query must equal the request query, the focus must be the
+  profile focus, and Context must reproduce the snapshot and pack before a
+  provider is called.
+
+Selection, budgeting, and rejection are Context mechanisms in both inputs.
+LeX never recomputes them; it compares Context's rebuild with the frozen state.
+
 ## Current deployment restriction
 
 The [RAM-only plan](../.plan/README.md) pins [Context v0.1.0](../.plan/context-version.md)

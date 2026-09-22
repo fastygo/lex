@@ -4,14 +4,14 @@ import (
 	"math"
 	"testing"
 
-	"github.com/fastygo/lex/internal/profile"
+	"github.com/fastygo/lex/internal/profile/claimvalidation"
 	"github.com/fastygo/lex/internal/verify"
 )
 
 // specGate is a separate reading of the v0.2 policy gates. It does not call
 // the verifier's finding builder.
 func specGate(support, established, refuted, conflict, safety float64, action string) (string, []string) {
-	thresholds := profile.Thresholds()
+	thresholds := claimvalidation.Thresholds()
 	var codes []string
 	negative := refuted >= thresholds.RefuteMin
 	if conflict >= thresholds.ConflictMin || (negative && (support >= thresholds.SupportMin || established >= thresholds.EstablishMin)) {
@@ -94,7 +94,7 @@ func TestIndependentPolicyGateAgreesWithVerifier(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			wantVerdict, wantCodes := specGate(tc.support, tc.established, tc.refuted, tc.conflict, tc.safety, tc.action)
-			gotVerdict, findings, err := verify.Interpret(questions, profile.Thresholds(), map[string]verify.Answer{
+			gotVerdict, findings, err := verify.Interpret(questions, claimvalidation.Thresholds(), map[string]verify.Answer{
 				"support":          noulAnswer(tc.support),
 				"established":      noulAnswer(tc.established),
 				"refuted":          noulAnswer(tc.refuted),
@@ -133,7 +133,7 @@ func TestPolicyTruthTableAgreesWithVerifier(t *testing.T) {
 		"safe_to_auto_act": {Type: verify.QuestionNoul},
 		"action":           {Type: verify.QuestionChoice, Choices: []string{"proceed", "reject", "manual_review", "other"}},
 	}
-	thresholds := profile.Thresholds()
+	thresholds := claimvalidation.Thresholds()
 	supports := []float64{math.Nextafter(thresholds.SupportMin, 0), thresholds.SupportMin}
 	established := []float64{math.Nextafter(thresholds.EstablishMin, 0), thresholds.EstablishMin}
 	conflicts := []float64{math.Nextafter(thresholds.ConflictMin, 0), thresholds.ConflictMin}

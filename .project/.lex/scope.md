@@ -48,6 +48,10 @@ The Context integration contract requires the following capabilities, subject to
 - replayable index snapshots and lineage for derived artifacts.
 
 LeX checks that only admissible evidence classes justify factual predicates.
+It accepts evidence either as caller text that it freezes through Context or as
+a state the caller already froze through Context; in both cases Context, not
+LeX, is the mechanism that selects, budgets, and rejects, and LeX verifies by
+asking Context to reproduce the frozen state.
 
 ### 4. Decision plane (provider-neutral adapters)
 

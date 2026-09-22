@@ -24,8 +24,22 @@ before invoking a decision provider. No HTTP service, disk, database, or
 downstream import of Context internal packages is required.
 
 The baseline evaluation path builds a real pack in RAM. Replay consumes a saved
-pack and DecisionSet. External caller-pack evaluation is optional and not
-required to work around a missing embedded interface anymore.
+pack and DecisionSet. A caller may also submit a state it already obtained from
+the pinned runtime (`frozen_context`); LeX accepts it only after the same
+controls the verifier applies at replay pass, with Context reproducing the
+snapshot and pack. This is an evidence input beside `sources`, not a way to
+bypass Context.
+
+Delegation rule (2026-09-22): everything Context can do, Context does. LeX does
+not recompute exact-phrase selection, budget trimming, rejection reasons, chunk
+identities, or snapshot and pack identifiers. It decodes the frozen state
+strictly into Context's public types, applies its own controls (project and
+runtime binding, profile focus, provenance, checksums, full-source surface,
+admissibility), and compares Context's rebuild with the frozen state by
+identity and canonical hash. The finding codes that named the removed
+recomputation (`chunk_identity`, `pack_envelope`, `pack_request_identity`,
+`query_mismatch`, `rejection_mismatch`) are withdrawn; `snapshot_identity` and
+`pack_rebuild` now cover what Context does not reproduce.
 
 ## Consequences and alternatives
 

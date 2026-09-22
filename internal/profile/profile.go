@@ -1,196 +1,166 @@
-// Package profile pins the deployment-owned question set and policy.
+// Package profile defines what one deployment pins for a question set:
+// the typed questions, the policy gate, the entity kind, and the Context focus.
+// It contains no profile of its own; concrete profiles live in subpackages and
+// are composed into a Registry by the deployment.
 package profile
 
 import (
 	"encoding/json"
+	"fmt"
 
+	contextmemory "github.com/fastygo/context/pkg/contextkit/runtime"
 	"github.com/fastygo/lex/internal/canonical"
 	"github.com/fastygo/lex/internal/verify"
 )
 
-const (
-	// QuestionSetID identifies the embedded claim-validation questions.
-	QuestionSetID = "claim-validation"
-	// QuestionSetVersion changes when question criteria change.
-	QuestionSetVersion = "0.2.0"
-	// PolicyID identifies the embedded threshold policy.
-	PolicyID = "claim-validation"
-	// PolicyVersion changes when thresholds change.
-	PolicyVersion = "0.2.0"
-	// VerifierVersion pins the deterministic interpreter.
-	VerifierVersion = "0.2.0"
-	// AdapterVersion is the only typed-decision adapter contract this verifier replays.
-	AdapterVersion = "0.1.0"
-	// Calibration discloses that these thresholds are not a measured calibration.
-	Calibration = "uncalibrated"
-	// FocusID is the embedded Context focus for this question set.
-	FocusID = "claim-validation-v1"
-	// FocusObjective is the only focus objective sent to Context for this profile.
-	FocusObjective = "Select admissible source text for the stated claim."
-	// FocusTrust is the only trust level this focus admits.
-	FocusTrust = "project"
-	// FocusMaxItems is the embedded evidence-item budget.
-	FocusMaxItems = 8
-	// FocusMaxChars is the embedded evidence-character budget.
-	FocusMaxChars = 65536
-	// EntityType is the only entity type this question set evaluates.
-	EntityType = "claim"
-	// EntitySchemaVersion is the only entity schema this question set evaluates.
-	EntitySchemaVersion = "0.1"
-)
-
-const (
-	questionSupport   = "support"
-	questionEstablish = "established"
-	questionRefute    = "refuted"
-	questionConflict  = "conflict"
-	questionSafety    = "safe_to_auto_act"
-	questionAction    = "action"
-)
-
-type question struct {
+// Question is one typed question as sent to a decision adapter and sealed in a bundle.
+type Question struct {
 	Type         string            `json:"type"`
 	Instructions string            `json:"instructions"`
 	Criteria     map[string]string `json:"criteria,omitempty"`
 }
 
-type questionSetDocument struct {
+// QuestionSet is the versioned question document. Its hash covers id, version, and questions.
+type QuestionSet struct {
 	ID        string              `json:"id"`
 	Version   string              `json:"version"`
-	Questions map[string]question `json:"questions"`
+	Questions map[string]Question `json:"questions"`
 }
 
-type policyDocument struct {
-	ID           string  `json:"id"`
-	Version      string  `json:"version"`
-	Calibration  string  `json:"calibration"`
-	SupportMin   float64 `json:"support_min"`
-	EstablishMin float64 `json:"establish_min"`
-	RefuteMin    float64 `json:"refute_min"`
-	ConflictMin  float64 `json:"conflict_min"`
-	SafetyMin    float64 `json:"safety_min"`
+// Policy names one gate and the document whose hash pins it.
+type Policy struct {
+	ID          string
+	Version     string
+	Calibration string
+	// Document is the hashed policy body. It must marshal deterministically.
+	Document any
+	// Gate applies the policy to validated answers.
+	Gate verify.Gate
 }
 
-var (
-	questionSet = questionSetDocument{
-		ID:      QuestionSetID,
-		Version: QuestionSetVersion,
-		Questions: map[string]question{
-			questionSupport: {
-				Type:         "noul",
-				Instructions: "Does the frozen source text in `evidence` directly support the proposition in `claim`?",
-				Criteria: map[string]string{
-					"true":  "At least one `evidence` surface states the proposition in `claim`.",
-					"false": "The `evidence` surfaces do not state the proposition in `claim`.",
-				},
-			},
-			questionEstablish: {
-				Type:         "noul",
-				Instructions: "Do the frozen items in `evidence` meet the sufficiency and coherence requirements for establishing `claim`?",
-				Criteria: map[string]string{
-					"true":  "The `evidence` surfaces are sufficient and coherent to establish `claim`.",
-					"false": "The `evidence` surfaces are missing, too weak, or not coherent enough to establish `claim`.",
-				},
-			},
-			questionRefute: {
-				Type:         "noul",
-				Instructions: "Do the frozen items in `evidence` establish that `claim` is false?",
-				Criteria: map[string]string{
-					"true":  "Sufficient admissible evidence establishes the negation of `claim`.",
-					"false": "The negation is not established; missing support for `claim` alone is not refutation.",
-				},
-			},
-			questionConflict: {
-				Type:         "noul",
-				Instructions: "Do the frozen items in `evidence` support mutually incompatible conclusions about `claim`?",
-				Criteria: map[string]string{
-					"true":  "Admissible evidence supports both a conclusion about `claim` and an incompatible conclusion.",
-					"false": "The evidence does not support incompatible conclusions; a coherent refutation alone is not conflict.",
-				},
-			},
-			questionSafety: {
-				Type:         "noul",
-				Instructions: "Is the frozen text in `evidence` semantically safe to accept for `claim` without human review?",
-				Criteria: map[string]string{
-					"true":  "`evidence` can be accepted for `claim` without a person reading it first.",
-					"false": "`evidence` needs a person before it is accepted for `claim`.",
-				},
-			},
-			questionAction: {
-				Type:         "choice",
-				Instructions: "Which disposition follows from `claim` and `evidence` alone? This choice is not permission to act.",
-				Criteria: map[string]string{
-					"proceed":       "The frozen evidence is sufficient to accept the claim without review",
-					"reject":        "The frozen evidence sufficiently establishes that the claim is false",
-					"manual_review": "A person should review the claim because the evidence is weak, unsafe, or incomplete",
-					"other":         "None of the listed dispositions fit",
-				},
-			},
-		},
-	}
-	policy = policyDocument{
-		ID:           PolicyID,
-		Version:      PolicyVersion,
-		Calibration:  Calibration,
-		SupportMin:   0.7,
-		EstablishMin: 0.8,
-		RefuteMin:    0.8,
-		ConflictMin:  0.5,
-		SafetyMin:    0.8,
-	}
+// Entity pins the entity kind this profile evaluates.
+type Entity struct {
+	Type          string
+	SchemaVersion string
+}
+
+// Profile is one immutable, deployment-owned evaluation contract.
+// Build it with New; the zero value is not usable.
+type Profile struct {
+	questionSet     QuestionSet
+	policy          Policy
+	entity          Entity
+	focus           contextmemory.Focus
+	typed           map[string]verify.Question
+	state           func(subject string, evidence any) map[string]any
 	questionSetHash string
 	policyHash      string
-)
+}
 
-func init() {
-	var err error
-	questionSetHash, err = canonical.HashValue(questionSet)
+// Spec is the material New freezes into a Profile.
+type Spec struct {
+	QuestionSet QuestionSet
+	Policy      Policy
+	Entity      Entity
+	// Focus is the only Context focus this profile sends and accepts.
+	Focus contextmemory.Focus
+	// Typed is the verifier view of QuestionSet.Questions.
+	Typed map[string]verify.Question
+	// State builds the frozen state sent to a decision adapter.
+	State func(subject string, evidence any) map[string]any
+}
+
+// New validates and hashes a specification.
+func New(spec Spec) (Profile, error) {
+	if spec.QuestionSet.ID == "" || spec.QuestionSet.Version == "" || len(spec.QuestionSet.Questions) == 0 {
+		return Profile{}, fmt.Errorf("profile question set must have id, version, and questions")
+	}
+	if spec.Policy.ID == "" || spec.Policy.Version == "" || spec.Policy.Document == nil || spec.Policy.Gate == nil {
+		return Profile{}, fmt.Errorf("profile policy must have id, version, document, and gate")
+	}
+	if !spec.Policy.Gate.Usable() {
+		return Profile{}, fmt.Errorf("profile policy gate is not usable")
+	}
+	if spec.Entity.Type == "" || spec.Entity.SchemaVersion == "" {
+		return Profile{}, fmt.Errorf("profile entity must have type and schema version")
+	}
+	if spec.Focus.ID == "" || spec.Focus.Objective == "" || spec.Focus.RequiredTrustLevel == "" || spec.Focus.Budget.MaxItems < 1 || spec.Focus.Budget.MaxChars < 1 {
+		return Profile{}, fmt.Errorf("profile focus must be complete")
+	}
+	if len(spec.Typed) != len(spec.QuestionSet.Questions) {
+		return Profile{}, fmt.Errorf("typed questions must mirror the question set")
+	}
+	for id, question := range spec.QuestionSet.Questions {
+		typed, ok := spec.Typed[id]
+		if !ok || string(typed.Type) != question.Type {
+			return Profile{}, fmt.Errorf("typed question %q does not mirror the question set", id)
+		}
+	}
+	if spec.State == nil {
+		return Profile{}, fmt.Errorf("profile must build a decision state")
+	}
+	questionSetHash, err := canonical.HashValue(spec.QuestionSet)
+	if err != nil {
+		return Profile{}, fmt.Errorf("hash question set: %w", err)
+	}
+	policyHash, err := canonical.HashValue(spec.Policy.Document)
+	if err != nil {
+		return Profile{}, fmt.Errorf("hash policy: %w", err)
+	}
+	typed := make(map[string]verify.Question, len(spec.Typed))
+	for id, question := range spec.Typed {
+		typed[id] = question
+	}
+	return Profile{
+		questionSet: spec.QuestionSet, policy: spec.Policy, entity: spec.Entity, focus: spec.Focus,
+		typed: typed, state: spec.State, questionSetHash: questionSetHash, policyHash: policyHash,
+	}, nil
+}
+
+// MustNew is New for package-level profile constants.
+func MustNew(spec Spec) Profile {
+	prof, err := New(spec)
 	if err != nil {
 		panic(err)
 	}
-	policyHash, err = canonical.HashValue(policy)
-	if err != nil {
-		panic(err)
-	}
-	if !verify.ThresholdsUsable(Thresholds()) {
-		panic("embedded policy thresholds are not usable")
-	}
+	return prof
 }
 
-// QuestionSetHash is the canonical hash of the question document, excluding the wire hash field.
-func QuestionSetHash() string { return questionSetHash }
+// QuestionSet returns the sealed question document.
+func (p Profile) QuestionSet() QuestionSet { return p.questionSet }
 
-// PolicyHash is the canonical hash of the threshold document.
-func PolicyHash() string { return policyHash }
+// QuestionSetHash is the canonical hash of the question document.
+func (p Profile) QuestionSetHash() string { return p.questionSetHash }
 
-// Thresholds returns the embedded uncalibrated policy gates.
-func Thresholds() verify.Thresholds {
-	return verify.Thresholds{
-		SupportMin:   policy.SupportMin,
-		EstablishMin: policy.EstablishMin,
-		RefuteMin:    policy.RefuteMin,
-		ConflictMin:  policy.ConflictMin,
-		SafetyMin:    policy.SafetyMin,
-	}
+// Policy returns the policy reference and gate.
+func (p Profile) Policy() Policy { return p.policy }
+
+// PolicyHash is the canonical hash of the policy document.
+func (p Profile) PolicyHash() string { return p.policyHash }
+
+// Entity returns the pinned entity kind.
+func (p Profile) Entity() Entity { return p.entity }
+
+// Focus returns the only Context focus this profile uses.
+func (p Profile) Focus() contextmemory.Focus { return p.focus }
+
+// AcceptsEntity reports whether the entity kind is the pinned one.
+func (p Profile) AcceptsEntity(entityType, schemaVersion string) bool {
+	return entityType == p.entity.Type && schemaVersion == p.entity.SchemaVersion
 }
 
-// TypedQuestions returns the verifier view of the embedded questions.
-func TypedQuestions() map[string]verify.Question {
-	return map[string]verify.Question{
-		questionSupport:   {Type: verify.QuestionNoul},
-		questionEstablish: {Type: verify.QuestionNoul},
-		questionRefute:    {Type: verify.QuestionNoul},
-		questionConflict:  {Type: verify.QuestionNoul},
-		questionSafety:    {Type: verify.QuestionNoul},
-		questionAction: {Type: verify.QuestionChoice, Choices: []string{
-			"proceed", "reject", "manual_review", "other",
-		}},
+// TypedQuestions returns a copy of the verifier view of the questions.
+func (p Profile) TypedQuestions() map[string]verify.Question {
+	typed := make(map[string]verify.Question, len(p.typed))
+	for id, question := range p.typed {
+		typed[id] = question
 	}
+	return typed
 }
 
 // ProviderQuestions returns the question map sent to a decision adapter.
-func ProviderQuestions() map[string]any {
-	raw, err := json.Marshal(questionSet.Questions)
+func (p Profile) ProviderQuestions() map[string]any {
+	raw, err := json.Marshal(p.questionSet.Questions)
 	if err != nil {
 		panic(err)
 	}
@@ -201,5 +171,78 @@ func ProviderQuestions() map[string]any {
 	return questions
 }
 
-// QuestionSetBody returns the question document embedded in a replay bundle.
-func QuestionSetBody() any { return questionSet }
+// State builds the frozen state sent to a decision adapter.
+func (p Profile) State(subject string, evidence any) map[string]any {
+	return p.state(subject, evidence)
+}
+
+// Interpret applies answer validation and this profile's gate.
+func (p Profile) Interpret(answers map[string]verify.Answer) (verify.Verdict, []verify.Finding, error) {
+	return verify.Interpret(p.typed, p.policy.Gate, answers)
+}
+
+// Ref names a question set and policy as they appear in a replay bundle.
+type Ref struct {
+	QuestionSetID      string
+	QuestionSetVersion string
+	PolicyID           string
+	PolicyVersion      string
+}
+
+// Ref returns the bundle reference of this profile.
+func (p Profile) Ref() Ref {
+	return Ref{
+		QuestionSetID: p.questionSet.ID, QuestionSetVersion: p.questionSet.Version,
+		PolicyID: p.policy.ID, PolicyVersion: p.policy.Version,
+	}
+}
+
+// Registry is the immutable set of profiles one deployment evaluates and replays.
+type Registry struct {
+	byRef   map[Ref]Profile
+	ordered []Profile
+}
+
+// NewRegistry freezes profiles. The first profile is the one live evaluations use.
+func NewRegistry(profiles ...Profile) (Registry, error) {
+	if len(profiles) == 0 {
+		return Registry{}, fmt.Errorf("registry needs at least one profile")
+	}
+	byRef := make(map[Ref]Profile, len(profiles))
+	ordered := make([]Profile, 0, len(profiles))
+	for _, prof := range profiles {
+		ref := prof.Ref()
+		if ref.QuestionSetID == "" {
+			return Registry{}, fmt.Errorf("registry received an unbuilt profile")
+		}
+		if _, duplicate := byRef[ref]; duplicate {
+			return Registry{}, fmt.Errorf("registry received %s/%s twice", ref.QuestionSetID, ref.QuestionSetVersion)
+		}
+		byRef[ref] = prof
+		ordered = append(ordered, prof)
+	}
+	return Registry{byRef: byRef, ordered: ordered}, nil
+}
+
+// MustRegistry is NewRegistry for composition roots.
+func MustRegistry(profiles ...Profile) Registry {
+	registry, err := NewRegistry(profiles...)
+	if err != nil {
+		panic(err)
+	}
+	return registry
+}
+
+// Lookup returns the profile a bundle names, if this deployment pins it.
+func (r Registry) Lookup(ref Ref) (Profile, bool) {
+	prof, ok := r.byRef[ref]
+	return prof, ok
+}
+
+// Default is the profile used for live evaluations.
+func (r Registry) Default() (Profile, bool) {
+	if len(r.ordered) == 0 {
+		return Profile{}, false
+	}
+	return r.ordered[0], true
+}

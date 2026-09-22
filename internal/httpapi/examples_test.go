@@ -35,8 +35,8 @@ func TestExampleRequestsRunThroughTheProtocol(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 18 {
-		t.Fatalf("example requests = %d, want 18", len(entries))
+	if len(entries) != 19 {
+		t.Fatalf("example requests = %d, want 19", len(entries))
 	}
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
@@ -85,6 +85,9 @@ func TestExampleRequestsRunThroughTheProtocol(t *testing.T) {
 			}
 			if strings.Contains(string(state), `"client_ref"`) || strings.Contains(string(response.ReplayBundle), `"client_ref"`) {
 				t.Fatal("caller metadata entered the decision state or the replay bundle")
+			}
+			if strings.HasSuffix(entry.Name(), "-frozen.json") && !strings.Contains(string(raw), `"frozen_context"`) {
+				t.Fatal("frozen-context example does not declare its input")
 			}
 			replay := httptest.NewRequest(http.MethodPost, "/v1/replays", strings.NewReader(string(response.ReplayBundle)))
 			replay.Header.Set("Authorization", "Bearer test-token")

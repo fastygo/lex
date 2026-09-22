@@ -42,12 +42,14 @@ The running profile is:
 - no TypeScript SDK or JavaScript application runtime in v0.1.
 
 Context v0.1.0 and Framework v0.3.0 are pinned. The service freezes a Context
-pack with embedded `memory-exact-v1`, asks the embedded `claim-validation`
-`0.2.0` question set through a direct or hosted System One adapter, applies
-the uncalibrated `0.2.0` policy, and returns a verdict plus a caller-owned
-replay bundle. Replay reproduces that verdict without contacting a retrieval
-service or a provider. It recomputes the Context pack from the frozen snapshot
-already in the bundle and does not replace the saved pack. The wire envelope
+pack with embedded `memory-exact-v1` from caller text, or accepts a state the
+caller already froze through that runtime and has Context reproduce it. It then
+asks the embedded `claim-validation` `0.2.0` question set through a direct or
+hosted System One adapter, applies the uncalibrated `0.2.0` policy, and returns
+a verdict plus a caller-owned replay bundle. Replay reproduces that verdict
+without contacting a retrieval service or a provider. It has Context rebuild
+the pack from the frozen snapshot already in the bundle and does not replace
+the saved pack; LeX itself does not recompute selection. The wire envelope
 remains `0.1-draft`. Bundles pinned to the `0.1` profile are rejected by this
 verifier.
 
@@ -70,8 +72,13 @@ EntityEnvelope + ValidationIntent
 ```
 
 Replay consumes a caller-retained frozen bundle. It does not contact a retrieval
-service or invoke a decision provider. A recomputation from the frozen snapshot
-checks the saved pack and does not replace it.
+service or invoke a decision provider. Context's rebuild from the frozen
+snapshot checks the saved pack and does not replace it.
+
+Profiles are objects: each pins a question set, a policy document and gate,
+an entity kind, and a Context focus, and hashes them. The deployment composes
+a registry; live evaluation uses its first profile and replay resolves the
+profile a bundle names. The verifier is generic over profiles.
 
 Controlled execution is deliberately outside the first slice. A validation
 verdict does not prove that an operation occurred.
@@ -214,7 +221,31 @@ uncalibrated.
 ```
 
 The exact phrase in `query` must occur in a source text or the selection is
-empty. The 18 scenario bodies derived from `.project/.jev/examples/` are in
+empty.
+
+A caller that already holds a frozen state from the pinned Context runtime
+sends it instead of `sources`. Exactly one of the two inputs is present.
+`pack_request.query` must equal `query`, the pack request must carry the
+profile focus with no caller controls, and Context must reproduce the snapshot
+and pack before a provider is called; otherwise the response is HTTP 422
+`pack_error` with the findings the verifier would emit. `GET /v1/capabilities`
+lists the accepted inputs under `context.inputs`.
+
+```json
+{
+  "project_id": "example-project",
+  "entity": {"id": "claim-1", "type": "claim", "schema_version": "0.1", "version": "1"},
+  "query": "account is locked",
+  "context": {
+    "pack": {"id": "pack_…", "evidence_items": ["…"], "…": "…"},
+    "snapshot": {"id": "snapshot_…", "project_id": "example-project", "runtime_version": "memory-exact-v1", "sources": ["…"]},
+    "pack_request": {"project_id": "example-project", "query": "account is locked", "focus": {"…": "…"}}
+  }
+}
+```
+
+The 19 scenario bodies derived from `.project/.jev/examples/`, including one
+complete `frozen_context` body, are in
 [`.project/.jev/test-vercel/requests/`](.project/.jev/test-vercel/requests/).
 The JSON maps next to those research notes are Jev question and response
 captures. Posting one of them to `/v1/evaluations` is rejected. Replay posts

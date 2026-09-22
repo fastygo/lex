@@ -7,7 +7,6 @@ const (
 	CodeActionInconsistent        = "action_inconsistent"
 	CodeBindingMismatch           = "binding_mismatch"
 	CodeChecksumMismatch          = "checksum_mismatch"
-	CodeChunkIdentity             = "chunk_identity"
 	CodeEntityChecksumMismatch    = "entity_checksum_mismatch"
 	CodeEstablishmentBelow        = "establishment_below_threshold"
 	CodeEvidenceConflict          = "evidence_conflict"
@@ -17,14 +16,10 @@ const (
 	CodeMissingProvenance         = "missing_provenance"
 	CodeNegativeResult            = "negative_result"
 	CodeNoEligibleEvidence        = "no_eligible_evidence"
-	CodePackEnvelope              = "pack_envelope"
 	CodePackRebuild               = "pack_rebuild"
-	CodePackRequestIdentity       = "pack_request_identity"
 	CodePackShape                 = "pack_shape"
 	CodePartialSurface            = "partial_surface"
 	CodeProjectBinding            = "project_binding"
-	CodeQueryMismatch             = "query_mismatch"
-	CodeRejectionMismatch         = "rejection_mismatch"
 	CodeReviewRequired            = "review_required"
 	CodeSafetyGate                = "safety_gate"
 	CodeSnapshotIdentity          = "snapshot_identity"
@@ -53,7 +48,6 @@ func FindingCodes() []string {
 		CodeActionInconsistent,
 		CodeBindingMismatch,
 		CodeChecksumMismatch,
-		CodeChunkIdentity,
 		CodeEntityChecksumMismatch,
 		CodeEstablishmentBelow,
 		CodeEvidenceConflict,
@@ -63,14 +57,10 @@ func FindingCodes() []string {
 		CodeMissingProvenance,
 		CodeNegativeResult,
 		CodeNoEligibleEvidence,
-		CodePackEnvelope,
 		CodePackRebuild,
-		CodePackRequestIdentity,
 		CodePackShape,
 		CodePartialSurface,
 		CodeProjectBinding,
-		CodeQueryMismatch,
-		CodeRejectionMismatch,
 		CodeReviewRequired,
 		CodeSafetyGate,
 		CodeSnapshotIdentity,

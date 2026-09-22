@@ -20,7 +20,7 @@ import (
 	"github.com/fastygo/lex/internal/adapters/typesafe"
 	"github.com/fastygo/lex/internal/canonical"
 	"github.com/fastygo/lex/internal/evidence"
-	"github.com/fastygo/lex/internal/profile"
+	"github.com/fastygo/lex/internal/profile/claimvalidation"
 	"github.com/fastygo/lex/internal/verify"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
@@ -234,7 +234,7 @@ func TestEvaluationKeepsInjectedSourceTextOutOfQuestions(t *testing.T) {
 }
 
 func TestEvaluationTrimsSourcesToTheFocusItemBudget(t *testing.T) {
-	const sources = profile.FocusMaxItems + 1
+	const sources = claimvalidation.FocusMaxItems + 1
 	decider := &capturingDecider{answers: []byte(passingAnswers)}
 	handler := mustHandlerWithDecider(t, decider)
 	var documents strings.Builder
@@ -265,7 +265,7 @@ func TestEvaluationTrimsSourcesToTheFocusItemBudget(t *testing.T) {
 	if err := json.Unmarshal(encoded, &sent); err != nil {
 		t.Fatal(err)
 	}
-	if len(sent.Evidence) != profile.FocusMaxItems {
+	if len(sent.Evidence) != claimvalidation.FocusMaxItems {
 		t.Fatalf("provider evidence = %d", len(sent.Evidence))
 	}
 	for _, item := range sent.Evidence {
@@ -326,7 +326,7 @@ func TestEvaluationTrimsSourcesToTheFocusItemBudget(t *testing.T) {
 func TestEvaluationKeepsALaterSourceThatFitsTheCharacterBudget(t *testing.T) {
 	decider := &capturingDecider{answers: []byte(passingAnswers)}
 	handler := mustHandlerWithDecider(t, decider)
-	large := "account " + strings.Repeat("x", profile.FocusMaxChars)
+	large := "account " + strings.Repeat("x", claimvalidation.FocusMaxChars)
 	body := `{"project_id":"project-test","entity":{"id":"claim-1","type":"claim","schema_version":"0.1","version":"1"},"query":"account","sources":[{"id":"source-a","version":"v1","text":"` + large + `"},{"id":"source-b","version":"v1","text":"The account is locked."}]}`
 	request := httptest.NewRequest(http.MethodPost, "/v1/evaluations", strings.NewReader(body))
 	request.Header.Set("Authorization", "Bearer test-token")
@@ -1002,8 +1002,8 @@ func TestExactResponseBudgetSkipsProvider(t *testing.T) {
 		ProjectID: "project-test",
 		Query:     "account",
 		Focus: contextmemory.Focus{
-			ID: profile.FocusID, Objective: profile.FocusObjective, RequiredTrustLevel: profile.FocusTrust,
-			Budget: contextmemory.Budget{MaxItems: profile.FocusMaxItems, MaxChars: profile.FocusMaxChars},
+			ID: claimvalidation.FocusID, Objective: claimvalidation.FocusObjective, RequiredTrustLevel: claimvalidation.FocusTrust,
+			Budget: contextmemory.Budget{MaxItems: claimvalidation.FocusMaxItems, MaxChars: claimvalidation.FocusMaxChars},
 		},
 	})
 	if err != nil {

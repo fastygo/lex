@@ -5,19 +5,27 @@ Status: proposed implementation architecture under the fixed scope in [README.md
 ## Request path
 
 ```text
-REST caller: entity + intent + versioned source texts + profile references
+REST caller: entity + intent + (versioned source texts | Context frozen state)
   -> Framework HTTP middleware
   -> authentication + project binding + bounded decoding
-  -> LeX validation slice -> Context v0.1.0 RAM runtime -> frozen ContextPack
+  -> evidence input: freeze text through Context v0.1.0, or accept a frozen
+     state and have Context reproduce it
   -> typed-decision adapter -> frozen DecisionSet
   -> deterministic verifier
   -> Verdict + VerificationReport + EvaluationTrace + replay bundle
 ```
 
 Replay uses the caller-retained bundle. It does not contact a retrieval service
-or a decision provider. It recomputes the Context pack from the frozen snapshot
-and pack request in the bundle and compares that result with the saved pack.
-The saved pack is not replaced.
+or a decision provider. It asks the embedded Context runtime to rebuild the
+snapshot and pack from the frozen sources and pack request in the bundle and
+compares that result with the saved state. The saved pack is not replaced, and
+LeX does not recompute selection, budgeting, or rejection itself.
+
+Profiles are objects, not packages: a profile pins its question set, policy
+document and gate, entity kind, and Context focus, and hashes them. The
+deployment composes a registry of profiles; live evaluation uses the first,
+and replay resolves the profile a bundle names by question-set and policy
+reference. The verifier stays generic over profiles.
 
 Core logic uses Go domain types and explicit ports. Framework owns HTTP
 composition. Context public types and compatibility checks stay in the evidence

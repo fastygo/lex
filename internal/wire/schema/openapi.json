@@ -177,10 +177,17 @@
           "context": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["capability", "retrieval"],
+            "required": ["capability", "retrieval", "inputs"],
             "properties": {
               "capability": {"const": "memory-exact-v1"},
-              "retrieval": {"const": "exact_phrase"}
+              "retrieval": {"const": "exact_phrase"},
+              "inputs": {
+                "type": "array",
+                "description": "Evidence inputs POST /v1/evaluations accepts, in disclosure order.",
+                "items": {"enum": ["sources", "frozen_context"]},
+                "minItems": 1,
+                "uniqueItems": true
+              }
             }
           },
           "operations": {
@@ -248,7 +255,7 @@
         "additionalProperties": false,
         "required": ["code", "verdict", "detail"],
         "properties": {
-          "code": {"type": "string", "pattern": "^(action_inconsistent|binding_mismatch|checksum_mismatch|chunk_identity|entity_checksum_mismatch|establishment_below_threshold|evidence_conflict|inference_only|instruction_in_evidence|invalid_answers|missing_provenance|negative_result|no_eligible_evidence|pack_envelope|pack_rebuild|pack_request_identity|pack_shape|partial_surface|project_binding|query_mismatch|rejection_mismatch|review_required|safety_gate|snapshot_identity|source_admission|support_below_threshold|unknown_adapter|unpinned_adapter|unpinned_entity|unpinned_focus|unpinned_policy|unpinned_question_set|unpinned_verifier|unresolved_model|(answer_type_mismatch|invalid_choice|invalid_noul|invalid_score|missing_answer|unexpected_answer|unsupported_question_type):.+)$"},
+          "code": {"type": "string", "pattern": "^(action_inconsistent|binding_mismatch|checksum_mismatch|entity_checksum_mismatch|establishment_below_threshold|evidence_conflict|inference_only|instruction_in_evidence|invalid_answers|missing_provenance|negative_result|no_eligible_evidence|pack_rebuild|pack_shape|partial_surface|project_binding|review_required|safety_gate|snapshot_identity|source_admission|support_below_threshold|unknown_adapter|unpinned_adapter|unpinned_entity|unpinned_focus|unpinned_policy|unpinned_question_set|unpinned_verifier|unresolved_model|(answer_type_mismatch|invalid_choice|invalid_noul|invalid_score|missing_answer|unexpected_answer|unsupported_question_type):.+)$"},
           "verdict": {"$ref": "#/components/schemas/Verdict"},
           "detail": {"type": "string", "minLength": 1}
         }
@@ -302,8 +309,13 @@
       },
       "EvaluationRequest": {
         "type": "object",
+        "description": "Exactly one evidence input is present: `sources` (LeX freezes the text with the embedded Context runtime) or `context` (a pack, snapshot, and pack request the caller already obtained from Context; LeX verifies that Context reproduces it). Both end in the same frozen state and the same verifier checks.",
         "additionalProperties": false,
-        "required": ["project_id", "entity", "query", "sources"],
+        "required": ["project_id", "entity", "query"],
+        "oneOf": [
+          {"required": ["sources"], "not": {"required": ["context"]}},
+          {"required": ["context"], "not": {"required": ["sources"]}}
+        ],
         "properties": {
           "project_id": {"type": "string", "minLength": 1, "maxLength": 256},
           "query": {"type": "string", "minLength": 1, "maxLength": 4096},
@@ -337,6 +349,17 @@
                 "version": {"type": "string", "minLength": 1, "maxLength": 256},
                 "text": {"type": "string", "minLength": 1, "maxLength": 262144}
               }
+            }
+          },
+          "context": {
+            "type": "object",
+            "description": "A frozen state from the pinned Context runtime. `pack_request.query` must equal `query`, and the pack request must carry the profile focus.",
+            "additionalProperties": false,
+            "required": ["pack", "snapshot", "pack_request"],
+            "properties": {
+              "pack": {"type": "object"},
+              "snapshot": {"type": "object"},
+              "pack_request": {"type": "object"}
             }
           }
         }

@@ -12,6 +12,7 @@ import (
 	"github.com/fastygo/lex/internal/adapters/openrouter"
 	"github.com/fastygo/lex/internal/adapters/typesafe"
 	"github.com/fastygo/lex/internal/canonical"
+	"github.com/fastygo/lex/internal/profile/claimvalidation"
 )
 
 func TestGoldenReplayAgreesOnVerdictAndHash(t *testing.T) {
@@ -55,19 +56,13 @@ type goldenCase struct {
 
 func goldenBundle(t *testing.T, tc goldenCase) []byte {
 	t.Helper()
-	pack := addressablePack()
-	snapshot := any(addressableSnapshot())
-	request := any(addressableRequest())
+	frozen := addressableFrozen(t)
 	if tc.inference {
-		pack = []byte(`{"evidence_items":[{"id":"chunk_0000","class":"model_inference","trust_level":"project","surface":"The model says the claim is true."}]}`)
-		snapshot = map[string]any{"id": "snapshot-1"}
-		request = map[string]any{"query": "claim"}
+		frozen = inferenceOnlyFrozen()
 	}
-	raw, err := BuildBundle(BundleInput{
-		Entity:         Entity{ID: "claim-1", ProjectID: "project-test", Type: "claim", SchemaVersion: "0.1", Version: "1"},
-		Pack:           pack,
-		Snapshot:       snapshot,
-		PackRequest:    request,
+	raw, err := BuildBundle(claimvalidation.Profile(), BundleInput{
+		Entity:         testEntity(),
+		Frozen:         frozen,
 		AdapterID:      tc.adapter,
 		AdapterVersion: "0.1.0",
 		ResolvedModel:  goldenModel(tc.adapter),
@@ -138,7 +133,7 @@ func goldenCases() []goldenCase {
 		{name: "conflict", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.9, 0.1, "proceed"), verdict: "conflict", finding: "evidence_conflict", hash: "0ceca6b9b99a2392cefa8a4ee114159d7eb6064131817272292809d2253065df"},
 		{name: "manual-review", adapter: "direct-systemone", answers: goldenAnswers(0.9, 0.9, 0.1, 0.9, "manual_review"), verdict: "manual_review", finding: "review_required", hash: "b88bac4cde8041f681aaf65b511eba49b92b20fe51cdf1697c30963bb4faddf4"},
 		{name: "error", adapter: "direct-systemone", answers: []byte(`{"support":{"type":"noul","noul":2}}`), verdict: "error", finding: "invalid_noul:support", hash: "3b3e313c52d55fe12c9222ed7ffdfc30a6106a0d074ed5685221c5ee3af905f3"},
-		{name: "inference-only", adapter: "direct-systemone", inference: true, answers: goldenAnswers(0.99, 0.99, 0.01, 0.99, "proceed"), verdict: "insufficient", finding: "inference_only", hash: "349f0f744a1138d088419d858123c2cff4e81762a649dd7c82370f3e89141a2c"},
+		{name: "inference-only", adapter: "direct-systemone", inference: true, answers: goldenAnswers(0.99, 0.99, 0.01, 0.99, "proceed"), verdict: "insufficient", finding: "inference_only", hash: "fad0843d7a27204a7d021dc46b3804b6f3933a155bc50a3e08a73c4f2f33c00d"},
 	}
 }
 

@@ -7,12 +7,9 @@ import (
 	"github.com/fastygo/lex/internal/verify"
 )
 
-func parseAnswers(bundle map[string]any) (map[string]verify.Answer, []verify.Finding) {
-	decision, _ := bundle["decision_set"].(map[string]any)
-	raw, err := json.Marshal(decision["answers"])
-	if err != nil {
-		return nil, []verify.Finding{errorFinding(verify.CodeInvalidAnswers)}
-	}
+// parseAnswers decodes raw typed answers without rewriting them. Keys that
+// differ from a reserved field only by case are refused rather than merged.
+func parseAnswers(raw json.RawMessage) (map[string]verify.Answer, []verify.Finding) {
 	var decoded map[string]map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &decoded); err != nil {
 		return nil, []verify.Finding{errorFinding(verify.CodeInvalidAnswers)}

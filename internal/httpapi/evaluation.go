@@ -1,19 +1,12 @@
 package httpapi
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
-	"mime"
 	"net/http"
-	"strings"
 
-	contextmemory "github.com/fastygo/context/pkg/contextkit/runtime"
-	"github.com/fastygo/lex/internal/canonical"
 	"github.com/fastygo/lex/internal/evidence"
-	"github.com/fastygo/lex/internal/lifecycle"
 	"github.com/fastygo/lex/internal/profile"
 	"github.com/fastygo/lex/internal/verify"
 	"github.com/fastygo/lex/internal/wire"
@@ -36,449 +29,226 @@ type Decision struct {
 	Usage            json.RawMessage
 }
 
-type evaluationRequest struct {
-	ProjectID string            `json:"project_id"`
-	Entity    entityRequest     `json:"entity"`
-	Query     string            `json:"query"`
-	Sources   []sourceDocument  `json:"sources"`
-	Metadata  map[string]string `json:"metadata,omitempty"`
-}
-
-type entityRequest struct {
-	ID            string `json:"id"`
-	Type          string `json:"type"`
-	SchemaVersion string `json:"schema_version"`
-	Version       string `json:"version"`
-}
-
-type sourceDocument struct {
-	ID      string `json:"id"`
-	Version string `json:"version"`
-	Text    string `json:"text"`
-}
-
-type evidenceView struct {
-	EvidenceItems []struct {
-		Class      string `json:"class"`
-		TrustLevel string `json:"trust_level"`
-		Surface    string `json:"surface"`
-		SourceRef  struct {
-			SourceID string `json:"source_id"`
-		} `json:"source_ref"`
-	} `json:"evidence_items"`
-}
-
-func evaluate(w http.ResponseWriter, request *http.Request, decider Decider, maxBodyBytes int64, verifier wire.Verifier) {
-	if request.Method != http.MethodPost {
-		w.Header().Set("Allow", http.MethodPost)
-		writeProblem(w, http.StatusMethodNotAllowed, reasonMethodNotAllowed, "only POST is supported")
-		return
-	}
-	if !acceptsJSON(request.Header.Get("Accept")) {
-		writeProblem(w, http.StatusNotAcceptable, reasonNotAcceptable, "Accept must allow application/json")
-		return
-	}
-	contentType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
-	if err != nil || contentType != "application/json" {
-		writeProblem(w, http.StatusUnsupportedMediaType, reasonUnsupportedMediaType, "Content-Type must be application/json")
-		return
-	}
-	raw, err := io.ReadAll(io.LimitReader(request.Body, defaultMaxBodyBytes))
+// evaluate runs one synchronous evaluation:
+//
+//	receive -> pack (freeze or accept evidence) -> decide -> verify
+//
+// Each stage either advances the recorder or ends the request with a traced problem.
+func evaluate(w http.ResponseWriter, request *http.Request, config Config, verifier wire.Verifier) {
+	prof := config.profile()
+	body, err := readEvaluation(request, prof)
 	if err != nil {
-		writeProblem(w, http.StatusRequestEntityTooLarge, reasonBodyTooLarge, "request body exceeds the configured limit")
+		writeRequestProblem(w, err)
 		return
 	}
-	if _, err = canonical.DecodeJSON(raw); err != nil {
-		writeProblem(w, http.StatusBadRequest, reasonInvalidJSON, "request body must be one evaluation object")
-		return
-	}
-	if err = wire.ValidateEvaluationRequest(raw); err != nil {
-		writeProblem(w, http.StatusBadRequest, reasonInvalidJSON, "request body must be one evaluation object")
-		return
-	}
-	var body evaluationRequest
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.DisallowUnknownFields()
-	if err = decoder.Decode(&body); err != nil {
-		writeProblem(w, http.StatusBadRequest, reasonInvalidJSON, "request body must be one evaluation object")
-		return
-	}
-	projects, _ := request.Context().Value(projectsKey{}).([]string)
-	if !containsProject(projects, body.ProjectID) {
-		writeProblem(w, http.StatusForbidden, reasonProjectForbidden, "the authenticated principal cannot access this project")
-		return
-	}
-	if !validEntity(body.Entity) || strings.TrimSpace(body.Query) == "" || len(body.Sources) == 0 {
-		writeProblem(w, http.StatusUnprocessableEntity, reasonQuestionError, "entity, query, and at least one source are required")
-		return
-	}
-	if len(body.Sources) > contextmemory.MaxSources {
-		writeProblem(w, http.StatusUnprocessableEntity, reasonQuestionError, "a request can include at most 128 sources")
-		return
-	}
+	st := evaluationStages()
 
-	sources := make([]contextmemory.Source, len(body.Sources))
-	packRequest := contextmemory.PackRequest{
-		ProjectID: body.ProjectID,
-		Query:     body.Query,
-		Focus: contextmemory.Focus{
-			ID:                 profile.FocusID,
-			Objective:          profile.FocusObjective,
-			RequiredTrustLevel: profile.FocusTrust,
-			Budget:             contextmemory.Budget{MaxItems: profile.FocusMaxItems, MaxChars: profile.FocusMaxChars},
-		},
-	}
-	for i, source := range body.Sources {
-		sources[i] = contextmemory.Source{
-			SourceID: source.ID, Version: source.Version, Text: source.Text,
-			TrustLevel: "project", EvidenceClass: "source_text",
-		}
-	}
-	pack, err := evidence.BuildPack(request.Context(), body.ProjectID, sources, packRequest)
+	frozen, err := freezeEvidence(request.Context(), prof, body)
 	if err != nil {
-		if writeRequestStop(w, err, trace("receive", "completed", "pack", "failed")) {
+		if writeRequestStop(w, err, st.ending("pack", "failed")) {
 			return
 		}
-		tracedProblem(w, http.StatusUnprocessableEntity, reasonPackError, "Context could not freeze the supplied sources", trace("receive", "completed", "pack", "failed"))
+		var refusal packRefusal
+		if errors.As(err, &refusal) {
+			tracedProblemWithFindings(w, http.StatusUnprocessableEntity, refusal.reason, refusal.detail, st.ending("pack", "failed"), refusal.findings)
+			return
+		}
+		tracedProblem(w, http.StatusUnprocessableEntity, reasonPackError, "Context could not freeze the supplied sources", st.ending("pack", "failed"))
 		return
 	}
-	items, err := admissibleEvidence(pack.ContextPack)
+	items, err := evidence.Items(frozen.Pack)
 	if err != nil {
-		tracedProblem(w, http.StatusUnprocessableEntity, reasonPackError, "frozen evidence failed admission", trace("receive", "completed", "pack", "failed"))
+		tracedProblem(w, http.StatusUnprocessableEntity, reasonPackError, "frozen evidence failed admission", st.ending("pack", "failed"))
 		return
 	}
+	st.completed("pack")
 	if len(items) == 0 {
-		if writeRequestStop(w, request.Context().Err(), trace("receive", "completed", "pack", "completed", "decide", "failed")) {
+		if writeRequestStop(w, request.Context().Err(), st.ending("decide", "failed")) {
 			return
 		}
-		writeSkippedEvaluation(w, request, body, pack, packRequest, maxBodyBytes, verifier)
+		writeSkippedEvaluation(w, request, prof, body, frozen, config, verifier, st)
 		return
 	}
-	if decider == nil {
-		tracedProblem(w, http.StatusServiceUnavailable, reasonDecisionProviderUnavailable, "no decision adapter is configured", trace("receive", "completed", "pack", "completed", "decide", "skipped"))
+	if config.Decider == nil {
+		tracedProblem(w, http.StatusServiceUnavailable, reasonDecisionProviderUnavailable, "no decision adapter is configured", st.ending("decide", "skipped"))
 		return
 	}
-	snapshotRaw, err := json.Marshal(pack.Snapshot)
+	remaining, ok := responseBudget(frozen, config.MaxBodyBytes)
+	if !ok {
+		tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the frozen pack does not fit the response budget", st.ending("decide", "skipped"))
+		return
+	}
+	if writeRequestStop(w, request.Context().Err(), st.ending("decide", "failed")) {
+		return
+	}
+
+	decision, err := config.Decider.Evaluate(withAnswerBudget(request.Context(), remaining), prof.State(body.Query, items), prof.ProviderQuestions())
 	if err != nil {
-		tracedProblem(w, http.StatusUnprocessableEntity, reasonPackError, "Context snapshot could not be measured", trace("receive", "completed", "pack", "failed"))
-		return
-	}
-	if int64(len(pack.ContextPack)+len(snapshotRaw))+responseReserve >= maxBodyBytes {
-		tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the frozen pack does not fit the response budget", trace("receive", "completed", "pack", "completed", "decide", "skipped"))
-		return
-	}
-	remaining := maxBodyBytes - int64(len(pack.ContextPack)+len(snapshotRaw)) - responseReserve
-	if writeRequestStop(w, request.Context().Err(), trace("receive", "completed", "pack", "completed", "decide", "failed")) {
-		return
-	}
-	decision, err := decider.Evaluate(withAnswerBudget(request.Context(), remaining), map[string]any{
-		"claim": body.Query, "evidence": items,
-	}, profile.ProviderQuestions())
-	if err != nil {
-		if writeRequestStop(w, err, trace("receive", "completed", "pack", "completed", "decide", "failed")) {
-			return
-		}
-		if exceedsResponseBudget(err) {
-			tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the decision response does not fit the response budget", trace("receive", "completed", "pack", "completed", "decide", "failed"))
-			return
-		}
-		if retryableProvider(err) {
-			tracedProblem(w, http.StatusServiceUnavailable, reasonProviderUnavailable, "the decision provider is unavailable", trace("receive", "completed", "pack", "completed", "decide", "failed"))
-			return
-		}
-		tracedProblem(w, http.StatusBadGateway, reasonDecisionError, "the decision adapter failed", trace("receive", "completed", "pack", "completed", "decide", "failed"))
+		writeDecisionFailure(w, err, st)
 		return
 	}
 	if int64(len(decision.Answers)) > remaining {
-		tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the decision answers do not fit the response budget", trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
+		tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the decision answers do not fit the response budget", st.completed("decide").ending("verify", "failed"))
 		return
 	}
-	if writeRequestStop(w, request.Context().Err(), trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed")) {
+	st.completed("decide")
+	if writeRequestStop(w, request.Context().Err(), st.ending("verify", "failed")) {
 		return
 	}
-	bundle, err := wire.BuildBundle(wire.BundleInput{
-		Entity: wire.Entity{
-			ID: body.Entity.ID, ProjectID: body.ProjectID, Type: body.Entity.Type,
-			SchemaVersion: body.Entity.SchemaVersion, Version: body.Entity.Version,
-		},
-		Pack: pack.ContextPack, Snapshot: pack.Snapshot, PackRequest: packRequest,
-		AdapterID: decider.AdapterID(), AdapterVersion: decider.AdapterVersion(),
+
+	bundle, err := wire.BuildBundle(prof, wire.BundleInput{
+		Entity: body.entity(), Frozen: frozen,
+		AdapterID: config.Decider.AdapterID(), AdapterVersion: config.Decider.AdapterVersion(),
 		ResolvedModel: decision.ResolvedModel, Answers: decision.Answers,
 	})
 	if err != nil {
-		tracedProblem(w, http.StatusBadGateway, reasonDecisionError, "the decision adapter returned answers that cannot be sealed", trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
+		tracedProblem(w, http.StatusBadGateway, reasonDecisionError, "the decision adapter returned answers that cannot be sealed", st.ending("verify", "failed"))
 		return
 	}
 	report, err := verifier.ReplayContext(request.Context(), bundle)
 	if err != nil {
-		if writeRequestStop(w, err, trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed")) {
+		if writeRequestStop(w, err, st.ending("verify", "failed")) {
 			return
 		}
 		status, reason, detail := replayFailure(err)
-		tracedProblem(w, status, reason, detail, trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
+		tracedProblem(w, status, reason, detail, st.ending("verify", "failed"))
 		return
 	}
+	st.completed("verify")
 	if report.Verdict == verify.VerdictError {
-		writeVerdictProblem(w, http.StatusUnprocessableEntity, reasonDecisionError, "typed answers failed deterministic checks", report, bundle, adapterMetadata(decision), maxBodyBytes)
+		writeVerdictProblem(w, http.StatusUnprocessableEntity, reasonDecisionError, "typed answers failed deterministic checks", report, bundle, adapterMetadata(decision), config.MaxBodyBytes, st)
 		return
 	}
 	writeEvaluation(w, evaluationResponse{
-		ProtocolVersion: "0.1-draft",
+		ProtocolVersion: wire.ProtocolVersion,
 		Verdict:         string(report.Verdict),
 		Findings:        report.Findings,
-		ContextRuntime:  pack.Snapshot.RuntimeVersion,
+		ContextRuntime:  frozen.Snapshot.RuntimeVersion,
 		ResolvedModel:   decision.ResolvedModel,
 		ReplayAvailable: true,
 		ReplayBundle:    bundle,
-		Trace:           trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "completed"),
-		Policy:          policyDisclosure(),
+		Trace:           st.view(),
+		Policy:          policyDisclosure(prof),
 		Retention:       retentionDisclosure(),
 		AdapterMetadata: adapterMetadata(decision),
-	}, maxBodyBytes)
+	}, config.MaxBodyBytes, st)
 }
 
-type evaluationResponse struct {
-	ProtocolVersion string               `json:"protocol_version"`
-	Verdict         string               `json:"verdict"`
-	Findings        []verify.Finding     `json:"findings"`
-	ContextRuntime  string               `json:"context_runtime"`
-	ResolvedModel   string               `json:"resolved_model,omitempty"`
-	ReplayAvailable bool                 `json:"replay_available"`
-	ReplayBundle    json.RawMessage      `json:"replay_bundle,omitempty"`
-	Stage           string               `json:"stage,omitempty"`
-	Trace           []traceStage         `json:"trace"`
-	Policy          policyDisclosureView `json:"policy"`
-	Retention       retentionView        `json:"retention"`
-	AdapterMetadata map[string]any       `json:"adapter_metadata,omitempty"`
+// packRefusal is a deterministic pack-stage refusal with optional findings.
+type packRefusal struct {
+	reason   string
+	detail   string
+	findings []verify.Finding
 }
 
-type traceStage struct {
-	Name   string `json:"name"`
-	Status string `json:"status"`
+func (r packRefusal) Error() string { return r.detail }
+
+// freezeEvidence obtains the frozen state through the input the caller chose.
+// Both inputs end in the same Frozen state and the same verifier checks.
+func freezeEvidence(ctx context.Context, prof profile.Profile, body evaluationRequest) (evidence.Frozen, error) {
+	switch body.inputKind() {
+	case evidence.KindFrozenContext:
+		return acceptFrozenContext(ctx, prof, body)
+	default:
+		sources := make([]evidence.Source, len(body.Sources))
+		for i, source := range body.Sources {
+			sources[i] = evidence.Source{ID: source.ID, Version: source.Version, Text: source.Text}
+		}
+		return evidence.FromSources(ctx, body.ProjectID, evidence.PackRequest(body.ProjectID, body.Query, prof.Focus()), sources)
+	}
 }
 
-type policyDisclosureView struct {
-	ID          string `json:"id"`
-	Version     string `json:"version"`
-	Calibration string `json:"calibration"`
-}
-
-func policyDisclosure() policyDisclosureView {
-	return policyDisclosureView{ID: profile.PolicyID, Version: profile.PolicyVersion, Calibration: profile.Calibration}
-}
-
-func writeSkippedEvaluation(w http.ResponseWriter, request *http.Request, body evaluationRequest, pack contextmemory.PackResult, packRequest contextmemory.PackRequest, maxBodyBytes int64, verifier wire.Verifier) {
-	snapshotRaw, err := json.Marshal(pack.Snapshot)
+// acceptFrozenContext takes a state the caller already obtained from Context.
+// LeX does not trust it: the same controls the verifier applies at replay run
+// here first, so a state Context cannot reproduce never reaches a provider.
+func acceptFrozenContext(ctx context.Context, prof profile.Profile, body evaluationRequest) (evidence.Frozen, error) {
+	frozen, err := evidence.Decode(body.Context.Pack, body.Context.Snapshot, body.Context.PackRequest)
 	if err != nil {
-		tracedProblem(w, http.StatusUnprocessableEntity, reasonPackError, "Context snapshot could not be measured", trace("receive", "completed", "pack", "failed"))
-		return
+		return evidence.Frozen{}, packRefusal{reason: reasonPackError, detail: "the supplied context is not a Context frozen state"}
 	}
-	if int64(len(pack.ContextPack)+len(snapshotRaw))+responseReserve >= maxBodyBytes {
-		tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the frozen pack does not fit the response budget", trace("receive", "completed", "pack", "completed", "decide", "skipped"))
-		return
+	if frozen.PackRequest.Query != body.Query {
+		return evidence.Frozen{}, packRefusal{reason: reasonQuestionError, detail: "query must equal the frozen pack request query"}
 	}
-	bundle, err := wire.BuildBundle(wire.BundleInput{
-		Entity: wire.Entity{
-			ID: body.Entity.ID, ProjectID: body.ProjectID, Type: body.Entity.Type,
-			SchemaVersion: body.Entity.SchemaVersion, Version: body.Entity.Version,
-		},
-		Pack: pack.ContextPack, Snapshot: pack.Snapshot, PackRequest: packRequest, Skipped: true,
+	findings, err := wire.CheckContext(ctx, prof, body.ProjectID, wire.ContextRecord{
+		Pack: body.Context.Pack, Snapshot: body.Context.Snapshot, PackRequest: body.Context.PackRequest,
 	})
 	if err != nil {
-		tracedProblem(w, http.StatusInternalServerError, reasonVerificationError, "the sealed bundle could not be verified", trace("receive", "completed", "pack", "completed", "decide", "failed"))
+		return evidence.Frozen{}, err
+	}
+	for _, finding := range findings {
+		if finding.Verdict == verify.VerdictError {
+			return evidence.Frozen{}, packRefusal{reason: reasonPackError, detail: "the supplied frozen context failed deterministic verification", findings: findings}
+		}
+	}
+	return frozen, nil
+}
+
+// responseBudget reports how many bytes remain for provider answers once the
+// frozen state is echoed in the response, or false when the state alone does not fit.
+func responseBudget(frozen evidence.Frozen, maxBodyBytes int64) (int64, bool) {
+	snapshot, err := json.Marshal(frozen.Snapshot)
+	if err != nil {
+		return 0, false
+	}
+	request, err := json.Marshal(frozen.PackRequest)
+	if err != nil {
+		return 0, false
+	}
+	used := int64(len(frozen.Pack)+len(snapshot)+len(request)) + responseReserve
+	if used >= maxBodyBytes {
+		return 0, false
+	}
+	return maxBodyBytes - used, true
+}
+
+func writeDecisionFailure(w http.ResponseWriter, err error, st *stages) {
+	failed := st.ending("decide", "failed")
+	switch {
+	case writeRequestStop(w, err, failed):
+	case exceedsResponseBudget(err):
+		tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the decision response does not fit the response budget", failed)
+	case retryableProvider(err):
+		tracedProblem(w, http.StatusServiceUnavailable, reasonProviderUnavailable, "the decision provider is unavailable", failed)
+	default:
+		tracedProblem(w, http.StatusBadGateway, reasonDecisionError, "the decision adapter failed", failed)
+	}
+}
+
+// writeSkippedEvaluation seals and verifies an evaluation whose pack has no
+// admissible evidence. No provider is called; the verdict is insufficient.
+func writeSkippedEvaluation(w http.ResponseWriter, request *http.Request, prof profile.Profile, body evaluationRequest, frozen evidence.Frozen, config Config, verifier wire.Verifier, st *stages) {
+	if _, ok := responseBudget(frozen, config.MaxBodyBytes); !ok {
+		tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the frozen pack does not fit the response budget", st.ending("decide", "skipped"))
+		return
+	}
+	bundle, err := wire.BuildBundle(prof, wire.BundleInput{Entity: body.entity(), Frozen: frozen, Skipped: true})
+	if err != nil {
+		tracedProblem(w, http.StatusInternalServerError, reasonVerificationError, "the sealed bundle could not be verified", st.ending("decide", "failed"))
 		return
 	}
 	report, err := verifier.ReplayContext(request.Context(), bundle)
 	if err != nil {
-		if writeRequestStop(w, err, trace("receive", "completed", "pack", "completed", "decide", "failed")) {
+		if writeRequestStop(w, err, st.ending("decide", "failed")) {
 			return
 		}
-		tracedProblem(w, http.StatusInternalServerError, reasonVerificationError, "the sealed bundle could not be verified", trace("receive", "completed", "pack", "completed", "decide", "failed"))
+		tracedProblem(w, http.StatusInternalServerError, reasonVerificationError, "the sealed bundle could not be verified", st.ending("decide", "failed"))
 		return
 	}
 	if report.Verdict != verify.VerdictInsufficient {
-		tracedProblem(w, http.StatusInternalServerError, reasonVerificationError, "the sealed bundle could not be verified", trace("receive", "completed", "pack", "completed", "decide", "failed"))
+		tracedProblem(w, http.StatusInternalServerError, reasonVerificationError, "the sealed bundle could not be verified", st.ending("decide", "failed"))
 		return
 	}
+	st.skipped("decide").completed("verify")
 	writeEvaluation(w, evaluationResponse{
-		ProtocolVersion: "0.1-draft",
+		ProtocolVersion: wire.ProtocolVersion,
 		Verdict:         string(report.Verdict),
 		Findings:        report.Findings,
-		ContextRuntime:  pack.Snapshot.RuntimeVersion,
+		ContextRuntime:  frozen.Snapshot.RuntimeVersion,
 		ReplayAvailable: true,
 		ReplayBundle:    bundle,
 		Stage:           "retrieval",
-		Trace:           trace("receive", "completed", "pack", "completed", "decide", "skipped", "verify", "completed"),
-		Policy:          policyDisclosure(),
+		Trace:           st.view(),
+		Policy:          policyDisclosure(prof),
 		Retention:       retentionDisclosure(),
-	}, maxBodyBytes)
-}
-
-func adapterMetadata(decision Decision) map[string]any {
-	if decision.RequestID == "" && decision.EvaluationTimeMS == nil && len(decision.Usage) == 0 {
-		return nil
-	}
-	view := map[string]any{}
-	if decision.RequestID != "" {
-		view["request_id"] = decision.RequestID
-	}
-	if decision.EvaluationTimeMS != nil {
-		view["evaluation_time_ms"] = *decision.EvaluationTimeMS
-	}
-	if len(decision.Usage) > 0 {
-		var usage any
-		if err := json.Unmarshal(decision.Usage, &usage); err != nil {
-			return nil
-		}
-		view["usage"] = usage
-	}
-	return view
-}
-
-func tracedProblem(w http.ResponseWriter, status int, reason, detail string, stages []traceStage) {
-	writeProblemBody(w, status, reason, detail, map[string]any{"trace": stages})
-}
-
-func trace(pairs ...string) []traceStage {
-	events := make([]lifecycle.Event, 0, len(pairs)/2)
-	for i := 0; i+1 < len(pairs); i += 2 {
-		events = append(events, lifecycle.Event{Name: pairs[i], Status: pairs[i+1]})
-	}
-	if err := lifecycle.Run(lifecycle.Evaluation, events); err != nil {
-		panic(err)
-	}
-	stages := make([]traceStage, 0, len(events))
-	for _, event := range events {
-		stages = append(stages, traceStage{Name: event.Name, Status: event.Status})
-	}
-	return stages
-}
-
-func replayTrace() []traceStage {
-	return replayTraceStatus("completed")
-}
-
-func replayTraceStatus(status string) []traceStage {
-	event := lifecycle.Event{Name: "replay", Status: status}
-	if err := lifecycle.Run(lifecycle.Replay, []lifecycle.Event{event}); err != nil {
-		panic(err)
-	}
-	return []traceStage{{Name: event.Name, Status: event.Status}}
-}
-
-const statusClientClosedRequest = 499
-
-func writeRequestStop(w http.ResponseWriter, err error, stages []traceStage) bool {
-	status, reason, detail, stopped := requestStopped(err)
-	if !stopped {
-		return false
-	}
-	tracedProblem(w, status, reason, detail, stages)
-	return true
-}
-
-type providerRetryable interface {
-	ProviderRetryable() bool
-}
-
-func retryableProvider(err error) bool {
-	var retryable providerRetryable
-	return errors.As(err, &retryable) && retryable.ProviderRetryable()
-}
-
-func replayFailure(err error) (int, string, string) {
-	if errors.Is(err, verify.ErrUnusablePolicy) {
-		return http.StatusInternalServerError, reasonPolicyError, "the policy evaluator could not apply its thresholds"
-	}
-	return http.StatusInternalServerError, reasonVerificationError, "the sealed bundle could not be verified"
-}
-
-type answerBudgetKey struct{}
-
-func withAnswerBudget(ctx context.Context, n int64) context.Context {
-	return context.WithValue(ctx, answerBudgetKey{}, n)
-}
-
-// AnswerBudget is the maximum provider body that still fits this response.
-func AnswerBudget(ctx context.Context) (int64, bool) {
-	n, ok := ctx.Value(answerBudgetKey{}).(int64)
-	return n, ok && n > 0
-}
-
-type responseLimited interface {
-	ExceedsResponseBudget() bool
-}
-
-func exceedsResponseBudget(err error) bool {
-	var limited responseLimited
-	return errors.As(err, &limited) && limited.ExceedsResponseBudget()
-}
-
-func requestStopped(err error) (int, string, string, bool) {
-	switch {
-	case errors.Is(err, context.DeadlineExceeded):
-		return http.StatusGatewayTimeout, reasonDeadlineExceeded, "the request deadline elapsed before the stage finished", true
-	case errors.Is(err, context.Canceled):
-		return statusClientClosedRequest, reasonClientCanceled, "the client disconnected before the stage finished", true
-	default:
-		return 0, "", "", false
-	}
-}
-
-func writeEvaluation(w http.ResponseWriter, body evaluationResponse, maxBodyBytes int64) {
-	if body.Findings == nil {
-		body.Findings = []verify.Finding{}
-	}
-	encoded, err := json.Marshal(body)
-	if err != nil || int64(len(encoded)) > maxBodyBytes {
-		tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the evaluation response does not fit the response budget", trace("receive", "completed", "pack", "completed", "decide", "completed", "verify", "failed"))
-		return
-	}
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(encoded)
-}
-
-func admissibleEvidence(raw json.RawMessage) ([]map[string]string, error) {
-	var pack evidenceView
-	if err := json.Unmarshal(raw, &pack); err != nil {
-		return nil, err
-	}
-	items := make([]map[string]string, 0, len(pack.EvidenceItems))
-	for _, item := range pack.EvidenceItems {
-		if item.Class != "source_text" || item.TrustLevel != "project" || item.Surface == "" {
-			return nil, errIneligible
-		}
-		items = append(items, map[string]string{
-			"class": item.Class, "trust_level": item.TrustLevel, "surface": item.Surface, "source_id": item.SourceRef.SourceID,
-		})
-	}
-	return items, nil
-}
-
-var errIneligible = ineligibleError{}
-
-type ineligibleError struct{}
-
-func (ineligibleError) Error() string { return "ineligible evidence" }
-
-func validEntity(entity entityRequest) bool {
-	if entity.Type != profile.EntityType || entity.SchemaVersion != profile.EntitySchemaVersion {
-		return false
-	}
-	for _, field := range []string{entity.ID, entity.Type, entity.SchemaVersion, entity.Version} {
-		if field == "" || len(field) > 256 {
-			return false
-		}
-	}
-	return true
-}
-
-func containsProject(projects []string, projectID string) bool {
-	for _, project := range projects {
-		if project == projectID {
-			return true
-		}
-	}
-	return false
+	}, config.MaxBodyBytes, st)
 }

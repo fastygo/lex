@@ -30,6 +30,15 @@ adapter. Unchecked items are still open.
 - [x] `safe_to_auto_act` label gloss matches the embedded question (accept the claim without a person reading it first)
 - [x] Calibration decision recorded: trial `20260922-0947` does not select new thresholds; `claim-validation` `0.2.0` stays `uncalibrated`
 
+## Architecture pass (2026-09-22)
+
+- [x] Profile as object: `internal/profile` pins question set, policy document and gate, entity kind, and Context focus, and hashes them; `internal/profile/claimvalidation` holds `0.2.0`; a `Registry` composes profiles and the verifier resolves the one a bundle names (`internal/profile`, `internal/wire/verifier.go`)
+- [x] Everything Context can do is delegated to Context: no exact-phrase, budget, rejection, chunk-id, or pack/snapshot-id recomputation in LeX; the verifier has Context rebuild the frozen state and compares by identity and canonical hash (`internal/evidence/frozen.go`, `internal/wire/evidence.go`); withdrawn finding codes `chunk_identity`, `pack_envelope`, `pack_request_identity`, `query_mismatch`, `rejection_mismatch`
+- [x] Two evidence inputs behind one frozen state: `sources` (LeX freezes through Context) and `frozen_context` (caller-frozen state that Context must reproduce), disclosed in `GET /v1/capabilities` `context.inputs`, one-of enforced by the published schema (`internal/evidence`, `internal/httpapi/request.go`, `internal/httpapi/frozen_context_test.go`, request example `context-account-access-frozen.json`)
+- [x] `wire/bundle.go` and `httpapi/evaluation.go` split by responsibility: `document.go`, `verifier.go`, `evidence.go`, `answers.go`; `request.go`, `evaluation.go`, `response.go`, `trace.go`; stage traces rendered through the lifecycle machine
+- [x] Typed replay bundle: `wire.Bundle` decoded after schema and self-hash validation; `TestBundleTypeMirrorsSchema` fails on drift from `replay-bundle.schema.json`
+- [x] Docs aligned: `checks.md`, `integration-stack.md`, `scope.md`, `architecture.md`, ADR-0003, ADR-0004, `conformance-report.md`, `README.md`, `AGENTS.md`
+
 ## Deferred
 
 - [ ] Race evidence on a runner with gcc

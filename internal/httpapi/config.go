@@ -9,6 +9,8 @@ import (
 	"github.com/fastygo/lex/internal/adapters/openrouter"
 	"github.com/fastygo/lex/internal/adapters/typesafe"
 	"github.com/fastygo/lex/internal/canonical"
+	"github.com/fastygo/lex/internal/profile"
+	"github.com/fastygo/lex/internal/profile/claimvalidation"
 	"github.com/fastygo/lex/internal/wire"
 )
 
@@ -28,6 +30,10 @@ type Config struct {
 	MaxInFlight         int
 	Decider             Decider
 	HostedResolvedModel string
+	// Profiles are the question sets and policies this deployment evaluates
+	// and replays. The first profile serves live evaluations. Empty means the
+	// embedded claim-validation profile.
+	Profiles profile.Registry
 }
 
 // LoadConfig reads the API boundary configuration without exposing secrets.
@@ -54,6 +60,9 @@ func LoadConfig() (Config, error) {
 }
 
 func (c *Config) validate() error {
+	if _, ok := c.Profiles.Default(); !ok {
+		c.Profiles = profile.MustRegistry(claimvalidation.Profile())
+	}
 	if c.HostedResolvedModel != "" && !openrouter.ValidResolvedPin(c.HostedResolvedModel) {
 		return fmt.Errorf("LEX_HOSTED_RESOLVED_MODEL must be an exact resolved identity")
 	}
@@ -129,5 +138,11 @@ func (c Config) verifier() wire.Verifier {
 	if c.HostedResolvedModel != "" {
 		pins[openrouter.AdapterID] = wire.AdapterPin{Version: openrouter.AdapterVersion, Model: c.HostedResolvedModel}
 	}
-	return wire.NewVerifier(pins)
+	return wire.NewVerifier(c.Profiles, pins)
+}
+
+// profile is the profile live evaluations use. validate guarantees one exists.
+func (c Config) profile() profile.Profile {
+	prof, _ := c.Profiles.Default()
+	return prof
 }
