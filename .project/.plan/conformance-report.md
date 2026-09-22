@@ -52,6 +52,12 @@ and replay reproduced it. The second sample returned `manual_review` for that
 body. Evidence files contain no credential. This is not the 28-day SLO and not
 the stable release.
 
+Commit `5fc4028` (deployment `6598306610`) adds only this evidence and
+documentation on top of `20d876b`; no Go, schema, or configuration file
+differs. On it, an external-style client outside the repository (curl with
+only `LEX_BASE_URL` and `LEX_TOKEN`, following the `lex-api` skill) received a
+`0.2` `valid` Noul/Score decision and a `decision_reproduced` replay.
+
 Probes: `scripts/probe-generic-canary.mjs` and `scripts/probe-legacy-canary.mjs`
 with `LEX_REVISION`, `LEX_DEPLOYMENT_ID`, and, for legacy,
 `LEX_ROLLBACK_DEPLOYMENT_ID`.
