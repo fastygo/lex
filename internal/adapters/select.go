@@ -7,7 +7,7 @@ import "fmt"
 type Kind string
 
 const (
-	// KindNone means evaluation is not configured.
+	// KindNone means no decision adapter is configured.
 	KindNone Kind = ""
 	// KindDirect is the pinned direct System One endpoint.
 	KindDirect Kind = "direct"
@@ -16,7 +16,7 @@ const (
 )
 
 // Select chooses at most one adapter. Two configured credentials require an
-// explicit selector. An empty result leaves evaluation unavailable.
+// explicit selector. An empty result leaves decisions unavailable.
 func Select(selector string, directConfigured, hostedConfigured bool) (Kind, error) {
 	switch selector {
 	case string(KindDirect):

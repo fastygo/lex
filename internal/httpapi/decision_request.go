@@ -12,19 +12,19 @@ import (
 	"github.com/fastygo/lex/internal/wire"
 )
 
-// decisionRequest is the caller-owned generic decision contract. State and
+// decisionRequest is the caller-owned decision contract. State and
 // QuestionSet are passed to the adapter without domain interpretation.
 type decisionRequest struct {
-	ProjectID   string                  `json:"project_id"`
-	Decision    wire.DecisionIdentity   `json:"decision"`
-	State       json.RawMessage         `json:"state"`
-	QuestionSet wire.GenericQuestionSet `json:"question_set"`
-	Context     *frozenContextRequest   `json:"context,omitempty"`
-	Metadata    map[string]string       `json:"metadata,omitempty"`
+	ProjectID   string                `json:"project_id"`
+	Decision    wire.DecisionIdentity `json:"decision"`
+	State       json.RawMessage       `json:"state"`
+	QuestionSet wire.QuestionSet      `json:"question_set"`
+	Context     *frozenContextRequest `json:"context,omitempty"`
+	Metadata    map[string]string     `json:"metadata,omitempty"`
 }
 
-// readDecision validates and decodes a generic decision request. It does not
-// retrieve, construct a Context pack, select a profile, or call a provider.
+// readDecision validates and decodes a decision request. It does not
+// retrieve, construct a Context pack, or call a provider.
 func readDecision(request *http.Request) (decisionRequest, error) {
 	if request.Method != http.MethodPost {
 		return decisionRequest{}, requestProblem{http.StatusMethodNotAllowed, reasonMethodNotAllowed, "only POST is supported"}

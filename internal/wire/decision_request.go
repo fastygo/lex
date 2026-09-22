@@ -22,14 +22,14 @@ var (
 	decisionRequestSchemaErr  error
 )
 
-// ValidateDecisionRequest checks one generic decision body against the
+// ValidateDecisionRequest checks one decision body against the
 // published schema. Semantic primitive checks run after strict decoding.
 func ValidateDecisionRequest(raw []byte) error {
 	value, err := canonical.DecodeJSON(raw)
 	if err != nil {
 		return err
 	}
-	schema, err := compiledGenericDecisionRequest()
+	schema, err := compiledRequestSchema()
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func deepestCause(err *jsonschema.ValidationError) *jsonschema.ValidationError {
 	return best
 }
 
-func compiledGenericDecisionRequest() (*jsonschema.Schema, error) {
+func compiledRequestSchema() (*jsonschema.Schema, error) {
 	decisionRequestSchemaOnce.Do(func() {
 		value, err := canonical.DecodeJSON(decisionRequestSchema)
 		if err != nil {

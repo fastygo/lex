@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -8,7 +9,24 @@ import (
 	"github.com/fastygo/lex/internal/wire"
 )
 
-// decisionResponse is the generic response. StructuralStatus says only whether
+// Decider obtains raw typed answers for one caller State and QuestionSet.
+type Decider interface {
+	AdapterID() string
+	AdapterVersion() string
+	Evaluate(ctx context.Context, state any, questions map[string]any) (Decision, error)
+}
+
+// Decision preserves provider output without interpreting it as authority.
+// Metadata stays empty when the provider omits it.
+type Decision struct {
+	ResolvedModel    string
+	Answers          json.RawMessage
+	RequestID        string
+	EvaluationTimeMS *float64
+	Usage            json.RawMessage
+}
+
+// decisionResponse is the decision response. StructuralStatus says only whether
 // LeX could validate the typed-decision contract; it is never a domain verdict.
 type decisionResponse struct {
 	ProtocolVersion  string                `json:"protocol_version"`
@@ -42,7 +60,7 @@ func decide(w http.ResponseWriter, request *http.Request, config Config, verifie
 		return
 	}
 	if contextRecord != nil {
-		findings, err := wire.CheckGenericContext(request.Context(), body.ProjectID, *contextRecord)
+		findings, err := wire.CheckContext(request.Context(), body.ProjectID, *contextRecord)
 		if err != nil {
 			if writeRequestStop(w, err, st.ending("decide", "failed")) {
 				return
@@ -55,7 +73,7 @@ func decide(w http.ResponseWriter, request *http.Request, config Config, verifie
 			return
 		}
 	}
-	remaining, ok := genericResponseBudget(body, contextRecord, config.MaxBodyBytes)
+	remaining, ok := responseBudget(body, contextRecord, config.MaxBodyBytes)
 	if !ok {
 		tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the decision inputs do not fit the response budget", st.ending("decide", "failed"))
 		return
@@ -118,7 +136,7 @@ func decide(w http.ResponseWriter, request *http.Request, config Config, verifie
 	writeDecision(w, http.StatusOK, response, config.MaxBodyBytes, st)
 }
 
-func decisionSetJSON(record wire.GenericDecisionRecord) json.RawMessage {
+func decisionSetJSON(record wire.DecisionRecord) json.RawMessage {
 	raw, err := json.Marshal(record)
 	if err != nil {
 		panic(err)
@@ -126,12 +144,15 @@ func decisionSetJSON(record wire.GenericDecisionRecord) json.RawMessage {
 	return raw
 }
 
-func genericResponseBudget(body decisionRequest, contextRecord *wire.ContextRecord, maxBodyBytes int64) (int64, bool) {
+// responseBudget reports how many bytes remain for provider answers once the
+// caller inputs are echoed in the response, or false when the inputs alone do
+// not fit. Questions and answers appear twice: in the response and in the bundle.
+func responseBudget(body decisionRequest, contextRecord *wire.ContextRecord, maxBodyBytes int64) (int64, bool) {
 	questions, err := json.Marshal(body.QuestionSet)
 	if err != nil {
 		return 0, false
 	}
-	used := int64(len(body.State)+len(questions)) + responseReserve
+	used := int64(len(body.State)+2*len(questions)) + responseReserve
 	if contextRecord != nil {
 		encoded, err := json.Marshal(contextRecord)
 		if err != nil {
@@ -139,10 +160,21 @@ func genericResponseBudget(body decisionRequest, contextRecord *wire.ContextReco
 		}
 		used += int64(len(encoded))
 	}
-	if used >= maxBodyBytes {
-		return 0, false
+	remaining := (maxBodyBytes - used) / 2
+	return remaining, remaining > 0
+}
+
+func writeDecisionFailure(w http.ResponseWriter, err error, st *stages) {
+	failed := st.ending("decide", "failed")
+	switch {
+	case writeRequestStop(w, err, failed):
+	case exceedsResponseBudget(err):
+		tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the decision response does not fit the response budget", failed)
+	case retryableProvider(err):
+		tracedProblem(w, http.StatusServiceUnavailable, reasonProviderUnavailable, "the decision provider is unavailable", failed)
+	default:
+		tracedProblem(w, http.StatusBadGateway, reasonDecisionError, "the decision adapter failed", failed)
 	}
-	return maxBodyBytes - used, true
 }
 
 func writeDecision(w http.ResponseWriter, status int, body decisionResponse, maxBodyBytes int64, st *stages) {

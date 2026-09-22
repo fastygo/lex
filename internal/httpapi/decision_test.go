@@ -1,120 +1,76 @@
 package httpapi
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/fastygo/lex/internal/evidence"
-	"github.com/fastygo/lex/internal/profile/claimvalidation"
+	contextmemory "github.com/fastygo/context/pkg/contextkit/runtime"
 	"github.com/fastygo/lex/internal/wire"
 )
 
-const genericAnswers = `{
-  "intent":{"type":"choice","choice":"portfolio","probabilities":{"products":0.1,"portfolio":0.8,"cases":0.1}},
-  "has_transactions":{"type":"noul","noul":0.9},
-  "fit":{"type":"score","score":1.5}
-}`
-
-const genericDecisionBody = `{
-  "project_id":"project-test",
-  "decision":{"id":"agent-step-1","version":"1"},
-  "state":{"request":"Create a storefront","requirements":{"transactions":true}},
-  "question_set":{
-    "id":"agent.intent","version":"1",
-    "questions":{
-      "intent":{"type":"choice","instructions":"Which storefront type is best supported?","options":{"products":"Product catalogue","portfolio":"Portfolio of work","cases":"Client case studies"}},
-      "has_transactions":{"type":"noul","instructions":"Does the supplied state require transactions?"},
-      "fit":{"type":"score","instructions":"How strongly does the stack fit?","levels":["weak","adequate","strong"]}
-    }
-  },
-  "metadata":{"client_ref":"agent-step-1"}
-}`
-
 func TestDecisionPassesCallerStateAndQuestionsWithoutDomainInterpretation(t *testing.T) {
-	decider := &capturingDecider{answers: []byte(genericAnswers)}
+	decider := &capturingDecider{answers: []byte(validAnswers)}
 	handler := mustHandlerWithDecider(t, decider)
-	request := httptest.NewRequest(http.MethodPost, "/v1/decisions", strings.NewReader(genericDecisionBody))
-	request.Header.Set("Authorization", "Bearer test-token")
-	request.Header.Set("Content-Type", "application/json")
-	recorder := httptest.NewRecorder()
-
-	handler.ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusOK {
+	recorder := postJSON(t, handler, "/v1/decisions", decisionBody)
+	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"structural_status":"valid"`) || !strings.Contains(recorder.Body.String(), `"findings":[]`) {
 		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
 	}
-	var response struct {
-		StructuralStatus string          `json:"structural_status"`
-		Findings         []any           `json:"findings"`
-		ReplayBundle     json.RawMessage `json:"replay_bundle"`
-	}
-	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
-		t.Fatal(err)
-	}
-	if response.StructuralStatus != "valid" || len(response.Findings) != 0 || len(response.ReplayBundle) == 0 {
-		t.Fatalf("response = %s", recorder.Body)
-	}
-	if err := openAPISchema(t, "DecisionResponse").Validate(strictJSON(t, recorder.Body.Bytes())); err != nil {
-		t.Fatal(err)
-	}
-	state, err := json.Marshal(decider.state)
-	if err != nil {
-		t.Fatal(err)
-	}
-	questions, err := json.Marshal(decider.questions)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(state), `"Create a storefront"`) || strings.Contains(string(state), "client_ref") {
+	state, _ := json.Marshal(decider.state)
+	questions, _ := json.Marshal(decider.questions)
+	if string(state) != `{"request":"Create a storefront","requirements":{"transactions":true}}` {
 		t.Fatalf("state = %s", state)
 	}
-	if !strings.Contains(string(questions), `"portfolio"`) || !strings.Contains(string(questions), `"criteria"`) || strings.Contains(string(questions), "claim-validation") {
+	if !strings.Contains(string(questions), `"portfolio"`) || !strings.Contains(string(questions), `"criteria"`) || strings.Contains(string(questions), "client_ref") {
 		t.Fatalf("questions = %s", questions)
 	}
-	if strings.Contains(string(response.ReplayBundle), "client_ref") {
-		t.Fatalf("metadata entered replay bundle: %s", response.ReplayBundle)
+	bundle := replayBundle(t, recorder)
+	if strings.Contains(string(bundle), "client_ref") || strings.Contains(recorder.Body.String(), "agent-step-1\"}") {
+		t.Fatalf("metadata entered the response or bundle: %s", recorder.Body)
 	}
-	replay := httptest.NewRequest(http.MethodPost, "/v1/replays", bytes.NewReader(response.ReplayBundle))
-	replay.Header.Set("Authorization", "Bearer test-token")
-	replay.Header.Set("Content-Type", "application/json")
-	replayed := httptest.NewRecorder()
-	handler.ServeHTTP(replayed, replay)
+	replayed := postJSON(t, handler, "/v1/replays", string(bundle))
 	if replayed.Code != http.StatusOK || !strings.Contains(replayed.Body.String(), `"replay_status":"decision_reproduced"`) || !strings.Contains(replayed.Body.String(), `"structural_status":"valid"`) {
 		t.Fatalf("replay status = %d body = %s", replayed.Code, replayed.Body)
 	}
 }
 
-func TestDecisionAcceptsOptionalContextBindingWithoutMergingItIntoState(t *testing.T) {
-	frozen, err := evidence.FromSources(context.Background(), "project-test",
-		evidence.PackRequest("project-test", "account", claimvalidation.Focus()),
-		[]evidence.Source{{ID: "source-1", Version: "v1", Text: "The account is locked."}},
-	)
+func frozenContextBody(t *testing.T, projectID string, mutate func(map[string]json.RawMessage)) string {
+	t.Helper()
+	runtime, err := contextmemory.New(context.Background(), contextmemory.Config{
+		ProjectID: projectID,
+		Sources: []contextmemory.Source{{
+			SourceID: "source-1", Version: "v1", Text: "The account is locked.",
+			TrustLevel: "project", EvidenceClass: "source_text",
+		}},
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshot, _ := json.Marshal(frozen.Snapshot)
-	request, _ := json.Marshal(frozen.PackRequest)
-	var state any
-	var questions any
-	if err := json.Unmarshal([]byte(`{"request":"classify only"}`), &state); err != nil {
+	request := contextmemory.PackRequest{
+		ProjectID: projectID, Query: "account",
+		Focus: contextmemory.Focus{
+			ID: "example-focus", Objective: "Select source text.", RequiredTrustLevel: "project",
+			Budget: contextmemory.Budget{MaxItems: 8, MaxChars: 65536},
+		},
+	}
+	result, err := runtime.ContextPack(context.Background(), request)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := json.Unmarshal([]byte(`{"id":"generic","version":"1","questions":{"yes":{"type":"noul","instructions":"Is the state classified?"}}}`), &questions); err != nil {
-		t.Fatal(err)
+	snapshot, _ := json.Marshal(result.Snapshot)
+	packRequest, _ := json.Marshal(request)
+	frozen := map[string]json.RawMessage{"pack": result.ContextPack, "snapshot": snapshot, "pack_request": packRequest}
+	if mutate != nil {
+		mutate(frozen)
 	}
 	body, err := json.Marshal(map[string]any{
 		"project_id":   "project-test",
 		"decision":     map[string]any{"id": "agent-step-2", "version": "1"},
-		"state":        state,
-		"question_set": questions,
-		"context": map[string]json.RawMessage{
-			"pack": frozen.Pack, "snapshot": snapshot, "pack_request": request,
-		},
+		"state":        map[string]any{"request": "classify only"},
+		"question_set": map[string]any{"id": "example", "version": "1", "questions": map[string]any{"yes": map[string]any{"type": "noul", "instructions": "Is the state classified?"}}},
+		"context":      frozen,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -122,38 +78,66 @@ func TestDecisionAcceptsOptionalContextBindingWithoutMergingItIntoState(t *testi
 	if err := wire.ValidateDecisionRequest(body); err != nil {
 		t.Fatal(err)
 	}
+	return string(body)
+}
+
+func TestDecisionBindsOptionalContextWithoutMergingItIntoState(t *testing.T) {
 	decider := &capturingDecider{answers: []byte(`{"yes":{"type":"noul","noul":0.9}}`)}
 	handler := mustHandlerWithDecider(t, decider)
-	httpRequest := httptest.NewRequest(http.MethodPost, "/v1/decisions", bytes.NewReader(body))
-	httpRequest.Header.Set("Authorization", "Bearer test-token")
-	httpRequest.Header.Set("Content-Type", "application/json")
-	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder, httpRequest)
+	recorder := postJSON(t, handler, "/v1/decisions", frozenContextBody(t, "project-test", nil))
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d body = %s", recorder.Code, recorder.Body)
 	}
-	encoded, _ := json.Marshal(decider.state)
-	if string(encoded) != `{"request":"classify only"}` {
+	if encoded, _ := json.Marshal(decider.state); string(encoded) != `{"request":"classify only"}` {
 		t.Fatalf("context was merged into state: %s", encoded)
+	}
+	bundle := replayBundle(t, recorder)
+	if !strings.Contains(string(bundle), `"context_pack_hash"`) {
+		t.Fatalf("bundle does not bind the context: %s", bundle)
+	}
+	if replayed := postJSON(t, handler, "/v1/replays", string(bundle)); replayed.Code != http.StatusOK || !strings.Contains(replayed.Body.String(), `"structural_status":"valid"`) {
+		t.Fatalf("replay status = %d body = %s", replayed.Code, replayed.Body)
+	}
+}
+
+func TestContextThatContextCannotReproduceNeverReachesTheProvider(t *testing.T) {
+	cases := map[string]struct {
+		body    string
+		finding string
+	}{
+		"rewritten pack request": {frozenContextBody(t, "project-test", func(frozen map[string]json.RawMessage) {
+			frozen["pack_request"] = json.RawMessage(strings.Replace(string(frozen["pack_request"]), `"query":"account"`, `"query":"locked"`, 1))
+		}), "pack_rebuild"},
+		"rewritten source": {frozenContextBody(t, "project-test", func(frozen map[string]json.RawMessage) {
+			frozen["snapshot"] = json.RawMessage(strings.Replace(string(frozen["snapshot"]), "locked", "open", 1))
+		}), "snapshot_identity"},
+		"foreign project": {frozenContextBody(t, "project-other", nil), "project_binding"},
+		"smuggled field": {frozenContextBody(t, "project-test", func(frozen map[string]json.RawMessage) {
+			frozen["pack_request"] = json.RawMessage(strings.Replace(string(frozen["pack_request"]), `"query"`, `"approved":true,"query"`, 1))
+		}), "pack_shape"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			decider := &scriptedDecider{answers: []byte(`{"yes":{"type":"noul","noul":0.9}}`)}
+			recorder := postJSON(t, mustHandlerWithDecider(t, decider), "/v1/decisions", tc.body)
+			if recorder.Code != http.StatusUnprocessableEntity || decider.calls != 0 || !strings.Contains(recorder.Body.String(), `"reason":"pack_error"`) || !strings.Contains(recorder.Body.String(), `"code":"`+tc.finding+`"`) {
+				t.Fatalf("status = %d calls = %d body = %s", recorder.Code, decider.calls, recorder.Body)
+			}
+		})
 	}
 }
 
 func TestDecisionRejectsMalformedQuestionSetBeforeProvider(t *testing.T) {
-	decider := &scriptedDecider{answers: []byte(genericAnswers)}
-	handler := mustHandlerWithDecider(t, decider)
-	body := strings.Replace(genericDecisionBody, `"levels":["weak","adequate","strong"]`, `"levels":["weak"]`, 1)
-	request := httptest.NewRequest(http.MethodPost, "/v1/decisions", strings.NewReader(body))
-	request.Header.Set("Authorization", "Bearer test-token")
-	request.Header.Set("Content-Type", "application/json")
-	recorder := httptest.NewRecorder()
-	handler.ServeHTTP(recorder, request)
+	decider := &scriptedDecider{answers: []byte(validAnswers)}
+	body := strings.Replace(decisionBody, `"levels":["weak","adequate","strong"]`, `"levels":["weak"]`, 1)
+	recorder := postJSON(t, mustHandlerWithDecider(t, decider), "/v1/decisions", body)
 	if recorder.Code != http.StatusUnprocessableEntity || decider.calls != 0 || !strings.Contains(recorder.Body.String(), `"reason":"question_error"`) || !strings.Contains(recorder.Body.String(), "/question_set/questions/fit") {
 		t.Fatalf("status = %d calls = %d body = %s", recorder.Code, decider.calls, recorder.Body)
 	}
 }
 
 func TestDecisionSchemaErrorsNameTheFieldAndKeepInvalidJSONSeparate(t *testing.T) {
-	decider := &scriptedDecider{answers: []byte(genericAnswers)}
+	decider := &scriptedDecider{answers: []byte(validAnswers)}
 	handler := mustHandlerWithDecider(t, decider)
 	rawJev := `{"project_id":"project-test","decision":{"id":"step","version":"1"},"state":{"text":"hi"},"question_set":{"id":"set","version":"1","questions":{"route":{"type":"choice","instructions":"Which route?","criteria":{"a":"A","b":"B"}}}}}`
 	cases := []struct {

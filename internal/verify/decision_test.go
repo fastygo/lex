@@ -32,8 +32,8 @@ func TestValidateAnswersReportsMalformedAnswers(t *testing.T) {
 		t.Fatalf("finding count = %d, want 2", len(findings))
 	}
 	for _, finding := range findings {
-		if finding.Verdict != VerdictError {
-			t.Fatalf("finding verdict = %q, want error", finding.Verdict)
+		if !KnownFinding(finding.Code) || finding.Detail == "" {
+			t.Fatalf("finding = %+v", finding)
 		}
 	}
 }

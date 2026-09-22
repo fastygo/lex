@@ -81,7 +81,7 @@ func ValidateAnswers(questions map[string]Question, answers map[string]Answer) [
 }
 
 func errorFinding(code, questionID string) Finding {
-	return Finding{Code: code + ":" + questionID, Verdict: VerdictError, Detail: fmt.Sprintf("decision answer failed %s", code)}
+	return Finding{Code: code + ":" + questionID, Detail: fmt.Sprintf("decision answer failed %s", code)}
 }
 
 func probability(value float64) bool {

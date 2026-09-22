@@ -1,3 +1,5 @@
+// Package wire owns the LeX wire contract: request and bundle schemas, typed
+// records, canonical hashes, and the structural replay verifier.
 package wire
 
 import (
@@ -10,12 +12,11 @@ import (
 )
 
 const (
-	// DecisionProtocolVersion is the additive caller-defined decision envelope.
+	// DecisionProtocolVersion is the caller-defined decision envelope.
 	DecisionProtocolVersion = "0.2"
-	// DecisionBundleKind distinguishes generic decision bundles from legacy
-	// claim-validation replay bundles.
+	// DecisionBundleKind names the sealed typed-decision bundle.
 	DecisionBundleKind = "typed_decision"
-	// DecisionVerifierVersion identifies the structural generic verifier.
+	// DecisionVerifierVersion identifies the structural verifier.
 	DecisionVerifierVersion = "0.3.0"
 )
 
@@ -25,24 +26,24 @@ type DecisionIdentity struct {
 	Version string `json:"version"`
 }
 
-// GenericQuestion is one caller-owned typed question. Options and Levels are
+// Question is one caller-owned typed question. Options and Levels are
 // deliberately distinct so an unordered Choice cannot be confused with Score.
-type GenericQuestion struct {
+type Question struct {
 	Type         verify.QuestionType `json:"type"`
 	Instructions string              `json:"instructions"`
 	Options      map[string]string   `json:"options,omitempty"`
 	Levels       []string            `json:"levels,omitempty"`
 }
 
-// GenericQuestionSet is a versioned caller-owned question document.
-type GenericQuestionSet struct {
-	ID        string                     `json:"id"`
-	Version   string                     `json:"version"`
-	Questions map[string]GenericQuestion `json:"questions"`
+// QuestionSet is a versioned caller-owned question document.
+type QuestionSet struct {
+	ID        string              `json:"id"`
+	Version   string              `json:"version"`
+	Questions map[string]Question `json:"questions"`
 }
 
-// Validate checks generic question semantics after the JSON schema checks shape.
-func (set GenericQuestionSet) Validate() error {
+// Validate checks question semantics after the JSON schema checks shape.
+func (set QuestionSet) Validate() error {
 	if !wireID(set.ID) || !wireVersion(set.Version) || len(set.Questions) < 1 || len(set.Questions) > 64 {
 		return fmt.Errorf("question set id, version, and question count are invalid")
 	}
@@ -86,7 +87,7 @@ func (set GenericQuestionSet) Validate() error {
 }
 
 // VerifierQuestions returns the strict answer-domain view of the QuestionSet.
-func (set GenericQuestionSet) VerifierQuestions() map[string]verify.Question {
+func (set QuestionSet) VerifierQuestions() map[string]verify.Question {
 	questions := make(map[string]verify.Question, len(set.Questions))
 	for id, question := range set.Questions {
 		typed := verify.Question{Type: question.Type}
@@ -101,9 +102,9 @@ func (set GenericQuestionSet) VerifierQuestions() map[string]verify.Question {
 	return questions
 }
 
-// ProviderQuestions maps the generic wire primitives to the provider-neutral
+// ProviderQuestions maps the wire primitives to the provider-neutral
 // adapter shape without adding domain semantics.
-func (set GenericQuestionSet) ProviderQuestions() map[string]any {
+func (set QuestionSet) ProviderQuestions() map[string]any {
 	questions := make(map[string]any, len(set.Questions))
 	for id, question := range set.Questions {
 		provider := map[string]any{"type": string(question.Type), "instructions": question.Instructions}
@@ -118,11 +119,11 @@ func (set GenericQuestionSet) ProviderQuestions() map[string]any {
 	return questions
 }
 
-func questionSetHashGeneric(set GenericQuestionSet) (string, error) {
+func questionSetHash(set QuestionSet) (string, error) {
 	return canonical.HashValue(struct {
-		ID        string                     `json:"id"`
-		Version   string                     `json:"version"`
-		Questions map[string]GenericQuestion `json:"questions"`
+		ID        string              `json:"id"`
+		Version   string              `json:"version"`
+		Questions map[string]Question `json:"questions"`
 	}{ID: set.ID, Version: set.Version, Questions: set.Questions})
 }
 
@@ -175,16 +176,16 @@ func questionID(value string) bool {
 
 // DecisionBundle is the typed form of decision-bundle.schema.json.
 type DecisionBundle struct {
-	BundleKind      string                   `json:"bundle_kind"`
-	ProtocolVersion string                   `json:"protocol_version"`
-	VerifierVersion string                   `json:"verifier_version"`
-	ProjectID       string                   `json:"project_id"`
-	Decision        DecisionIdentityRecord   `json:"decision"`
-	State           DecisionStateRecord      `json:"state"`
-	QuestionSet     GenericQuestionSetRecord `json:"question_set"`
-	Context         *ContextRecord           `json:"context,omitempty"`
-	DecisionSet     GenericDecisionRecord    `json:"decision_set"`
-	BundleHash      string                   `json:"bundle_hash,omitempty"`
+	BundleKind      string                 `json:"bundle_kind"`
+	ProtocolVersion string                 `json:"protocol_version"`
+	VerifierVersion string                 `json:"verifier_version"`
+	ProjectID       string                 `json:"project_id"`
+	Decision        DecisionIdentityRecord `json:"decision"`
+	State           DecisionStateRecord    `json:"state"`
+	QuestionSet     QuestionSetRecord      `json:"question_set"`
+	Context         *ContextRecord         `json:"context,omitempty"`
+	DecisionSet     DecisionRecord         `json:"decision_set"`
+	BundleHash      string                 `json:"bundle_hash,omitempty"`
 }
 
 // DecisionIdentityRecord seals a caller-owned decision identity.
@@ -200,16 +201,16 @@ type DecisionStateRecord struct {
 	Hash  string          `json:"hash"`
 }
 
-// GenericQuestionSetRecord is a sealed generic question document.
-type GenericQuestionSetRecord struct {
+// QuestionSetRecord is a sealed question document.
+type QuestionSetRecord struct {
 	ID        string          `json:"id"`
 	Version   string          `json:"version"`
 	Hash      string          `json:"hash"`
 	Questions json.RawMessage `json:"questions"`
 }
 
-// GenericDecisionRecord binds raw answers to generic inputs and a provider pin.
-type GenericDecisionRecord struct {
+// DecisionRecord binds raw answers to the sealed inputs and a provider pin.
+type DecisionRecord struct {
 	StateHash       string          `json:"state_hash"`
 	QuestionSetHash string          `json:"question_set_hash"`
 	ContextPackHash string          `json:"context_pack_hash,omitempty"`
@@ -220,12 +221,12 @@ type GenericDecisionRecord struct {
 }
 
 // DecisionBundleInput contains exactly the caller and adapter material that one
-// generic decision bundle seals.
+// decision bundle seals.
 type DecisionBundleInput struct {
 	ProjectID      string
 	Decision       DecisionIdentity
 	State          json.RawMessage
-	QuestionSet    GenericQuestionSet
+	QuestionSet    QuestionSet
 	Context        *ContextRecord
 	AdapterID      string
 	AdapterVersion string
@@ -233,7 +234,7 @@ type DecisionBundleInput struct {
 	Answers        json.RawMessage
 }
 
-// BuildDecisionBundle seals one generic typed decision.
+// BuildDecisionBundle seals one typed decision.
 func BuildDecisionBundle(input DecisionBundleInput) ([]byte, error) {
 	if !wireID(input.ProjectID) || !wireID(input.Decision.ID) || !wireVersion(input.Decision.Version) {
 		return nil, fmt.Errorf("decision identity is invalid")
@@ -248,7 +249,7 @@ func BuildDecisionBundle(input DecisionBundleInput) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("hash state: %w", err)
 	}
-	questionHash, err := questionSetHashGeneric(input.QuestionSet)
+	questionHash, err := questionSetHash(input.QuestionSet)
 	if err != nil {
 		return nil, fmt.Errorf("hash question set: %w", err)
 	}
@@ -260,7 +261,7 @@ func BuildDecisionBundle(input DecisionBundleInput) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("encode questions: %w", err)
 	}
-	record := GenericDecisionRecord{
+	record := DecisionRecord{
 		StateHash: stateHash, QuestionSetHash: questionHash,
 		AdapterID: input.AdapterID, AdapterVersion: input.AdapterVersion,
 		ResolvedModel: input.ResolvedModel, Answers: input.Answers,
@@ -273,7 +274,7 @@ func BuildDecisionBundle(input DecisionBundleInput) ([]byte, error) {
 		ProjectID: input.ProjectID,
 		Decision:  DecisionIdentityRecord{ID: input.Decision.ID, Version: input.Decision.Version, Checksum: checksum},
 		State:     DecisionStateRecord{Value: input.State, Hash: stateHash},
-		QuestionSet: GenericQuestionSetRecord{
+		QuestionSet: QuestionSetRecord{
 			ID: input.QuestionSet.ID, Version: input.QuestionSet.Version, Hash: questionHash, Questions: questions,
 		},
 		Context: input.Context, DecisionSet: record,

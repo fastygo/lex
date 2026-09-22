@@ -4,32 +4,15 @@ import "strings"
 
 // Stable finding codes. Answer failures append ":" and the question id.
 const (
-	CodeActionInconsistent        = "action_inconsistent"
 	CodeBindingMismatch           = "binding_mismatch"
-	CodeChecksumMismatch          = "checksum_mismatch"
-	CodeEntityChecksumMismatch    = "entity_checksum_mismatch"
-	CodeEstablishmentBelow        = "establishment_below_threshold"
-	CodeEvidenceConflict          = "evidence_conflict"
-	CodeInferenceOnly             = "inference_only"
-	CodeInstructionInEvidence     = "instruction_in_evidence"
+	CodeDecisionChecksumMismatch  = "decision_checksum_mismatch"
 	CodeInvalidAnswers            = "invalid_answers"
-	CodeMissingProvenance         = "missing_provenance"
-	CodeNegativeResult            = "negative_result"
-	CodeNoEligibleEvidence        = "no_eligible_evidence"
 	CodePackRebuild               = "pack_rebuild"
 	CodePackShape                 = "pack_shape"
-	CodePartialSurface            = "partial_surface"
 	CodeProjectBinding            = "project_binding"
-	CodeReviewRequired            = "review_required"
-	CodeSafetyGate                = "safety_gate"
 	CodeSnapshotIdentity          = "snapshot_identity"
-	CodeSourceAdmission           = "source_admission"
-	CodeSupportBelow              = "support_below_threshold"
 	CodeUnknownAdapter            = "unknown_adapter"
 	CodeUnpinnedAdapter           = "unpinned_adapter"
-	CodeUnpinnedEntity            = "unpinned_entity"
-	CodeUnpinnedFocus             = "unpinned_focus"
-	CodeUnpinnedPolicy            = "unpinned_policy"
 	CodeUnpinnedQuestionSet       = "unpinned_question_set"
 	CodeUnpinnedVerifier          = "unpinned_verifier"
 	CodeUnresolvedModel           = "unresolved_model"
@@ -45,32 +28,15 @@ const (
 // FindingCodes returns the stable codes that do not include a question id.
 func FindingCodes() []string {
 	return []string{
-		CodeActionInconsistent,
 		CodeBindingMismatch,
-		CodeChecksumMismatch,
-		CodeEntityChecksumMismatch,
-		CodeEstablishmentBelow,
-		CodeEvidenceConflict,
-		CodeInferenceOnly,
-		CodeInstructionInEvidence,
+		CodeDecisionChecksumMismatch,
 		CodeInvalidAnswers,
-		CodeMissingProvenance,
-		CodeNegativeResult,
-		CodeNoEligibleEvidence,
 		CodePackRebuild,
 		CodePackShape,
-		CodePartialSurface,
 		CodeProjectBinding,
-		CodeReviewRequired,
-		CodeSafetyGate,
 		CodeSnapshotIdentity,
-		CodeSourceAdmission,
-		CodeSupportBelow,
 		CodeUnknownAdapter,
 		CodeUnpinnedAdapter,
-		CodeUnpinnedEntity,
-		CodeUnpinnedFocus,
-		CodeUnpinnedPolicy,
 		CodeUnpinnedQuestionSet,
 		CodeUnpinnedVerifier,
 		CodeUnresolvedModel,
@@ -95,7 +61,7 @@ func FindingCodePattern() string {
 	return "^(" + strings.Join(FindingCodes(), "|") + "|(" + strings.Join(AnswerCodePrefixes(), "|") + "):.+)$"
 }
 
-// KnownFinding reports whether code is in the v0.1 catalog.
+// KnownFinding reports whether code is in the published catalog.
 func KnownFinding(code string) bool {
 	for _, item := range FindingCodes() {
 		if code == item {

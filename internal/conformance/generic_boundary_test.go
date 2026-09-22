@@ -1,48 +1,57 @@
 package conformance
 
 import (
-	"go/parser"
-	"go/token"
 	"os"
 	"path/filepath"
-	"strconv"
+	"regexp"
 	"strings"
 	"testing"
 )
 
-func TestGenericDecisionCoreDoesNotImportLegacyClaimValidation(t *testing.T) {
-	paths := []string{
-		filepath.Join("..", "wire", "decision.go"),
-		filepath.Join("..", "wire", "decision_request.go"),
-		filepath.Join("..", "wire", "decision_replay.go"),
-		filepath.Join("..", "httpapi", "decision.go"),
-		filepath.Join("..", "httpapi", "decision_request.go"),
-	}
-	for _, path := range paths {
-		file, err := parser.ParseFile(token.NewFileSet(), path, nil, parser.ImportsOnly)
+// coreFiles returns every production Go file of the service.
+func coreFiles(t *testing.T) []string {
+	t.Helper()
+	var files []string
+	for _, root := range []string{filepath.Join("..", "..", "internal"), filepath.Join("..", "..", "cmd")} {
+		err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if !entry.IsDir() && strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") {
+				files = append(files, path)
+			}
+			return nil
+		})
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, imported := range file.Imports {
-			name, err := strconv.Unquote(imported.Path.Value)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if strings.Contains(name, "/profile") || strings.Contains(name, "claimvalidation") {
-				t.Fatalf("%s imports compatibility policy package %q", path, name)
-			}
+	}
+	return files
+}
+
+func TestCoreHasNoDomainVerdictOrProfile(t *testing.T) {
+	forbidden := regexp.MustCompile(`\b(Verdict|Profile|Thresholds?|ClaimValidation)\b|/profile"`)
+	for _, path := range coreFiles(t) {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if match := forbidden.Find(raw); match != nil {
+			t.Fatalf("%s embeds domain interpretation %q", path, match)
 		}
 	}
 }
 
-func TestGenericFixturesDoNotBecomeProductionVocabulary(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join("..", "wire", "decision.go"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, forbidden := range []string{"portfolio", "catalogue", "database", "storefront"} {
-		if strings.Contains(string(raw), forbidden) {
-			t.Fatalf("generic decision core embeds fixture vocabulary %q", forbidden)
+func TestFixturesDoNotBecomeProductionVocabulary(t *testing.T) {
+	for _, path := range coreFiles(t) {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, forbidden := range []string{"portfolio", "catalogue", "storefront", "database"} {
+			if strings.Contains(strings.ToLower(string(raw)), forbidden) {
+				t.Fatalf("%s embeds fixture vocabulary %q", path, forbidden)
+			}
 		}
 	}
 }

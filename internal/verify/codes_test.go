@@ -23,7 +23,7 @@ func TestKnownFindingAcceptsCatalog(t *testing.T) {
 }
 
 func TestEmitSitesUseFindingConstants(t *testing.T) {
-	for _, path := range []string{"interpret.go", "decision.go", "../profile/claimvalidation/gate.go", "../wire/evidence.go", "../wire/verifier.go", "../httpapi/evaluation.go"} {
+	for _, path := range []string{"decision.go", "../wire/context.go", "../wire/decision_replay.go", "../wire/answers.go"} {
 		raw, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)

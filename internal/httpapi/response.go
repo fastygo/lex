@@ -7,36 +7,8 @@ import (
 	"net/http"
 
 	"github.com/fastygo/lex/internal/lifecycle"
-	"github.com/fastygo/lex/internal/profile"
 	"github.com/fastygo/lex/internal/verify"
-	"github.com/fastygo/lex/internal/wire"
 )
-
-type evaluationResponse struct {
-	ProtocolVersion string               `json:"protocol_version"`
-	Verdict         string               `json:"verdict"`
-	Findings        []verify.Finding     `json:"findings"`
-	ContextRuntime  string               `json:"context_runtime"`
-	ResolvedModel   string               `json:"resolved_model,omitempty"`
-	ReplayAvailable bool                 `json:"replay_available"`
-	ReplayBundle    json.RawMessage      `json:"replay_bundle,omitempty"`
-	Stage           string               `json:"stage,omitempty"`
-	Trace           []traceStage         `json:"trace"`
-	Policy          policyDisclosureView `json:"policy"`
-	Retention       retentionView        `json:"retention"`
-	AdapterMetadata map[string]any       `json:"adapter_metadata,omitempty"`
-}
-
-type policyDisclosureView struct {
-	ID          string `json:"id"`
-	Version     string `json:"version"`
-	Calibration string `json:"calibration"`
-}
-
-func policyDisclosure(prof profile.Profile) policyDisclosureView {
-	policy := prof.Policy()
-	return policyDisclosureView{ID: policy.ID, Version: policy.Version, Calibration: policy.Calibration}
-}
 
 type retentionView struct {
 	ServerHistory bool   `json:"server_history"`
@@ -46,42 +18,6 @@ type retentionView struct {
 
 func retentionDisclosure() retentionView {
 	return retentionView{ServerHistory: false, Replay: "caller_owned", Idempotency: "none"}
-}
-
-func writeEvaluation(w http.ResponseWriter, body evaluationResponse, maxBodyBytes int64, st *stages) {
-	if body.Findings == nil {
-		body.Findings = []verify.Finding{}
-	}
-	encoded, err := json.Marshal(body)
-	if err != nil || int64(len(encoded)) > maxBodyBytes {
-		tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the evaluation response does not fit the response budget", verifyFailed(st))
-		return
-	}
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write(encoded)
-}
-
-// writeVerdictProblem returns a technical error verdict with its sealed bundle.
-func writeVerdictProblem(w http.ResponseWriter, status int, reason, detail string, report wire.Report, bundle []byte, meta map[string]any, maxBodyBytes int64, st *stages) {
-	body := map[string]any{
-		"verdict":       report.Verdict,
-		"findings":      report.Findings,
-		"trace":         st.view(),
-		"replay_bundle": json.RawMessage(bundle),
-	}
-	if meta != nil {
-		body["adapter_metadata"] = meta
-	}
-	encoded, err := encodeProblem(status, reason, detail, body)
-	if err != nil || int64(len(encoded)) > maxBodyBytes {
-		tracedProblem(w, http.StatusUnprocessableEntity, reasonResponseBudget, "the evaluation response does not fit the response budget", verifyFailed(st))
-		return
-	}
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Content-Type", problemMediaType)
-	w.WriteHeader(status)
-	_, _ = w.Write(encoded)
 }
 
 // verifyFailed renders a trace whose verify stage failed after the recorder
@@ -166,13 +102,6 @@ type responseLimited interface {
 func exceedsResponseBudget(err error) bool {
 	var limited responseLimited
 	return errors.As(err, &limited) && limited.ExceedsResponseBudget()
-}
-
-func replayFailure(err error) (int, string, string) {
-	if errors.Is(err, verify.ErrUnusablePolicy) {
-		return http.StatusInternalServerError, reasonPolicyError, "the policy evaluator could not apply its thresholds"
-	}
-	return http.StatusInternalServerError, reasonVerificationError, "the sealed bundle could not be verified"
 }
 
 type answerBudgetKey struct{}

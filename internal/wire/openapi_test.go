@@ -26,30 +26,22 @@ func TestOpenAPIMatchesSynchronousContract(t *testing.T) {
 		t.Fatalf("openapi version = %#v", document["openapi"])
 	}
 	paths, _ := document["paths"].(map[string]any)
-	for _, path := range []string{"/healthz", "/v1/capabilities", "/v1/evaluations", "/v1/decisions", "/v1/replays"} {
+	if len(paths) != 4 {
+		t.Fatalf("published %d paths, want 4", len(paths))
+	}
+	for _, path := range []string{"/healthz", "/v1/capabilities", "/v1/decisions", "/v1/replays"} {
 		if _, exists := paths[path]; !exists {
 			t.Fatalf("missing path %s", path)
 		}
 	}
-	evaluations, _ := paths["/v1/evaluations"].(map[string]any)
-	post, _ := evaluations["post"].(map[string]any)
+	decisions, _ := paths["/v1/decisions"].(map[string]any)
+	post, _ := decisions["post"].(map[string]any)
 	responses, _ := post["responses"].(map[string]any)
 	if _, exists := responses["202"]; exists {
-		t.Fatal("evaluation declares an asynchronous 202 response")
-	}
-	if _, exists := responses["200"]; !exists {
-		t.Fatal("evaluation lacks a synchronous 200 response")
-	}
-
-	if _, exists := responses["504"]; !exists {
-		t.Fatal("evaluation lacks a deadline response")
-	}
-	if _, exists := responses["406"]; !exists {
-		t.Fatal("evaluation lacks an Accept negotiation response")
+		t.Fatal("decision declares an asynchronous 202 response")
 	}
 	required := map[string]map[string][]string{
 		"/v1/capabilities": {"get": {"200", "400", "401", "403", "405", "406", "413", "503"}},
-		"/v1/evaluations":  {"post": {"200", "400", "401", "403", "405", "406", "413", "415", "422", "499", "500", "502", "503", "504"}},
 		"/v1/decisions":    {"post": {"200", "400", "401", "403", "405", "406", "413", "415", "422", "499", "500", "502", "503", "504"}},
 		"/v1/replays":      {"post": {"200", "400", "401", "403", "405", "406", "413", "415", "422", "499", "500", "503", "504"}},
 	}
@@ -88,13 +80,17 @@ func TestOpenAPIMatchesSynchronousContract(t *testing.T) {
 	if err := schema.Validate(media["example"]); err != nil {
 		t.Fatalf("problem example: %v", err)
 	}
-	technical := map[string]any{
+	structural := map[string]any{
 		"type": "https://lex.fastygo.dev/problems/decision_error", "title": "Unprocessable Entity",
-		"status": jsonNumber(422), "detail": "typed answers failed deterministic checks", "reason": "decision_error",
-		"verdict": "error", "findings": []any{},
+		"status": jsonNumber(422), "detail": "typed answers failed deterministic structural checks", "reason": "decision_error",
+		"structural_status": "invalid", "findings": []any{},
 	}
-	if err := schema.Validate(technical); err != nil {
-		t.Fatalf("technical verdict problem: %v", err)
+	if err := schema.Validate(structural); err != nil {
+		t.Fatalf("structural problem: %v", err)
+	}
+	structural["verdict"] = "error"
+	if err := schema.Validate(structural); err == nil {
+		t.Fatal("problem schema accepts a semantic verdict")
 	}
 }
 

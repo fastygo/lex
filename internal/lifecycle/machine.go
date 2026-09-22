@@ -1,4 +1,4 @@
-// Package lifecycle is the request-scoped stage machine for one evaluation or replay.
+// Package lifecycle is the request-scoped stage machine for one decision or replay.
 // It records only the stages of the current request and keeps no server history.
 package lifecycle
 
@@ -8,9 +8,7 @@ import "fmt"
 type Kind string
 
 const (
-	// Evaluation is the live validation path.
-	Evaluation Kind = "evaluation"
-	// Decision is the generic typed-decision path.
+	// Decision is the typed-decision path: receive -> decide -> verify.
 	Decision Kind = "decision"
 	// Replay is the caller-supplied bundle path.
 	Replay Kind = "replay"
@@ -25,14 +23,11 @@ type Event struct {
 const (
 	statusCompleted = "completed"
 	statusFailed    = "failed"
-	statusSkipped   = "skipped"
 )
 
 // Run accepts a complete stage sequence or reports the first illegal transition.
 func Run(kind Kind, events []Event) error {
 	switch kind {
-	case Evaluation:
-		return runEvaluation(events)
 	case Decision:
 		return runDecision(events)
 	case Replay:
@@ -64,59 +59,6 @@ func runDecision(events []Event) error {
 func runReplay(events []Event) error {
 	if len(events) != 1 || events[0].Name != "replay" || (events[0].Status != statusCompleted && events[0].Status != statusFailed) {
 		return fmt.Errorf("illegal replay transition")
-	}
-	return nil
-}
-
-func runEvaluation(events []Event) error {
-	if len(events) == 0 {
-		return fmt.Errorf("illegal evaluation transition")
-	}
-	step := 0
-	for _, event := range events {
-		switch step {
-		case 0:
-			if event.Name != "receive" || event.Status != statusCompleted {
-				return fmt.Errorf("illegal evaluation transition")
-			}
-			step = 1
-		case 1:
-			if event.Name != "pack" || (event.Status != statusCompleted && event.Status != statusFailed) {
-				return fmt.Errorf("illegal evaluation transition")
-			}
-			if event.Status == statusFailed {
-				step = 9
-				continue
-			}
-			step = 2
-		case 2:
-			if event.Name != "decide" || (event.Status != statusCompleted && event.Status != statusFailed && event.Status != statusSkipped) {
-				return fmt.Errorf("illegal evaluation transition")
-			}
-			switch event.Status {
-			case statusFailed:
-				step = 9
-			case statusSkipped:
-				step = 3
-			default:
-				step = 4
-			}
-		case 3:
-			if event.Name != "verify" || event.Status != statusCompleted {
-				return fmt.Errorf("illegal evaluation transition")
-			}
-			step = 9
-		case 4:
-			if event.Name != "verify" || (event.Status != statusCompleted && event.Status != statusFailed) {
-				return fmt.Errorf("illegal evaluation transition")
-			}
-			step = 9
-		default:
-			return fmt.Errorf("illegal evaluation transition")
-		}
-	}
-	if step != 3 && step != 9 {
-		return fmt.Errorf("illegal evaluation transition")
 	}
 	return nil
 }

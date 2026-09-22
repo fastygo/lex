@@ -20,7 +20,6 @@ import (
 	"github.com/fastygo/lex/internal/adapters"
 	"github.com/fastygo/lex/internal/canonical"
 	"github.com/fastygo/lex/internal/evidence"
-	"github.com/fastygo/lex/internal/verify"
 	"github.com/fastygo/lex/internal/wire"
 )
 
@@ -32,8 +31,7 @@ func NewHandler(config Config) (http.Handler, error) {
 		return nil, err
 	}
 
-	verifier := config.verifier()
-	decisionVerifier := config.decisionVerifier()
+	verifier := config.decisionVerifier()
 	builder := frameworkapp.New(frameworkapp.Config{}).
 		DisableStatic().
 		WithSecurity(security.Config{Enabled: false}).
@@ -42,14 +40,11 @@ func NewHandler(config Config) (http.Handler, error) {
 	mux.Handle("/v1/capabilities", recoverProblem(authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		capabilities(w, request, config)
 	}))))
-	mux.Handle("/v1/evaluations", recoverProblem(authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		evaluate(w, request, config, verifier, decisionVerifier)
-	}))))
 	mux.Handle("/v1/decisions", recoverProblem(authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		decide(w, request, config, decisionVerifier)
+		decide(w, request, config, verifier)
 	}))))
 	mux.Handle("/v1/replays", recoverProblem(authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		replay(w, r, config, verifier, decisionVerifier)
+		replay(w, r, verifier)
 	}))))
 
 	return withKnownRoutes(withRequestLimits(builder.Build().Handler(), config, newAdmission(config.MaxInFlight))), nil
@@ -70,7 +65,7 @@ func recoverProblem(next http.Handler) http.Handler {
 func withKnownRoutes(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		switch request.URL.Path {
-		case "/healthz", "/v1/capabilities", "/v1/evaluations", "/v1/decisions", "/v1/replays":
+		case "/healthz", "/v1/capabilities", "/v1/decisions", "/v1/replays":
 			next.ServeHTTP(w, request)
 		default:
 			writeProblem(w, http.StatusNotFound, reasonNotFound, "the route is not provided")
@@ -260,41 +255,33 @@ func capabilities(w http.ResponseWriter, request *http.Request, config Config) {
 		return
 	}
 
-	prof := config.profile()
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"protocol_status": "canary",
-		"context": map[string]any{
-			"capability": contextmemory.Version,
-			"retrieval":  "exact_phrase",
-			"inputs":     evidence.Kinds(),
-		},
+		"protocol_status":  "canary",
+		"protocol_version": wire.DecisionProtocolVersion,
 		"operations": map[string]bool{
-			"evaluation": config.Decider != nil,
-			"decision":   config.Decider != nil,
-			"replay":     true,
-			"execution":  false,
+			"decision":  config.Decider != nil,
+			"replay":    true,
+			"execution": false,
 		},
 		"typed_decision": map[string]any{
 			"primitives":            []string{"noul", "choice", "score"},
 			"max_questions":         64,
 			"max_choice_options":    255,
 			"max_score_levels":      10,
-			"max_state_bytes":       config.MaxBodyBytes,
-			"context_binding":       "optional",
 			"adapter_contract":      adapters.ContractVersion,
 			"resolved_model_policy": "exact_pin",
-			"replay":                true,
 			"semantic_verdict":      false,
-			"legacy_evaluation":     "deprecated",
 		},
-		"policy": policyDisclosure(prof),
+		"context": map[string]any{
+			"binding":      "optional",
+			"runtime":      contextmemory.Version,
+			"verification": "rebuild",
+		},
 		"limits": map[string]int64{
-			"max_sources":        int64(contextmemory.MaxSources),
 			"max_body_bytes":     config.MaxBodyBytes,
-			"focus_max_items":    int64(prof.Focus().Budget.MaxItems),
-			"focus_max_chars":    int64(prof.Focus().Budget.MaxChars),
+			"max_context_bytes":  evidence.MaxSourceBytes,
 			"request_timeout_ms": config.RequestTimeout.Milliseconds(),
 			"process_admission":  int64(config.MaxInFlight),
 		},
@@ -302,7 +289,7 @@ func capabilities(w http.ResponseWriter, request *http.Request, config Config) {
 	})
 }
 
-func replay(w http.ResponseWriter, request *http.Request, config Config, verifier wire.Verifier, decisionVerifier wire.DecisionVerifier) {
+func replay(w http.ResponseWriter, request *http.Request, verifier wire.DecisionVerifier) {
 	if request.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
 		writeProblem(w, http.StatusMethodNotAllowed, reasonMethodNotAllowed, "only POST is supported")
@@ -334,34 +321,7 @@ func replay(w http.ResponseWriter, request *http.Request, config Config, verifie
 		writeProblem(w, http.StatusForbidden, reasonProjectForbidden, "the authenticated principal cannot access this project")
 		return
 	}
-	if genericDecisionBundle(raw) {
-		replayDecision(w, request, decisionVerifier, raw)
-		return
-	}
-	report, err := verifier.ReplayContext(request.Context(), raw)
-	if err != nil {
-		if writeRequestStop(w, err, replayTraceStatus("failed")) {
-			return
-		}
-		if errors.Is(err, verify.ErrUnusablePolicy) {
-			status, reason, detail := replayFailure(err)
-			tracedProblem(w, status, reason, detail, replayTraceStatus("failed"))
-			return
-		}
-		writeProblem(w, http.StatusUnprocessableEntity, reasonInvalidReplayBundle, "replay bundle failed deterministic structural validation")
-		return
-	}
-
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"replay_status":      "verdict_reproduced",
-		"verdict":            report.Verdict,
-		"findings":           report.Findings,
-		"policy_calibration": config.profile().Policy().Calibration,
-		"retention":          retentionDisclosure(),
-		"trace":              replayTrace(),
-	})
+	replayDecision(w, request, verifier, raw)
 }
 
 func declaredReplayProject(raw []byte) (string, bool) {
@@ -373,27 +333,8 @@ func declaredReplayProject(raw []byte) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	if projectID, ok := object["project_id"].(string); ok && projectID != "" {
-		return projectID, true
-	}
-	entity, ok := object["entity"].(map[string]any)
-	if !ok {
-		return "", false
-	}
-	projectID, ok := entity["project_id"].(string)
-	if !ok || projectID == "" {
-		return "", false
-	}
-	return projectID, true
-}
-
-func genericDecisionBundle(raw []byte) bool {
-	value, err := canonical.DecodeJSON(raw)
-	if err != nil {
-		return false
-	}
-	bundle, ok := value.(map[string]any)
-	return ok && bundle["bundle_kind"] == wire.DecisionBundleKind
+	projectID, ok := object["project_id"].(string)
+	return projectID, ok && projectID != ""
 }
 
 func writeProblem(w http.ResponseWriter, status int, reason, detail string) {

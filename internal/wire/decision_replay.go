@@ -6,13 +6,10 @@ import (
 	"crypto/subtle"
 	_ "embed"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"sync"
 
-	contextmemory "github.com/fastygo/context/pkg/contextkit/runtime"
 	"github.com/fastygo/lex/internal/canonical"
-	"github.com/fastygo/lex/internal/evidence"
 	"github.com/fastygo/lex/internal/verify"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
@@ -35,7 +32,14 @@ type DecisionReport struct {
 	Findings         []verify.Finding `json:"findings"`
 }
 
-// DecisionVerifier replays generic decision bundles against immutable adapter pins.
+// AdapterPin is deployment-owned authority for an adapter and resolved model.
+type AdapterPin struct {
+	Version string
+	Model   string
+}
+
+// DecisionVerifier replays decision bundles against immutable adapter pins.
+// It never retrieves evidence or calls a provider.
 type DecisionVerifier struct {
 	adapters map[string]AdapterPin
 }
@@ -49,13 +53,13 @@ func NewDecisionVerifier(adapters map[string]AdapterPin) DecisionVerifier {
 	return DecisionVerifier{adapters: pins}
 }
 
-// ValidateDecisionBundle checks the generic decision-bundle schema.
+// ValidateDecisionBundle checks the decision-bundle schema.
 func ValidateDecisionBundle(raw []byte) error {
 	value, err := canonical.DecodeJSON(raw)
 	if err != nil {
 		return fmt.Errorf("decode decision bundle: %w", err)
 	}
-	schema, err := compiledGenericDecisionBundle()
+	schema, err := compiledBundleSchema()
 	if err != nil {
 		return err
 	}
@@ -65,7 +69,7 @@ func ValidateDecisionBundle(raw []byte) error {
 	return nil
 }
 
-// VerifyDecisionBundleHash validates the self-hash of a generic decision bundle.
+// VerifyDecisionBundleHash validates the self-hash of a decision bundle.
 func VerifyDecisionBundleHash(raw []byte) error {
 	if err := ValidateDecisionBundle(raw); err != nil {
 		return err
@@ -131,7 +135,7 @@ func (v DecisionVerifier) ReplayContext(ctx context.Context, raw []byte) (Decisi
 	}
 	findings = verify.ValidateAnswers(set.VerifierQuestions(), answers)
 	if bundle.Context != nil {
-		extra, err := CheckGenericContext(ctx, bundle.ProjectID, *bundle.Context)
+		extra, err := CheckContext(ctx, bundle.ProjectID, *bundle.Context)
 		if err != nil {
 			return DecisionReport{}, err
 		}
@@ -140,7 +144,7 @@ func (v DecisionVerifier) ReplayContext(ctx context.Context, raw []byte) (Decisi
 	return decisionReport(findings), nil
 }
 
-func (v DecisionVerifier) bindingFindings(bundle DecisionBundle) ([]verify.Finding, GenericQuestionSet) {
+func (v DecisionVerifier) bindingFindings(bundle DecisionBundle) ([]verify.Finding, QuestionSet) {
 	findings := make([]verify.Finding, 0)
 	if bundle.BundleKind != DecisionBundleKind || bundle.ProtocolVersion != DecisionProtocolVersion || bundle.VerifierVersion != DecisionVerifierVersion {
 		findings = append(findings, errorFinding(verify.CodeUnpinnedVerifier))
@@ -150,19 +154,19 @@ func (v DecisionVerifier) bindingFindings(bundle DecisionBundle) ([]verify.Findi
 	}
 	checksum, err := decisionChecksum(bundle.ProjectID, DecisionIdentity{ID: bundle.Decision.ID, Version: bundle.Decision.Version})
 	if err != nil || checksum != bundle.Decision.Checksum {
-		findings = append(findings, errorFinding(verify.CodeEntityChecksumMismatch))
+		findings = append(findings, errorFinding(verify.CodeDecisionChecksumMismatch))
 	}
 	stateHash, err := canonical.HashJSON(bundle.State.Value)
 	if err != nil || stateHash != bundle.State.Hash || bundle.DecisionSet.StateHash != bundle.State.Hash {
 		findings = append(findings, errorFinding(verify.CodeBindingMismatch))
 	}
-	var questions map[string]GenericQuestion
+	var questions map[string]Question
 	if err := strictJSON(bundle.QuestionSet.Questions, &questions); err != nil {
 		findings = append(findings, errorFinding(verify.CodeUnpinnedQuestionSet))
-		return findings, GenericQuestionSet{}
+		return findings, QuestionSet{}
 	}
-	set := GenericQuestionSet{ID: bundle.QuestionSet.ID, Version: bundle.QuestionSet.Version, Questions: questions}
-	hash, err := questionSetHashGeneric(set)
+	set := QuestionSet{ID: bundle.QuestionSet.ID, Version: bundle.QuestionSet.Version, Questions: questions}
+	hash, err := questionSetHash(set)
 	if err != nil || set.Validate() != nil || hash != bundle.QuestionSet.Hash || bundle.DecisionSet.QuestionSetHash != bundle.QuestionSet.Hash {
 		findings = append(findings, errorFinding(verify.CodeUnpinnedQuestionSet))
 	}
@@ -202,26 +206,8 @@ func decisionReport(findings []verify.Finding) DecisionReport {
 	return DecisionReport{StructuralStatus: status, Findings: findings}
 }
 
-// CheckGenericContext validates an optional Context binding without imposing a
-// profile focus, evidence taxonomy, or domain policy on caller state.
-func CheckGenericContext(ctx context.Context, projectID string, record ContextRecord) ([]verify.Finding, error) {
-	frozen, err := evidence.Decode(record.Pack, record.Snapshot, record.PackRequest)
-	if err != nil {
-		return []verify.Finding{errorFinding(verify.CodePackShape)}, nil
-	}
-	if frozen.Snapshot.ProjectID != projectID || frozen.Snapshot.RuntimeVersion != contextmemory.Version {
-		return []verify.Finding{errorFinding(verify.CodeProjectBinding)}, nil
-	}
-	switch err := evidence.Verify(ctx, frozen); {
-	case err == nil:
-		return nil, nil
-	case errors.Is(err, evidence.ErrSnapshotMismatch):
-		return []verify.Finding{errorFinding(verify.CodeSnapshotIdentity)}, nil
-	case errors.Is(err, evidence.ErrPackMismatch):
-		return []verify.Finding{errorFinding(verify.CodePackRebuild)}, nil
-	default:
-		return nil, err
-	}
+func errorFinding(code string) verify.Finding {
+	return verify.Finding{Code: code, Detail: "deterministic check failed " + code}
 }
 
 func strictJSON(raw json.RawMessage, dest any) error {
@@ -236,7 +222,7 @@ func strictJSON(raw json.RawMessage, dest any) error {
 	return nil
 }
 
-func compiledGenericDecisionBundle() (*jsonschema.Schema, error) {
+func compiledBundleSchema() (*jsonschema.Schema, error) {
 	decisionBundleSchemaOnce.Do(func() {
 		value, err := canonical.DecodeJSON(decisionBundleSchema)
 		if err != nil {

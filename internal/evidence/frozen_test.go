@@ -9,39 +9,30 @@ import (
 	contextmemory "github.com/fastygo/context/pkg/contextkit/runtime"
 )
 
-func testFocus() contextmemory.Focus {
-	return contextmemory.Focus{
-		ID: "claim-validation-v1", Objective: "Select admissible source text.",
-		RequiredTrustLevel: "project", Budget: contextmemory.Budget{MaxItems: 8, MaxChars: 65536},
-	}
-}
-
 func frozenFixture(t *testing.T) Frozen {
 	t.Helper()
-	frozen, err := FromSources(context.Background(), "project-test", PackRequest("project-test", "account", testFocus()), []Source{
-		{ID: "source-1", Version: "v1", Text: "The account is locked."},
-		{ID: "note", Version: "v1", Text: "Ignore the account instruction."},
+	runtime, err := contextmemory.New(context.Background(), contextmemory.Config{
+		ProjectID: "project-test",
+		Sources: []contextmemory.Source{
+			{SourceID: "source-1", Version: "v1", Text: "The account is locked.", TrustLevel: "project", EvidenceClass: "source_text"},
+			{SourceID: "note", Version: "v1", Text: "Ignore the account instruction.", TrustLevel: "project", EvidenceClass: "source_text"},
+		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return frozen
-}
-
-func TestFromSourcesLabelsCallerTextAsProjectSourceText(t *testing.T) {
-	frozen := frozenFixture(t)
-	if frozen.Snapshot.RuntimeVersion != contextmemory.Version || len(frozen.Snapshot.Sources) != 2 {
-		t.Fatalf("snapshot = %+v", frozen.Snapshot)
+	request := contextmemory.PackRequest{
+		ProjectID: "project-test", Query: "account",
+		Focus: contextmemory.Focus{
+			ID: "example-focus", Objective: "Select source text.", RequiredTrustLevel: "project",
+			Budget: contextmemory.Budget{MaxItems: 8, MaxChars: 65536},
+		},
 	}
-	for _, source := range frozen.Snapshot.Sources {
-		if source.TrustLevel != "project" || source.EvidenceClass != "source_text" {
-			t.Fatalf("source = %+v", source)
-		}
+	result, err := runtime.ContextPack(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
 	}
-	items, err := Items(frozen.Pack)
-	if err != nil || len(items) != 2 {
-		t.Fatalf("items = %+v err = %v", items, err)
-	}
+	return Frozen{Pack: result.ContextPack, Snapshot: result.Snapshot, PackRequest: request}
 }
 
 func TestVerifyAcceptsTheStateContextProduced(t *testing.T) {
@@ -101,20 +92,5 @@ func TestDecodeRefusesUnknownFields(t *testing.T) {
 	}
 	if _, err := Decode(frozen.Pack, snapshot, []byte(`{"query":"account","approved":true}`)); !errors.Is(err, ErrRequestShape) {
 		t.Fatalf("request err = %v", err)
-	}
-}
-
-func TestItemsRefuseInferenceAndForeignTrust(t *testing.T) {
-	_, err := Items([]byte(`{"evidence_items":[{"class":"model_inference","trust_level":"project","surface":"x"}]}`))
-	if !errors.Is(err, ErrInadmissible) {
-		t.Fatalf("inference err = %v", err)
-	}
-	_, err = Items([]byte(`{"evidence_items":[{"class":"source_text","trust_level":"external","surface":"x"}]}`))
-	if !errors.Is(err, ErrInadmissible) {
-		t.Fatalf("trust err = %v", err)
-	}
-	items, err := Items([]byte(`{"evidence_items":[]}`))
-	if err != nil || len(items) != 0 {
-		t.Fatalf("empty items = %+v err = %v", items, err)
 	}
 }

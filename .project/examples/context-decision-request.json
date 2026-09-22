@@ -1,4 +1,31 @@
 {
+  "project_id": "example-project",
+  "decision": {
+    "id": "context-binding-step",
+    "version": "1"
+  },
+  "state": {
+    "task": "Classify the request using only the frozen context binding."
+  },
+  "question_set": {
+    "id": "example.context-binding",
+    "version": "1",
+    "questions": {
+      "route": {
+        "type": "choice",
+        "instructions": "Which route is best supported by the supplied state?",
+        "options": {
+          "account_access": "Account access support.",
+          "billing": "Billing support.",
+          "other": "No declared route."
+        }
+      },
+      "has_frozen_context": {
+        "type": "noul",
+        "instructions": "Is a frozen context binding supplied with this state?"
+      }
+    }
+  },
   "context": {
     "pack": {
       "id": "pack_65145b88105f926ce3a9edc150ff9adc1fb795a940e045a0ef251e8a382f01dc",
@@ -91,17 +118,7 @@
       ]
     }
   },
-  "entity": {
-    "id": "context-account-access-frozen",
-    "schema_version": "0.1",
-    "type": "claim",
-    "version": "1"
-  },
   "metadata": {
-    "client_ref": "context-account-access-frozen",
-    "example": "context",
-    "input": "frozen_context"
-  },
-  "project_id": "example-project",
-  "query": "account access"
+    "fixture": "context-binding"
+  }
 }

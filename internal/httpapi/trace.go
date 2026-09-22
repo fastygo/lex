@@ -16,20 +16,12 @@ type stages struct {
 	events []lifecycle.Event
 }
 
-func evaluationStages() *stages {
-	return &stages{kind: lifecycle.Evaluation, events: []lifecycle.Event{{Name: "receive", Status: "completed"}}}
-}
-
 func decisionStages() *stages {
 	return &stages{kind: lifecycle.Decision, events: []lifecycle.Event{{Name: "receive", Status: "completed"}}}
 }
 
-func (s *stages) completed(name string) *stages { return s.mark(name, "completed") }
-func (s *stages) failed(name string) *stages    { return s.mark(name, "failed") }
-func (s *stages) skipped(name string) *stages   { return s.mark(name, "skipped") }
-
-func (s *stages) mark(name, status string) *stages {
-	s.events = append(s.events, lifecycle.Event{Name: name, Status: status})
+func (s *stages) completed(name string) *stages {
+	s.events = append(s.events, lifecycle.Event{Name: name, Status: "completed"})
 	return s
 }
 

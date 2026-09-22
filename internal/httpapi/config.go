@@ -9,7 +9,6 @@ import (
 	"github.com/fastygo/lex/internal/adapters/openrouter"
 	"github.com/fastygo/lex/internal/adapters/typesafe"
 	"github.com/fastygo/lex/internal/canonical"
-	"github.com/fastygo/lex/internal/profile"
 	"github.com/fastygo/lex/internal/wire"
 )
 
@@ -29,9 +28,6 @@ type Config struct {
 	MaxInFlight         int
 	Decider             Decider
 	HostedResolvedModel string
-	// Profiles are compatibility-only claim evaluation profiles. Generic
-	// decisions use caller-owned QuestionSets and never inspect this registry.
-	Profiles profile.Registry
 }
 
 // LoadConfig reads the API boundary configuration without exposing secrets.
@@ -128,10 +124,6 @@ func parseBearerTokens(raw string) (map[string][]string, error) {
 	return tokens, nil
 }
 
-func (c Config) verifier() wire.Verifier {
-	return wire.NewVerifier(c.legacyProfiles(), c.adapterPins())
-}
-
 func (c Config) decisionVerifier() wire.DecisionVerifier {
 	return wire.NewDecisionVerifier(c.adapterPins())
 }
@@ -142,10 +134,4 @@ func (c Config) adapterPins() map[string]wire.AdapterPin {
 		pins[openrouter.AdapterID] = wire.AdapterPin{Version: openrouter.AdapterVersion, Model: c.HostedResolvedModel}
 	}
 	return pins
-}
-
-// profile is the profile live evaluations use.
-func (c Config) profile() profile.Profile {
-	prof, _ := c.legacyProfiles().Default()
-	return prof
 }
