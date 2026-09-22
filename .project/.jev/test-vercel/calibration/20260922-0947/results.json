@@ -1,0 +1,1233 @@
+{
+  "origin": "https://lexproto.vercel.app",
+  "labeled_at": "2026-09-22T06:47:00Z",
+  "ran_at": "2026-09-22T06:51:27.435Z",
+  "policy": {
+    "id": "claim-validation",
+    "version": "0.2.0",
+    "calibration": "uncalibrated"
+  },
+  "context": {
+    "capability": "memory-exact-v1",
+    "retrieval": "exact_phrase"
+  },
+  "min_bin_count": 5,
+  "trial_count": 18,
+  "excluded_count": 0,
+  "trials": [
+    {
+      "id": "library-book-returned",
+      "gold": {
+        "support": "yes",
+        "established": "yes",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "yes",
+        "action": "proceed",
+        "verdict": "validated"
+      },
+      "http_status": 200,
+      "verdict": "validated",
+      "findings": [],
+      "policy": {
+        "id": "claim-validation",
+        "version": "0.2.0",
+        "calibration": "uncalibrated"
+      },
+      "question_set": {
+        "id": "claim-validation",
+        "version": "0.2.0"
+      },
+      "adapter_id": "direct-systemone",
+      "adapter_version": "0.1.0",
+      "resolved_model": "jev-1.13.0",
+      "context_runtime": "memory-exact-v1",
+      "nouls": {
+        "support": 0.98,
+        "established": 0.95,
+        "refuted": 0.02,
+        "conflict": 0.03,
+        "safe_to_auto_act": 0.8
+      },
+      "action": "proceed",
+      "action_confidence": 0.98,
+      "replay_http_status": 200,
+      "replay_status": "verdict_reproduced",
+      "replay_verdict": "validated"
+    },
+    {
+      "id": "yard-gate-closed",
+      "gold": {
+        "support": "yes",
+        "established": "yes",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "yes",
+        "action": "proceed",
+        "verdict": "validated"
+      },
+      "http_status": 200,
+      "verdict": "manual_review",
+      "findings": [
+        "safety_gate"
+      ],
+      "policy": {
+        "id": "claim-validation",
+        "version": "0.2.0",
+        "calibration": "uncalibrated"
+      },
+      "question_set": {
+        "id": "claim-validation",
+        "version": "0.2.0"
+      },
+      "adapter_id": "direct-systemone",
+      "adapter_version": "0.1.0",
+      "resolved_model": "jev-1.13.0",
+      "context_runtime": "memory-exact-v1",
+      "nouls": {
+        "support": 0.98,
+        "established": 0.91,
+        "refuted": 0.02,
+        "conflict": 0.03,
+        "safe_to_auto_act": 0.65
+      },
+      "action": "proceed",
+      "action_confidence": 0.91,
+      "replay_http_status": 200,
+      "replay_status": "verdict_reproduced",
+      "replay_verdict": "manual_review"
+    },
+    {
+      "id": "lab-freezer-logged",
+      "gold": {
+        "support": "yes",
+        "established": "yes",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "yes",
+        "action": "proceed",
+        "verdict": "validated"
+      },
+      "http_status": 200,
+      "verdict": "manual_review",
+      "findings": [
+        "safety_gate"
+      ],
+      "policy": {
+        "id": "claim-validation",
+        "version": "0.2.0",
+        "calibration": "uncalibrated"
+      },
+      "question_set": {
+        "id": "claim-validation",
+        "version": "0.2.0"
+      },
+      "adapter_id": "direct-systemone",
+      "adapter_version": "0.1.0",
+      "resolved_model": "jev-1.13.0",
+      "context_runtime": "memory-exact-v1",
+      "nouls": {
+        "support": 0.99,
+        "established": 0.92,
+        "refuted": 0.02,
+        "conflict": 0.03,
+        "safe_to_auto_act": 0.73
+      },
+      "action": "proceed",
+      "action_confidence": 0.97,
+      "replay_http_status": 200,
+      "replay_status": "verdict_reproduced",
+      "replay_verdict": "manual_review"
+    },
+    {
+      "id": "pharmacy-bag-dispensed",
+      "gold": {
+        "support": "yes",
+        "established": "yes",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "verdict": "manual_review"
+      },
+      "http_status": 200,
+      "verdict": "manual_review",
+      "findings": [
+        "review_required"
+      ],
+      "policy": {
+        "id": "claim-validation",
+        "version": "0.2.0",
+        "calibration": "uncalibrated"
+      },
+      "question_set": {
+        "id": "claim-validation",
+        "version": "0.2.0"
+      },
+      "adapter_id": "direct-systemone",
+      "adapter_version": "0.1.0",
+      "resolved_model": "jev-1.13.0",
+      "context_runtime": "memory-exact-v1",
+      "nouls": {
+        "support": 0.98,
+        "established": 0.85,
+        "refuted": 0.04,
+        "conflict": 0.07,
+        "safe_to_auto_act": 0.5
+      },
+      "action": "manual_review",
+      "action_confidence": 0.44,
+      "replay_http_status": 200,
+      "replay_status": "verdict_reproduced",
+      "replay_verdict": "manual_review"
+    },
+    {
+      "id": "crane-lift-approved",
+      "gold": {
+        "support": "yes",
+        "established": "yes",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "verdict": "manual_review"
+      },
+      "http_status": 200,
+      "verdict": "manual_review",
+      "findings": [
+        "review_required"
+      ],
+      "policy": {
+        "id": "claim-validation",
+        "version": "0.2.0",
+        "calibration": "uncalibrated"
+      },
+      "question_set": {
+        "id": "claim-validation",
+        "version": "0.2.0"
+      },
+      "adapter_id": "direct-systemone",
+      "adapter_version": "0.1.0",
+      "resolved_model": "jev-1.13.0",
+      "context_runtime": "memory-exact-v1",
+      "nouls": {
+        "support": 0.97,
+        "established": 0.85,
+        "refuted": 0.03,
+        "conflict": 0.08,
+        "safe_to_auto_act": 0.4
+      },
+      "action": "manual_review",
+      "action_confidence": 0.34,
+      "replay_http_status": 200,
+      "replay_status": "verdict_reproduced",
+      "replay_verdict": "manual_review"
+    },
+    {
+      "id": "bakery-batch-baked",
+      "gold": {
+        "support": "yes",
+        "established": "yes",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "verdict": "manual_review"
+      },
+      "http_status": 200,
+      "verdict": "insufficient",
+      "findings": [
+        "establishment_below_threshold",
+        "safety_gate",
+        "action_inconsistent"
+      ],
+      "policy": {
+        "id": "claim-validation",
+        "version": "0.2.0",
+        "calibration": "uncalibrated"
+      },
+      "question_set": {
+        "id": "claim-validation",
+        "version": "0.2.0"
+      },
+      "adapter_id": "direct-systemone",
+      "adapter_version": "0.1.0",
+      "resolved_model": "jev-1.13.0",
+      "context_runtime": "memory-exact-v1",
+      "nouls": {
+        "support": 0.98,
+        "established": 0.76,
+        "refuted": 0.03,
+        "conflict": 0.03,
+        "safe_to_auto_act": 0.65
+      },
+      "action": "proceed",
+      "action_confidence": 0.57,
+      "replay_http_status": 200,
+      "replay_status": "verdict_reproduced",
+      "replay_verdict": "insufficient"
+    },
+    {
+      "id": "parcel-was-delivered",
+      "gold": {
+        "support": "no",
+        "established": "no",
+        "refuted": "yes",
+        "conflict": "no",
+        "safe_to_auto_act": "yes",
+        "action": "reject",
+        "verdict": "rejected"
+      },
+      "http_status": 200,
+      "verdict": "rejected",
+      "findings": [
+        "negative_result"
+      ],
+      "policy": {
+        "id": "claim-validation",
+        "version": "0.2.0",
+        "calibration": "uncalibrated"
+      },
+      "question_set": {
+        "id": "claim-validation",
+        "version": "0.2.0"
+      },
+      "adapter_id": "direct-systemone",
+      "adapter_version": "0.1.0",
+      "resolved_model": "jev-1.13.0",
+      "context_runtime": "memory-exact-v1",
+      "nouls": {
+        "support": 0.22,
+        "established": 0.02,
+        "refuted": 0.84,
+        "conflict": 0.09,
+        "safe_to_auto_act": 0.1
+      },
+      "action": "reject",
+      "action_confidence": 0.98,
+      "replay_http_status": 200,
+      "replay_status": "verdict_reproduced",
+      "replay_verdict": "rejected"
+    },
+    {
+      "id": "invoice-was-paid",
+      "gold": {
+        "support": "no",
+        "established": "no",
+        "refuted": "yes",
+        "conflict": "no",
+        "safe_to_auto_act": "yes",
+        "action": "reject",
+        "verdict": "rejected"
+      },
+      "http_status": 200,
+      "verdict": "insufficient",
+      "findings": [
+        "support_below_threshold",
+        "establishment_below_threshold",
+        "action_inconsistent"
+      ],
+      "policy": {
+        "id": "claim-validation",
+        "version": "0.2.0",
+        "calibration": "uncalibrated"
+      },
+      "question_set": {
+        "id": "claim-validation",
+        "version": "0.2.0"
+      },
+      "adapter_id": "direct-systemone",
+      "adapter_version": "0.1.0",
+      "resolved_model": "jev-1.13.0",
+      "context_runtime": "memory-exact-v1",
+      "nouls": {
+        "support": 0.27,
+        "established": 0.03,
+        "refuted": 0.73,
+        "conflict": 0.18,
+        "safe_to_auto_act": 0.06
+      },
+      "action": "reject",
+      "action_confidence": 0.85,
+      "replay_http_status": 200,
+      "replay_status": "verdict_reproduced",
+      "replay_verdict": "insufficient"
+    },
+    {
+      "id": "exam-was-rescheduled",
+      "gold": {
+        "support": "no",
+        "established": "no",
+        "refuted": "yes",
+        "conflict": "no",
+        "safe_to_auto_act": "yes",
+        "action": "reject",
+        "verdict": "rejected"
+      },
+      "http_status": 200,
+      "verdict": "rejected",
+      "findings": [
+        "negative_result"
+      ],
+      "policy": {
+        "id": "claim-validation",
+        "version": "0.2.0",
+        "calibration": "uncalibrated"
+      },
+      "question_set": {
+        "id": "claim-validation",
+        "version": "0.2.0"
+      },
+      "adapter_id": "direct-systemone",
+      "adapter_version": "0.1.0",
+      "resolved_model": "jev-1.13.0",
+      "context_runtime": "memory-exact-v1",
+      "nouls": {
+        "support": 0.17,
+        "established": 0.03,
+        "refuted": 0.82,
+        "conflict": 0.1,
+        "safe_to_auto_act": 0.22
+      },
+      "action": "reject",
+      "action_confidence": 0.97,
+      "replay_http_status": 200,
+      "replay_status": "verdict_reproduced",
+      "replay_verdict": "rejected"
+    },
+    {
+      "id": "repair-is-covered",
+      "gold": {
+        "support": "no",
+        "established": "no",
+        "refuted": "no",
+        "conflict": "yes",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "verdict": "conflict"
+      },
+      "http_status": 200,
+      "verdict": "conflict",
+      "findings": [
+        "evidence_conflict",
+        "establishment_below_threshold",
+        "review_required"
+      ],
+      "policy": {
+        "id": "claim-validation",
+        "version": "0.2.0",
+        "calibration": "uncalibrated"
+      },
+      "question_set": {
+        "id": "claim-validation",
+        "version": "0.2.0"
+      },
+      "adapter_id": "direct-systemone",
+      "adapter_version": "0.1.0",
+      "resolved_model": "jev-1.13.0",
+      "context_runtime": "memory-exact-v1",
+      "nouls": {
+        "support": 0.87,
+        "established": 0.08,
+        "refuted": 0.42,
+        "conflict": 0.94,
+        "safe_to_auto_act": 0.05
+      },
+      "action": "manual_review",
+      "action_confidence": 0.63,
+      "replay_http_status": 200,
+      "replay_status": "verdict_reproduced",
+      "replay_verdict": "conflict"
+    },
+    {
+      "id": "flight-was-cancelled",
+      "gold": {
+        "support": "no",
+        "established": "no",
+        "refuted": "no",
+        "conflict": "yes",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "verdict": "conflict"
+      },
+      "http_status": 200,
+      "verdict": "conflict",
+      "findings": [
+        "evidence_conflict",
+        "establishment_below_threshold",
+        "review_required"
+      ],
+      "policy": {
+        "id": "claim-validation",
+        "version": "0.2.0",
+        "calibration": "uncalibrated"
+      },
+      "question_set": {
+        "id": "claim-validation",
+        "version": "0.2.0"
+      },
+      "adapter_id": "direct-systemone",
+      "adapter_version": "0.1.0",
+      "resolved_model": "jev-1.13.0",
+      "context_runtime": "memory-exact-v1",
+      "nouls": {
+        "support": 0.88,
+        "established": 0.09,
+        "refuted": 0.36,
+        "conflict": 0.95,
+        "safe_to_auto_act": 0.05
+      },
+      "action": "manual_review",
+      "action_confidence": 0.79,
+      "replay_http_status": 200,
+      "replay_status": "verdict_reproduced",
+      "replay_verdict": "conflict"
+    },
+    {
+      "id": "badge-was-revoked",
+      "gold": {
+        "support": "no",
+        "established": "no",
+        "refuted": "no",
+        "conflict": "yes",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "verdict": "conflict"
+      },
+      "http_status": 200,
+      "verdict": "conflict",
+      "findings": [
+        "evidence_conflict",
+        "establishment_below_threshold",
+        "review_required"
+      ],
+      "policy": {
+        "id": "claim-validation",
+        "version": "0.2.0",
+        "calibration": "uncalibrated"
+      },
+      "question_set": {
+        "id": "claim-validation",
+        "version": "0.2.0"
+      },
+      "adapter_id": "direct-systemone",
+      "adapter_version": "0.1.0",
+      "resolved_model": "jev-1.13.0",
+      "context_runtime": "memory-exact-v1",
+      "nouls": {
+        "support": 0.92,
+        "established": 0.13,
+        "refuted": 0.27,
+        "conflict": 0.93,
+        "safe_to_auto_act": 0.06
+      },
+      "action": "manual_review",
+      "action_confidence": 0.82,
+      "replay_http_status": 200,
+      "replay_status": "verdict_reproduced",
+      "replay_verdict": "conflict"
+    },
+    {
+      "id": "valve-was-replaced",
+      "gold": {
+        "support": "no",
+        "established": "no",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "verdict": "insufficient"
+      },
+      "http_status": 200,
+      "verdict": "insufficient",
+      "findings": [
+        "support_below_threshold",
+        "establishment_below_threshold",
+        "review_required"
+      ],
+      "policy": {
+        "id": "claim-validation",
+        "version": "0.2.0",
+        "calibration": "uncalibrated"
+      },
+      "question_set": {
+        "id": "claim-validation",
+        "version": "0.2.0"
+      },
+      "adapter_id": "direct-systemone",
+      "adapter_version": "0.1.0",
+      "resolved_model": "jev-1.13.0",
+      "context_runtime": "memory-exact-v1",
+      "nouls": {
+        "support": 0.43,
+        "established": 0.07,
+        "refuted": 0.04,
+        "conflict": 0.17,
+        "safe_to_auto_act": 0.06
+      },
+      "action": "manual_review",
+      "action_confidence": 0.99,
+      "replay_http_status": 200,
+      "replay_status": "verdict_reproduced",
+      "replay_verdict": "insufficient"
+    },
+    {
+      "id": "roster-was-posted",
+      "gold": {
+        "support": "no",
+        "established": "no",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "verdict": "insufficient"
+      },
+      "http_status": 200,
+      "verdict": "insufficient",
+      "findings": [
+        "support_below_threshold",
+        "establishment_below_threshold",
+        "review_required"
+      ],
+      "policy": {
+        "id": "claim-validation",
+        "version": "0.2.0",
+        "calibration": "uncalibrated"
+      },
+      "question_set": {
+        "id": "claim-validation",
+        "version": "0.2.0"
+      },
+      "adapter_id": "direct-systemone",
+      "adapter_version": "0.1.0",
+      "resolved_model": "jev-1.13.0",
+      "context_runtime": "memory-exact-v1",
+      "nouls": {
+        "support": 0.14,
+        "established": 0.05,
+        "refuted": 0.04,
+        "conflict": 0.13,
+        "safe_to_auto_act": 0.05
+      },
+      "action": "manual_review",
+      "action_confidence": 0.97,
+      "replay_http_status": 200,
+      "replay_status": "verdict_reproduced",
+      "replay_verdict": "insufficient"
+    },
+    {
+      "id": "meter-was-read",
+      "gold": {
+        "support": "no",
+        "established": "no",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "verdict": "insufficient"
+      },
+      "http_status": 200,
+      "verdict": "insufficient",
+      "findings": [
+        "establishment_below_threshold",
+        "review_required"
+      ],
+      "policy": {
+        "id": "claim-validation",
+        "version": "0.2.0",
+        "calibration": "uncalibrated"
+      },
+      "question_set": {
+        "id": "claim-validation",
+        "version": "0.2.0"
+      },
+      "adapter_id": "direct-systemone",
+      "adapter_version": "0.1.0",
+      "resolved_model": "jev-1.13.0",
+      "context_runtime": "memory-exact-v1",
+      "nouls": {
+        "support": 0.75,
+        "established": 0.35,
+        "refuted": 0.15,
+        "conflict": 0.27,
+        "safe_to_auto_act": 0.21
+      },
+      "action": "manual_review",
+      "action_confidence": 0.58,
+      "replay_http_status": 200,
+      "replay_status": "verdict_reproduced",
+      "replay_verdict": "insufficient"
+    },
+    {
+      "id": "backup-finished",
+      "gold": {
+        "support": "yes",
+        "established": "no",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "verdict": "insufficient"
+      },
+      "http_status": 200,
+      "verdict": "insufficient",
+      "findings": [
+        "establishment_below_threshold",
+        "review_required"
+      ],
+      "policy": {
+        "id": "claim-validation",
+        "version": "0.2.0",
+        "calibration": "uncalibrated"
+      },
+      "question_set": {
+        "id": "claim-validation",
+        "version": "0.2.0"
+      },
+      "adapter_id": "direct-systemone",
+      "adapter_version": "0.1.0",
+      "resolved_model": "jev-1.13.0",
+      "context_runtime": "memory-exact-v1",
+      "nouls": {
+        "support": 0.96,
+        "established": 0.43,
+        "refuted": 0.04,
+        "conflict": 0.13,
+        "safe_to_auto_act": 0.19
+      },
+      "action": "manual_review",
+      "action_confidence": 0.97,
+      "replay_http_status": 200,
+      "replay_status": "verdict_reproduced",
+      "replay_verdict": "insufficient"
+    },
+    {
+      "id": "fee-was-waived",
+      "gold": {
+        "support": "no",
+        "established": "no",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "verdict": "insufficient"
+      },
+      "http_status": 200,
+      "verdict": "insufficient",
+      "findings": [
+        "support_below_threshold",
+        "establishment_below_threshold",
+        "review_required"
+      ],
+      "policy": {
+        "id": "claim-validation",
+        "version": "0.2.0",
+        "calibration": "uncalibrated"
+      },
+      "question_set": {
+        "id": "claim-validation",
+        "version": "0.2.0"
+      },
+      "adapter_id": "direct-systemone",
+      "adapter_version": "0.1.0",
+      "resolved_model": "jev-1.13.0",
+      "context_runtime": "memory-exact-v1",
+      "nouls": {
+        "support": 0.14,
+        "established": 0.04,
+        "refuted": 0.08,
+        "conflict": 0.26,
+        "safe_to_auto_act": 0.04
+      },
+      "action": "manual_review",
+      "action_confidence": 0.97,
+      "replay_http_status": 200,
+      "replay_status": "verdict_reproduced",
+      "replay_verdict": "insufficient"
+    },
+    {
+      "id": "signature-was-collected",
+      "gold": {
+        "support": "no",
+        "established": "no",
+        "refuted": "no",
+        "conflict": "yes",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "verdict": "conflict"
+      },
+      "http_status": 200,
+      "verdict": "conflict",
+      "findings": [
+        "evidence_conflict",
+        "support_below_threshold",
+        "establishment_below_threshold",
+        "review_required"
+      ],
+      "policy": {
+        "id": "claim-validation",
+        "version": "0.2.0",
+        "calibration": "uncalibrated"
+      },
+      "question_set": {
+        "id": "claim-validation",
+        "version": "0.2.0"
+      },
+      "adapter_id": "direct-systemone",
+      "adapter_version": "0.1.0",
+      "resolved_model": "jev-1.13.0",
+      "context_runtime": "memory-exact-v1",
+      "nouls": {
+        "support": 0.5,
+        "established": 0.06,
+        "refuted": 0.1,
+        "conflict": 0.83,
+        "safe_to_auto_act": 0.05
+      },
+      "action": "manual_review",
+      "action_confidence": 1,
+      "replay_http_status": 200,
+      "replay_status": "verdict_reproduced",
+      "replay_verdict": "conflict"
+    }
+  ],
+  "excluded": [],
+  "reliability": {
+    "support": [
+      {
+        "lo": 0,
+        "hi": 0.1,
+        "n": 0,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.1,
+        "hi": 0.2,
+        "n": 3,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.2,
+        "hi": 0.3,
+        "n": 2,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.3,
+        "hi": 0.4,
+        "n": 0,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.4,
+        "hi": 0.5,
+        "n": 1,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.5,
+        "hi": 0.6,
+        "n": 1,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.6,
+        "hi": 0.7,
+        "n": 0,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.7,
+        "hi": 0.8,
+        "n": 1,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.8,
+        "hi": 0.9,
+        "n": 2,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.9,
+        "hi": 1,
+        "n": 8,
+        "yes": 7,
+        "fraction": 0.875
+      }
+    ],
+    "established": [
+      {
+        "lo": 0,
+        "hi": 0.1,
+        "n": 9,
+        "yes": 0,
+        "fraction": 0
+      },
+      {
+        "lo": 0.1,
+        "hi": 0.2,
+        "n": 1,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.2,
+        "hi": 0.3,
+        "n": 0,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.3,
+        "hi": 0.4,
+        "n": 1,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.4,
+        "hi": 0.5,
+        "n": 1,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.5,
+        "hi": 0.6,
+        "n": 0,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.6,
+        "hi": 0.7,
+        "n": 0,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.7,
+        "hi": 0.8,
+        "n": 1,
+        "yes": 1,
+        "fraction": null
+      },
+      {
+        "lo": 0.8,
+        "hi": 0.9,
+        "n": 2,
+        "yes": 2,
+        "fraction": null
+      },
+      {
+        "lo": 0.9,
+        "hi": 1,
+        "n": 3,
+        "yes": 3,
+        "fraction": null
+      }
+    ],
+    "refuted": [
+      {
+        "lo": 0,
+        "hi": 0.1,
+        "n": 10,
+        "yes": 0,
+        "fraction": 0
+      },
+      {
+        "lo": 0.1,
+        "hi": 0.2,
+        "n": 2,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.2,
+        "hi": 0.3,
+        "n": 1,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.3,
+        "hi": 0.4,
+        "n": 1,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.4,
+        "hi": 0.5,
+        "n": 1,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.5,
+        "hi": 0.6,
+        "n": 0,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.6,
+        "hi": 0.7,
+        "n": 0,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.7,
+        "hi": 0.8,
+        "n": 1,
+        "yes": 1,
+        "fraction": null
+      },
+      {
+        "lo": 0.8,
+        "hi": 0.9,
+        "n": 2,
+        "yes": 2,
+        "fraction": null
+      },
+      {
+        "lo": 0.9,
+        "hi": 1,
+        "n": 0,
+        "yes": 0,
+        "fraction": null
+      }
+    ],
+    "conflict": [
+      {
+        "lo": 0,
+        "hi": 0.1,
+        "n": 7,
+        "yes": 0,
+        "fraction": 0
+      },
+      {
+        "lo": 0.1,
+        "hi": 0.2,
+        "n": 5,
+        "yes": 0,
+        "fraction": 0
+      },
+      {
+        "lo": 0.2,
+        "hi": 0.3,
+        "n": 2,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.3,
+        "hi": 0.4,
+        "n": 0,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.4,
+        "hi": 0.5,
+        "n": 0,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.5,
+        "hi": 0.6,
+        "n": 0,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.6,
+        "hi": 0.7,
+        "n": 0,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.7,
+        "hi": 0.8,
+        "n": 0,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.8,
+        "hi": 0.9,
+        "n": 1,
+        "yes": 1,
+        "fraction": null
+      },
+      {
+        "lo": 0.9,
+        "hi": 1,
+        "n": 3,
+        "yes": 3,
+        "fraction": null
+      }
+    ],
+    "safe_to_auto_act": [
+      {
+        "lo": 0,
+        "hi": 0.1,
+        "n": 8,
+        "yes": 1,
+        "fraction": 0.125
+      },
+      {
+        "lo": 0.1,
+        "hi": 0.2,
+        "n": 2,
+        "yes": 1,
+        "fraction": null
+      },
+      {
+        "lo": 0.2,
+        "hi": 0.3,
+        "n": 2,
+        "yes": 1,
+        "fraction": null
+      },
+      {
+        "lo": 0.3,
+        "hi": 0.4,
+        "n": 0,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.4,
+        "hi": 0.5,
+        "n": 1,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.5,
+        "hi": 0.6,
+        "n": 1,
+        "yes": 0,
+        "fraction": null
+      },
+      {
+        "lo": 0.6,
+        "hi": 0.7,
+        "n": 2,
+        "yes": 1,
+        "fraction": null
+      },
+      {
+        "lo": 0.7,
+        "hi": 0.8,
+        "n": 1,
+        "yes": 1,
+        "fraction": null
+      },
+      {
+        "lo": 0.8,
+        "hi": 0.9,
+        "n": 1,
+        "yes": 1,
+        "fraction": null
+      },
+      {
+        "lo": 0.9,
+        "hi": 1,
+        "n": 0,
+        "yes": 0,
+        "fraction": null
+      }
+    ]
+  },
+  "action_confusion": {
+    "proceed": {
+      "proceed": 3,
+      "reject": 0,
+      "manual_review": 0,
+      "other": 0
+    },
+    "reject": {
+      "proceed": 0,
+      "reject": 3,
+      "manual_review": 0,
+      "other": 0
+    },
+    "manual_review": {
+      "proceed": 1,
+      "reject": 0,
+      "manual_review": 11,
+      "other": 0
+    },
+    "other": {
+      "proceed": 0,
+      "reject": 0,
+      "manual_review": 0,
+      "other": 0
+    }
+  },
+  "verdict_confusion": {
+    "validated": {
+      "validated": 1,
+      "rejected": 0,
+      "insufficient": 0,
+      "conflict": 0,
+      "manual_review": 2,
+      "error": 0
+    },
+    "rejected": {
+      "validated": 0,
+      "rejected": 2,
+      "insufficient": 1,
+      "conflict": 0,
+      "manual_review": 0,
+      "error": 0
+    },
+    "insufficient": {
+      "validated": 0,
+      "rejected": 0,
+      "insufficient": 5,
+      "conflict": 0,
+      "manual_review": 0,
+      "error": 0
+    },
+    "conflict": {
+      "validated": 0,
+      "rejected": 0,
+      "insufficient": 0,
+      "conflict": 4,
+      "manual_review": 0,
+      "error": 0
+    },
+    "manual_review": {
+      "validated": 0,
+      "rejected": 0,
+      "insufficient": 1,
+      "conflict": 0,
+      "manual_review": 2,
+      "error": 0
+    },
+    "error": {
+      "validated": 0,
+      "rejected": 0,
+      "insufficient": 0,
+      "conflict": 0,
+      "manual_review": 0,
+      "error": 0
+    }
+  }
+}

@@ -1,0 +1,372 @@
+{
+  "labeled_at": "2026-09-22T06:47:00Z",
+  "note": "Predicate labels and gold actions were written from the claim text and source text in this file before any evaluation response was read. Do not edit labels after the run.",
+  "items": [
+    {
+      "id": "library-book-returned",
+      "labels": {
+        "support": "yes",
+        "established": "yes",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "yes",
+        "action": "proceed",
+        "rationale": "The circulation log states the return, the check-in, the cleared hold, and that no fine remains. Nothing in the source blocks an automatic disposition."
+      },
+      "request": {
+        "project_id": "example-project",
+        "entity": {"id": "claim-library-book-returned", "type": "claim", "schema_version": "0.1", "version": "1"},
+        "query": "the book was returned",
+        "sources": [
+          {"id": "src-library-d14", "version": "v1", "text": "Circulation desk log D-14 states that the book was returned at 16:05 on 2026-09-21. The copy was checked in, the hold was cleared, and no fine remains."}
+        ]
+      }
+    },
+    {
+      "id": "yard-gate-closed",
+      "labels": {
+        "support": "yes",
+        "established": "yes",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "yes",
+        "action": "proceed",
+        "rationale": "The night log states the closing time, the lock, and the armed alarm, and lists no open exception."
+      },
+      "request": {
+        "project_id": "example-project",
+        "entity": {"id": "claim-yard-gate-closed", "type": "claim", "schema_version": "0.1", "version": "1"},
+        "query": "the gate was closed",
+        "sources": [
+          {"id": "src-yard-g2", "version": "v1", "text": "Night log G-2 states that the gate was closed at 22:00, the lock was set, and the alarm was armed. No open exception is listed."}
+        ]
+      }
+    },
+    {
+      "id": "lab-freezer-logged",
+      "labels": {
+        "support": "yes",
+        "established": "yes",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "yes",
+        "action": "proceed",
+        "rationale": "The signed lab sheet states the logged temperature and that no alarm was open."
+      },
+      "request": {
+        "project_id": "example-project",
+        "entity": {"id": "claim-lab-freezer-logged", "type": "claim", "schema_version": "0.1", "version": "1"},
+        "query": "the freezer temperature was logged",
+        "sources": [
+          {"id": "src-lab-f7", "version": "v1", "text": "Lab sheet F-7 states that the freezer temperature was logged at 06:10 as minus 20.1 C. The sheet is signed and no alarm was open."}
+        ]
+      }
+    },
+    {
+      "id": "pharmacy-bag-dispensed",
+      "labels": {
+        "support": "yes",
+        "established": "yes",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "rationale": "The pharmacy log establishes that the bag was dispensed. Pharmacist verification and counseling are still pending, so an automatic release is not safe."
+      },
+      "request": {
+        "project_id": "example-project",
+        "entity": {"id": "claim-pharmacy-bag-dispensed", "type": "claim", "schema_version": "0.1", "version": "1"},
+        "query": "the prescription was dispensed",
+        "sources": [
+          {"id": "src-pharmacy-p8", "version": "v1", "text": "Pharmacy log P-8 states that the prescription was dispensed into a labeled bag at 11:20. Pharmacist verification and patient counseling remain pending, so the bag must not be released automatically."}
+        ]
+      }
+    },
+    {
+      "id": "crane-lift-approved",
+      "labels": {
+        "support": "yes",
+        "established": "yes",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "rationale": "The site board establishes engineer approval of the lift plan. A second sign-off is still pending, so starting the lift automatically is not safe."
+      },
+      "request": {
+        "project_id": "example-project",
+        "entity": {"id": "claim-crane-lift-approved", "type": "claim", "schema_version": "0.1", "version": "1"},
+        "query": "the lift plan was approved",
+        "sources": [
+          {"id": "src-crane-s3", "version": "v1", "text": "Site board S-3 states that the lift plan was approved by the engineer at 09:00. A second competent-person sign-off is still pending, so the lift must not start automatically."}
+        ]
+      }
+    },
+    {
+      "id": "bakery-batch-baked",
+      "labels": {
+        "support": "yes",
+        "established": "yes",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "rationale": "The oven log establishes that the batch finished baking. Metal detection and release sign-off are still pending, so automatic shipment is not safe."
+      },
+      "request": {
+        "project_id": "example-project",
+        "entity": {"id": "claim-bakery-batch-baked", "type": "claim", "schema_version": "0.1", "version": "1"},
+        "query": "the batch was baked",
+        "sources": [
+          {"id": "src-bakery-b12", "version": "v1", "text": "Oven log B-12 states that the batch was baked at 180 C for 40 minutes. Metal detection and release sign-off remain pending, so the batch must not ship automatically."}
+        ]
+      }
+    },
+    {
+      "id": "parcel-was-delivered",
+      "labels": {
+        "support": "no",
+        "established": "no",
+        "refuted": "yes",
+        "conflict": "no",
+        "safe_to_auto_act": "yes",
+        "action": "reject",
+        "rationale": "Two agreeing records state that the delivery claim is false and give the same remaining location. That is a coherent refutation, not a conflict. Rejecting the claim automatically is safe."
+      },
+      "request": {
+        "project_id": "example-project",
+        "entity": {"id": "claim-parcel-was-delivered", "type": "claim", "schema_version": "0.1", "version": "1"},
+        "query": "the parcel was delivered",
+        "sources": [
+          {"id": "src-depot-c100", "version": "v1", "text": "Depot ledger C-100 records the statement the parcel was delivered and states that this statement is false. The parcel is still on the depot shelf."},
+          {"id": "src-carrier-c100", "version": "v1", "text": "Carrier exception C-100 records the statement the parcel was delivered and states that this statement is false. No recipient signature exists."}
+        ]
+      }
+    },
+    {
+      "id": "invoice-was-paid",
+      "labels": {
+        "support": "no",
+        "established": "no",
+        "refuted": "yes",
+        "conflict": "no",
+        "safe_to_auto_act": "yes",
+        "action": "reject",
+        "rationale": "The ledger and the bank note agree that the payment claim is false and that the balance is still open. Low support is not the label; the sources establish the negation."
+      },
+      "request": {
+        "project_id": "example-project",
+        "entity": {"id": "claim-invoice-was-paid", "type": "claim", "schema_version": "0.1", "version": "1"},
+        "query": "the invoice was paid",
+        "sources": [
+          {"id": "src-ledger-a44", "version": "v1", "text": "Accounts ledger A-44 records the statement the invoice was paid and states that this statement is false. The balance is still open."},
+          {"id": "src-bank-a44", "version": "v1", "text": "Bank note A-44 records the statement the invoice was paid and states that this statement is false. No matching credit is posted."}
+        ]
+      }
+    },
+    {
+      "id": "exam-was-rescheduled",
+      "labels": {
+        "support": "no",
+        "established": "no",
+        "refuted": "yes",
+        "conflict": "no",
+        "safe_to_auto_act": "yes",
+        "action": "reject",
+        "rationale": "The registrar note and the room board agree that the reschedule claim is false and that the original time still stands."
+      },
+      "request": {
+        "project_id": "example-project",
+        "entity": {"id": "claim-exam-was-rescheduled", "type": "claim", "schema_version": "0.1", "version": "1"},
+        "query": "the exam was rescheduled",
+        "sources": [
+          {"id": "src-registrar-e5", "version": "v1", "text": "Registrar note E-5 records the statement the exam was rescheduled and states that this statement is false. The original time still stands."},
+          {"id": "src-room-e5", "version": "v1", "text": "Room board E-5 records the statement the exam was rescheduled and states that this statement is false. The room is still booked at the original time."}
+        ]
+      }
+    },
+    {
+      "id": "repair-is-covered",
+      "labels": {
+        "support": "no",
+        "established": "no",
+        "refuted": "no",
+        "conflict": "yes",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "rationale": "One source states that the warranty covers the repair and another states that the same claim is false. The pair does not establish the claim or its negation. An automatic disposition is not safe."
+      },
+      "request": {
+        "project_id": "example-project",
+        "entity": {"id": "claim-repair-is-covered", "type": "claim", "schema_version": "0.1", "version": "1"},
+        "query": "the repair is covered",
+        "sources": [
+          {"id": "src-service-s1", "version": "v1", "text": "Service note S-1 states that the repair is covered under the 2024 warranty."},
+          {"id": "src-warranty-s1", "version": "v1", "text": "Warranty desk S-1 states that the repair is covered is false because that warranty expired in 2025."}
+        ]
+      }
+    },
+    {
+      "id": "flight-was-cancelled",
+      "labels": {
+        "support": "no",
+        "established": "no",
+        "refuted": "no",
+        "conflict": "yes",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "rationale": "Ops says the flight was cancelled and dispatch says that claim is false because the flight departed. Those conclusions are incompatible."
+      },
+      "request": {
+        "project_id": "example-project",
+        "entity": {"id": "claim-flight-was-cancelled", "type": "claim", "schema_version": "0.1", "version": "1"},
+        "query": "the flight was cancelled",
+        "sources": [
+          {"id": "src-ops-f20", "version": "v1", "text": "Ops desk F-20 states that the flight was cancelled at 14:10."},
+          {"id": "src-dispatch-f20", "version": "v1", "text": "Dispatch board F-20 states that the flight was cancelled is false and that the flight departed at 14:22."}
+        ]
+      }
+    },
+    {
+      "id": "badge-was-revoked",
+      "labels": {
+        "support": "no",
+        "established": "no",
+        "refuted": "no",
+        "conflict": "yes",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "rationale": "The security log says the badge was revoked and the door controller says that claim is false because the badge still opens the door."
+      },
+      "request": {
+        "project_id": "example-project",
+        "entity": {"id": "claim-badge-was-revoked", "type": "claim", "schema_version": "0.1", "version": "1"},
+        "query": "the badge was revoked",
+        "sources": [
+          {"id": "src-security-k3", "version": "v1", "text": "Security log K-3 states that the badge was revoked at 08:00."},
+          {"id": "src-door-k3", "version": "v1", "text": "Door controller K-3 states that the badge was revoked is false and that the badge still opens the door."}
+        ]
+      }
+    },
+    {
+      "id": "valve-was-replaced",
+      "labels": {
+        "support": "no",
+        "established": "no",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "rationale": "The work order only contains the claim as a task title and does not say whether the task happened. Mention without an assertion is not support, establishment, or refutation."
+      },
+      "request": {
+        "project_id": "example-project",
+        "entity": {"id": "claim-valve-was-replaced", "type": "claim", "schema_version": "0.1", "version": "1"},
+        "query": "the valve was replaced",
+        "sources": [
+          {"id": "src-work-w3", "version": "v1", "text": "Work order W-3 contains the words the valve was replaced as a task title. The order does not say whether the task happened."}
+        ]
+      }
+    },
+    {
+      "id": "roster-was-posted",
+      "labels": {
+        "support": "no",
+        "established": "no",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "rationale": "The draft file names the claim and does not assert that the roster was or was not posted."
+      },
+      "request": {
+        "project_id": "example-project",
+        "entity": {"id": "claim-roster-was-posted", "type": "claim", "schema_version": "0.1", "version": "1"},
+        "query": "the roster was posted",
+        "sources": [
+          {"id": "src-draft-r2", "version": "v1", "text": "Draft file R-2 contains the words the roster was posted as a heading. The file does not say whether posting happened."}
+        ]
+      }
+    },
+    {
+      "id": "meter-was-read",
+      "labels": {
+        "support": "no",
+        "established": "no",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "rationale": "The route card names the claim and withholds both a reading and a statement that no reading occurred."
+      },
+      "request": {
+        "project_id": "example-project",
+        "entity": {"id": "claim-meter-was-read", "type": "claim", "schema_version": "0.1", "version": "1"},
+        "query": "the meter was read",
+        "sources": [
+          {"id": "src-route-m6", "version": "v1", "text": "Route card M-6 contains the words the meter was read as the stop name. The card does not record a reading and does not say the stop was skipped."}
+        ]
+      }
+    },
+    {
+      "id": "backup-finished",
+      "labels": {
+        "support": "yes",
+        "established": "no",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "rationale": "The on-duty operator's own log supports the claim. Without a job receipt or completion code, the evidence does not establish it, and it does not refute it."
+      },
+      "request": {
+        "project_id": "example-project",
+        "entity": {"id": "claim-backup-finished", "type": "claim", "schema_version": "0.1", "version": "1"},
+        "query": "the backup finished",
+        "sources": [
+          {"id": "src-shift-l4", "version": "v1", "text": "Shift log L-4, written by the operator on duty, states that the backup finished at 02:14. The log does not attach the job receipt or a completion code."}
+        ]
+      }
+    },
+    {
+      "id": "fee-was-waived",
+      "labels": {
+        "support": "no",
+        "established": "no",
+        "refuted": "no",
+        "conflict": "no",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "rationale": "A hedged belief that the claim is probably false does not establish the negation. The note also says no ledger line confirms either outcome."
+      },
+      "request": {
+        "project_id": "example-project",
+        "entity": {"id": "claim-fee-was-waived", "type": "claim", "schema_version": "0.1", "version": "1"},
+        "query": "the fee was waived",
+        "sources": [
+          {"id": "src-clerk-u1", "version": "v1", "text": "The clerk could not find a posted waiver and wrote that the fee was waived is probably false, but no ledger line confirms either outcome."}
+        ]
+      }
+    },
+    {
+      "id": "signature-was-collected",
+      "labels": {
+        "support": "no",
+        "established": "no",
+        "refuted": "no",
+        "conflict": "yes",
+        "safe_to_auto_act": "no",
+        "action": "manual_review",
+        "rationale": "The same note says the signature might have been collected and that the filed page is unsigned, and it does not decide between them. That is incompatible observations, not an established negation."
+      },
+      "request": {
+        "project_id": "example-project",
+        "entity": {"id": "claim-signature-was-collected", "type": "claim", "schema_version": "0.1", "version": "1"},
+        "query": "the signature was collected",
+        "sources": [
+          {"id": "src-file-n9", "version": "v1", "text": "File note N-9 says the signature was collected might have happened at the desk, and also says the page in the file is unsigned. The note does not decide which observation to trust."}
+        ]
+      }
+    }
+  ]
+}
