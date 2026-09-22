@@ -1,8 +1,10 @@
 # ADR-0005: Canonical hashes and immutable input binding
 
-Status: proposed. Date: 2026-09-21.
-Scope constraints in [the plan](../README.md) are fixed; implementation details
-require acceptance evidence. Owner: LeX maintainers. No implementation claimed.
+Status: accepted. Date: 2026-09-22.
+Owner: LeX maintainers. Independent vectors come from `scripts/jcs_vectors.py`
+using pinned `rfc8785`. `internal/canonical/vectors_test.go` checks those
+vectors. `internal/wire/golden_test.go` checks bundle hashes and verdicts
+against that script and `scripts/verdict_gate.py`.
 
 ## Context
 

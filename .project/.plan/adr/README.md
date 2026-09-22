@@ -1,8 +1,9 @@
 # Architecture decision register
 
-Status: decision records for the Go REST, Vercel, RAM-only profile. ADR-0003
-selects published Context v0.1.0; its LeX acceptance checks remain pending.
-Other records remain proposed unless explicitly updated.
+Status: decision records for the Go REST, Vercel, RAM-only profile. ADR-0004,
+ADR-0005, ADR-0006, ADR-0007, and ADR-0008 are accepted. ADR-0003 selects
+published Context v0.1.0; its race evidence remains pending. The other records
+stay proposed until the evidence named in [progress.md](../progress.md) exists.
 Accept only with recorded review and linked evidence; keep a supersession trail.
 User constraints do not need reconfirmation. Unresolved engineering details
 must not be presented as shipped behavior.

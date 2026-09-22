@@ -1,8 +1,7 @@
 # ADR-0012: Standards conformance and release evidence
 
-Status: proposed. Date: 2026-09-21.
-Scope constraints in [the plan](../README.md) are fixed; implementation details
-require acceptance evidence. Owner: LeX maintainers. No implementation claimed.
+Status: proposed. Date: 2026-09-21. Local conformance tests exist.
+The revision-pinned release report is deferred. See [progress.md](../progress.md).
 
 ## Context
 

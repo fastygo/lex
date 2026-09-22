@@ -1,8 +1,10 @@
 # ADR-0008: Lifecycle, verdict precedence, and retries
 
-Status: proposed. Date: 2026-09-21.
-Scope constraints in [the plan](../README.md) are fixed; implementation details
-require acceptance evidence. Owner: LeX maintainers. No implementation claimed.
+Status: accepted. Date: 2026-09-22.
+Owner: LeX maintainers. The verdict truth table, combined findings, deadline and
+disconnect at pack, decide, verify, and replay, and a repeated request on a
+fresh instance are covered by `internal/conformance/policy_gate_test.go`,
+`internal/verify/verdict_test.go`, and `internal/httpapi/handler_test.go`.
 
 ## Context
 

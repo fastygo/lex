@@ -51,10 +51,11 @@ already in the bundle and does not replace the saved pack. The wire envelope
 remains `0.1-draft`. Bundles pinned to the `0.1` profile are rejected by this
 verifier.
 
-A draft OpenAPI document and local adversarial tests exist. Calibration, a
-28-day SLO, race evidence on a supported runner, hosted-adapter proof on a
-deployment, and proof of the latest deployment revision remain open. No
-conformance certification is claimed.
+A draft OpenAPI document and local adversarial tests exist. The open proof
+list is [progress.md](.project/.plan/progress.md): hosted-adapter proof on a
+deployment, ADR acceptance that is still proposed, and the deferred race, SLO,
+revision-pinned conformance report, and vulnerability review. Calibration of
+`0.2.0` stays `uncalibrated`. No conformance certification is claimed.
 
 ## Architecture
 
@@ -134,16 +135,15 @@ schema. `GET /v1/capabilities` reports exact-phrase retrieval, the uncalibrated
 `claim-validation` `0.2.0` policy, and the configured body, deadline, focus,
 and per-process admission limits. Research maps under `.project/.jev/examples/`
 are not evaluation requests. These routes are the working draft surface. They
-are not a released protocol while the ADRs remain proposed.
+are not a released protocol while the remaining ADRs are proposed.
 
 ## Delivery path
 
 The local service implements the evaluation and replay path: an embedded
 Context pack, direct and hosted adapter fixtures, schemas, hashes, the
-verifier, and network-free replay. Calibration evidence, hosted-adapter proof
-on a deployment, race evidence, SLO measurements, and a conformance
-certification remain open. The delivery sequence still records those proof
-gates in [delivery and proof](.project/.plan/delivery.md).
+verifier, and network-free replay. What remains open is the checklist in
+[progress.md](.project/.plan/progress.md). The delivery sequence still records
+those proof gates in [delivery and proof](.project/.plan/delivery.md).
 
 ## Documentation
 

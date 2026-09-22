@@ -1,8 +1,7 @@
 # ADR-0002: Vercel Go deployment and handler lifecycle
 
-Status: proposed. Date: 2026-09-21.
-Scope constraints in [the plan](../README.md) are fixed; implementation details
-require acceptance evidence. Owner: LeX maintainers. No implementation claimed.
+Status: proposed. Date: 2026-09-21. The handler is deployed.
+Toolchain, region, duration, and cold-start evidence are still open. See [progress.md](../progress.md).
 
 ## Context
 

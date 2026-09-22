@@ -1,8 +1,7 @@
 # ADR-0001: Go, Framework, and dependency direction
 
-Status: proposed. Date: 2026-09-21.
-Scope constraints in [the plan](../README.md) are fixed; implementation details
-require acceptance evidence. Owner: LeX maintainers. No implementation claimed.
+Status: proposed. Date: 2026-09-21. The module pins are implemented.
+Acceptance evidence for the deployed toolchain is still open. See [progress.md](../progress.md).
 
 ## Context
 

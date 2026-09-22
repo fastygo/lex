@@ -1,8 +1,11 @@
 # ADR-0004: Wire schemas, versions, and extensions
 
-Status: proposed. Date: 2026-09-21.
-Scope constraints in [the plan](../README.md) are fixed; implementation details
-require acceptance evidence. Owner: LeX maintainers. No implementation claimed.
+Status: accepted. Date: 2026-09-22.
+Owner: LeX maintainers. JSON Schema 2020-12 is pinned through
+`github.com/santhosh-tekuri/jsonschema/v6`. Positive and negative fixtures,
+duplicate-key rejection, OpenAPI examples, and protocol-version rejection are
+covered by `internal/wire/openapi_test.go`, `internal/wire/request_test.go`,
+`internal/wire/bundle_test.go`, and `internal/httpapi/handler_test.go`.
 
 ## Context
 

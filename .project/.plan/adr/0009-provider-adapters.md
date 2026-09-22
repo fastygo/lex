@@ -1,8 +1,7 @@
 # ADR-0009: Typed decisions and provider capabilities
 
-Status: proposed. Date: 2026-09-21.
-Scope constraints in [the plan](../README.md) are fixed; implementation details
-require acceptance evidence. Owner: LeX maintainers. No implementation claimed.
+Status: proposed. Date: 2026-09-21. Direct and hosted adapters are implemented.
+Hosted proof on the deployment is still open. See [progress.md](../progress.md).
 
 ## Context
 

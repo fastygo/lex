@@ -48,7 +48,7 @@ Use an independent yes/no label for each predicate:
 | `established` | Admissible evidence establishes the claim. |
 | `refuted` | Admissible evidence establishes that the claim is false. Low support alone is not refutation. |
 | `conflict` | Admissible evidence supports mutually incompatible conclusions. A coherent refutation alone is not conflict. |
-| `safe_to_auto_act` | An automatic disposition would be safe for this claim and evidence. |
+| `safe_to_auto_act` | The evidence can be accepted for the claim without a person reading it first. Safety of rejecting the claim is a separate action label. |
 
 Also record one gold action: `proceed`, `reject`, `manual_review`, or `other`.
 That label is the disposition a reviewer would choose. It is not a rewrite of
@@ -107,6 +107,20 @@ not a substitute for the Noul reliability tables.
 
 The 18-request sample cannot fill these bins. Do not turn
 [findings.md](findings.md) into calibration rates.
+
+## Decision for 0.2.0
+
+Trial [calibration/20260922-0947](calibration/20260922-0947/report.md) is one
+labeled sample of 18 items on `jev-1.13.0` and the direct adapter. Bins with
+fewer than five trials stay blank. The published bins do not select new
+thresholds. Policy `claim-validation` `0.2.0` stays `uncalibrated`, and its
+hash stays in place.
+
+The safety labels in that trial used an earlier gloss, "an automatic
+disposition would be safe." They were not rewritten after the answers. The
+next corpus uses the `safe_to_auto_act` row in the label table above, which
+matches the embedded question: whether the evidence can be accepted for the
+claim without a person reading it first.
 
 ## Publishing a new policy
 

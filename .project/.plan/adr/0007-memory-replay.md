@@ -1,8 +1,11 @@
 # ADR-0007: Request RAM and caller-owned replay
 
-Status: proposed. Date: 2026-09-21.
-Scope constraints in [the plan](../README.md) are fixed; implementation details
-require acceptance evidence. Owner: LeX maintainers. No implementation claimed.
+Status: accepted. Date: 2026-09-22.
+Owner: LeX maintainers. Network-disabled replay, a fresh instance that does not
+deduplicate, project isolation, response-budget round-trip, and an evaluation
+that writes no files are covered by `internal/wire/golden_test.go` and
+`internal/httpapi/handler_test.go`. A lost response stays unrecoverable because
+the service keeps no history.
 
 ## Context
 

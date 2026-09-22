@@ -1,7 +1,8 @@
 # LeX implementation plan
 
-Status: planning baseline, updated 2026-09-21. Context v0.1.0 is published;
-LeX implementation, SLO achievement, and standards certification are not claimed.
+Status: planning baseline, updated 2026-09-22. Context v0.1.0 is published.
+The validation and replay slice is running. SLO achievement and standards
+certification are not claimed. Open proof is listed in [progress.md](progress.md).
 
 ## Fixed scope
 
@@ -45,5 +46,7 @@ The [version baseline](context-version.md) pins the tag, commit, capability,
 limits, and proof. [ADR-0003](adr/0003-context-boundary.md) selects this path.
 
 The missing embedded-interface blocker is closed for memory-exact-v1.
-Framework composition, LeX evidence binding, Vercel deployment, race testing,
-and end-to-end resource/conformance measurements remain delivery gates.
+Framework composition, LeX evidence binding, and the direct-adapter Vercel
+deployment are in place. Race testing, SLO measurement, hosted-adapter proof
+on that deployment, and the conformance report remain open in
+[progress.md](progress.md).

@@ -1,7 +1,7 @@
 # ADR-0003: Context public boundary and RAM integration
 
-Status: selected dependency; LeX adapter is wired and acceptance is still pending. Updated: 2026-09-21.
-Owner: LeX maintainers. The embedded runtime is called from the evaluation handler.
+Status: selected dependency; the embedded runtime is called from the evaluation handler. Updated: 2026-09-22.
+Owner: LeX maintainers. Full acceptance still requires the race evidence named in [progress.md](../progress.md).
 
 ## Context
 

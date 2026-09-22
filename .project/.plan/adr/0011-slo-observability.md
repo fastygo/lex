@@ -1,8 +1,7 @@
 # ADR-0011: Budgets, measurement, and overload
 
-Status: proposed. Date: 2026-09-21.
-Scope constraints in [the plan](../README.md) are fixed; implementation details
-require acceptance evidence. Owner: LeX maintainers. No implementation claimed.
+Status: proposed. Date: 2026-09-21. Budgets are implemented.
+SLO measurement is deferred. See [progress.md](../progress.md).
 
 ## Context
 

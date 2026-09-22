@@ -1,7 +1,10 @@
 # Delivery and proof sequence
 
-Status: planned. The upstream embedded-interface prerequisite is satisfied by
-[Context v0.1.0](context-version.md); no complete LeX delivery gate is marked done.
+Status: the validation and replay slice is running on the direct adapter.
+[Context v0.1.0](context-version.md) satisfies the embedded-interface
+prerequisite. Gates that still lack their acceptance evidence are unchecked
+in [progress.md](progress.md). This file does not mark the release checklist
+done.
 
 ## P0: dependency and deployment feasibility
 

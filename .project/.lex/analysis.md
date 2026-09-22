@@ -17,8 +17,10 @@ Raw answers and traces are exported in a complete response bundle; the caller
 owns any retention. There is no durable server history or asynchronous job.
 The selected evidence adapter is [Context v0.1.0](../.plan/context-version.md),
 using public pkg/contextkit/runtime for in-process exact retrieval and packing.
-Upstream capability is tested; LeX composition and Vercel deployment remain
-pending under [ADR-0003](../.plan/adr/0003-context-boundary.md).
+The embedded `memory-exact-v1` path is wired through the evaluation handler
+and the direct adapter is running on the Vercel deployment. What remains open
+is listed in [progress.md](../.plan/progress.md). [ADR-0003](../.plan/adr/0003-context-boundary.md)
+still withholds full acceptance until the deferred race evidence exists.
 
 ## First slice
 
