@@ -1,8 +1,9 @@
 # Protocol progress
 
-Updated: 2026-09-22. This file is the visible checklist for the validation and
-replay slice. Checked items have evidence in the repo or on the running direct
-adapter. Unchecked items are still open.
+Updated: 2026-09-22. Release: **canary**. This file is the visible checklist
+for the generic decision, legacy validation, and replay slices. Checked items
+have evidence in the repo or on the running direct adapter. Unchecked items
+are open until the stable release.
 
 ## Running slice
 
@@ -11,12 +12,12 @@ adapter. Unchecked items are still open.
 - [x] Routes `GET /healthz`, `GET /v1/capabilities`, `POST /v1/decisions`, deprecated `POST /v1/evaluations`, `POST /v1/replays`
 - [x] Embedded profile `claim-validation` `0.2.0` with `support`, `established`, `refuted`, `conflict`, `safe_to_auto_act`, and one action Choice
 - [x] Verdict precedence `error > conflict > insufficient > manual_review > rejected > validated`
-- [x] Policy disclosure `uncalibrated`; wire envelope `0.1-draft`; profile `0.1` bundles rejected
+- [x] Policy disclosure `uncalibrated`; legacy wire envelope `0.1`; profile `0.1` bundles rejected
 - [x] Direct adapter live as `direct-systemone` / `jev-1.13.0`
 - [x] Empty exact selection returns `insufficient` without a provider call
 - [x] Technical `error` is HTTP 422 and still returns the replay bundle
 - [x] Replay reproduces the verdict without retrieval or a provider
-- [x] Schemas, canonical hashes, draft OpenAPI, and local adversarial tests
+- [x] Schemas, canonical hashes, OpenAPI `0.2`, and local adversarial tests
 - [x] Research scenarios exercised through `POST /v1/evaluations`
 
 ## Closed in this pass
@@ -44,7 +45,7 @@ adapter. Unchecked items are still open.
 - [x] `POST /v1/decisions`: caller-owned DecisionIdentity, JSON State, and
   versioned Noul/Choice/Score QuestionSet; no profile selection, semantic
   threshold, Verdict, retrieval, or next-action decision.
-- [x] `0.2-draft` request and bundle schemas; typed Go records; canonical state
+- [x] Envelope `0.2` request and bundle schemas; typed Go records; canonical state
   and QuestionSet hashes; optional frozen Context binding; self-hash and
   provider-free structural replay.
 - [x] Generic API dispatch and capability disclosure; legacy evaluation is
@@ -68,23 +69,37 @@ adapter. Unchecked items are still open.
   HTTP 200 `structural_status: valid` and replayed HTTP 200
   `decision_reproduced` (`generic-canary/20260922T133416Z`).
 
-## Deferred
+## Canary release pass (2026-09-22)
 
-- [ ] Race evidence on a runner with gcc
-- [ ] SLO measurements, including the 28-day window, published as measurements
-- [ ] Release conformance report that closes the deferred exclusions. The canary pin above does not close this item.
-- [ ] Vulnerability review named by the release checklist
+- [x] Envelope identifiers frozen for canary: generic `0.2`, legacy `0.1`,
+  OpenAPI `0.2`, capabilities `protocol_status: canary`. Golden hashes and
+  JCS vectors regenerated and still agree with the independent Python
+  consumer. Bundles sealed before this pass carry the earlier pre-canary
+  identifier and replay only on their own deployment.
+- [x] Compatibility promises for canary in `.project/.lex/governance.md`.
+- [x] Schema violations on `/v1/decisions` are 422 `question_error` with a
+  JSON pointer; non-JSON bodies stay 400 `invalid_json`.
+- [x] External client guide `.project/.lex/client-integration.md` and
+  portable agent skill `.cursor/skills/lex-api`; code-growth rule
+  `.cursor/rules/lex-code-structure.mdc`.
+- [x] ADR-0001, 0002, 0003, 0009, 0010, 0011, 0012, and 0013 accepted: each
+  decision is implemented. Their remaining evidence is listed below as
+  stable-release gates, not as open decisions.
 
-## Still open
+## Open until stable
 
-- [ ] Hosted adapter proof on the deployment. Local direct and hosted fixtures pass (`internal/adapters/typesafe/conformance_test.go`, `internal/adapters/openrouter/conformance_test.go`). Live evaluations resolve `direct-systemone`. `LEX_OPENROUTER_API_KEY` and `LEX_HOSTED_RESOLVED_MODEL` are not in the local environment, so this deployment proof is not run.
-- [ ] ADR-0001 acceptance: deployed toolchain identity is not recorded
-- [ ] ADR-0002 acceptance: region, duration, bundle size, and cold start are not recorded
-- [ ] ADR-0003 acceptance: blocked by the deferred race evidence
-- [ ] ADR-0009 acceptance: local adapter fixtures pass; deployment proof and a per-path calibration report are still open
-- [ ] ADR-0010 acceptance: blocked by the deferred vulnerability review
-- [ ] ADR-0011 acceptance: blocked by the deferred SLO measurements
-- [ ] ADR-0012 acceptance: blocked by the deferred revision-pinned conformance report
+Stable follows after several independent products use LeX in production and
+these gates close.
+
+- [ ] Use by several independent products, with their integration findings recorded
+- [ ] Race evidence on a runner with gcc (ADR-0003)
+- [ ] SLO measurements, including the 28-day window, published as measurements (ADR-0011)
+- [ ] Stable conformance report that closes the deferred exclusions. The canary pin does not close this item (ADR-0012).
+- [ ] Vulnerability review named by the release checklist, repeated per release (ADR-0010)
+- [ ] Hosted adapter proof on the deployment. Local direct and hosted fixtures pass (`internal/adapters/typesafe/conformance_test.go`, `internal/adapters/openrouter/conformance_test.go`). Live calls resolve `direct-systemone`; `LEX_OPENROUTER_API_KEY` and `LEX_HOSTED_RESOLVED_MODEL` are not configured on the deployment (ADR-0009)
+- [ ] Per-adapter calibration report; the legacy policy stays `uncalibrated` (ADR-0009)
+- [ ] Deployed toolchain identity recorded (ADR-0001)
+- [ ] Region, duration, bundle size, and cold start recorded (ADR-0002)
 
 ## Outside this slice
 

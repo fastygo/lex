@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 
 // Usage: node scripts/lex-request.mjs [route] [method] [body-file]
-// The token is read from .env and never printed. LEX_BASE_URL overrides the host.
+// The token comes from LEX_TOKEN, else the first LEX_BEARER_TOKENS key in .env,
+// and is never printed. LEX_BASE_URL overrides the host.
 const route = process.argv[2] ?? "v1/capabilities";
 const method = process.argv[3] ?? "GET";
 const bodyFile = process.argv[4];
@@ -9,18 +10,22 @@ const base = process.env.LEX_BASE_URL ?? "https://lexproto.vercel.app";
 const path = route.startsWith("http://") || route.startsWith("https://")
   ? route
   : `/${route.replace(/^\/+/, "")}`;
-const line = readFileSync(new URL("../.env", import.meta.url), "utf8")
-  .split(/\r?\n/)
-  .find((entry) => entry.startsWith("LEX_BEARER_TOKENS="));
-if (!line) {
-  console.error("LEX_BEARER_TOKENS is missing from .env");
-  process.exit(1);
+
+function tokenFromEnvFile() {
+  let text;
+  try {
+    text = readFileSync(new URL("../.env", import.meta.url), "utf8");
+  } catch {
+    return "";
+  }
+  const line = text.split(/\r?\n/).find((entry) => entry.startsWith("LEX_BEARER_TOKENS="));
+  if (!line) return "";
+  return Object.keys(JSON.parse(line.slice("LEX_BEARER_TOKENS=".length)))[0] ?? "";
 }
 
-const tokens = JSON.parse(line.slice("LEX_BEARER_TOKENS=".length));
-const token = Object.keys(tokens)[0];
+const token = process.env.LEX_TOKEN || tokenFromEnvFile();
 if (!token) {
-  console.error("LEX_BEARER_TOKENS does not contain a token");
+  console.error("Set LEX_TOKEN or LEX_BEARER_TOKENS in .env");
   process.exit(1);
 }
 

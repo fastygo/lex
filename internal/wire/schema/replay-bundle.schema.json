@@ -16,7 +16,7 @@
   ],
   "properties": {
     "protocol_version": {
-      "const": "0.1-draft"
+      "const": "0.1"
     },
     "verifier_version": {
       "type": "string",

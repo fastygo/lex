@@ -50,10 +50,4 @@ in adapter implementation evidence rather than core object names.
 [Research findings](../.jev/research-findings.md) and
 [example captures](../.jev/README.md) document local observations. They do not
 prove provider conformance, calibration, or current endpoint availability.
-The [historical draft](../.jev/lex-protocol-draft.md) is not a normative source.
-
-## Design input
-
-The [protocol brainstorm](../../.manual/protocol/protocol-brainstorm.md) suggests
-standards and possible layers. The canonical scope and release plan determine
-which suggestions become LeX requirements.
+The [historical protocol notes](../.jev/lex-protocol-history.md) are not a normative source.

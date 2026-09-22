@@ -1,7 +1,9 @@
 # ADR-0009: Typed decisions and provider capabilities
 
-Status: proposed. Date: 2026-09-21. Direct and hosted adapters are implemented.
-Hosted proof on the deployment is still open. See [progress.md](../progress.md).
+Status: accepted. Date: 2026-09-22. Direct and hosted adapters are
+implemented; the direct adapter serves the canary. Hosted proof on the
+deployment and a per-path calibration report are stable-release gates in
+[progress.md](../progress.md).
 
 ## Context
 

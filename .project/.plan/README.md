@@ -1,8 +1,9 @@
 # LeX implementation plan
 
-Status: planning baseline, updated 2026-09-22. Context v0.1.0 is published.
-The validation and replay slice is running. SLO achievement and standards
-certification are not claimed. Open proof is listed in [progress.md](progress.md).
+Status: canary release plan, updated 2026-09-22. Context v0.1.0 is
+published. The generic decision, legacy validation, and replay slices run on
+the canary deployment. SLO achievement and standards certification are not
+claimed. Stable-release gates are listed in [progress.md](progress.md).
 
 ## Fixed scope
 
@@ -28,13 +29,15 @@ optional consumer behavior, not a server storage dependency.
 6. [Pinned Context version and capability](context-version.md).
 
 The [canonical specification](../.lex/README.md) remains authoritative for core
-semantics. This folder owns deployment planning, ADR proposals, and proposed
-service targets, not a second complete protocol.
+semantics. This folder owns deployment planning, ADRs, and service targets,
+not a second complete protocol.
 
 ## Decision status
 
-User-selected constraints above are fixed. ADR details are proposed until
-their acceptance tests and maintainer review are recorded. Each ADR carries
+User-selected constraints above are fixed. ADR-0001 through ADR-0013 are
+accepted for the canary release; evidence still owed for stable is tracked in
+[progress.md](progress.md). New ADRs stay proposed until their acceptance
+tests and maintainer review are recorded. Each ADR carries
 context, decision, consequences, and acceptance evidence. Supersede records
 instead of silently changing an accepted decision.
 

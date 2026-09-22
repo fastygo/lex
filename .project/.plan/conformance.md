@@ -10,8 +10,9 @@ Each result records criterion id, normative requirement id, role/profile,
 fixture id and hash, expected/actual outcome, test command, implementation
 revision, Go/toolchain and module versions, deployment/configuration, timestamp,
 and pass/fail/not-applicable with justification. All applicable mandatory cases
-must pass. Proposed artifact paths are assigned during P1; no files are
-represented as already existing.
+must pass. Artifact paths are recorded in
+[conformance-report.md](conformance-report.md); a path not listed there does
+not exist yet.
 
 ## STD-01: requirement language and governance
 

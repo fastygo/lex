@@ -10,6 +10,17 @@ and the questions, and it decides what to do with the answers. LeX validates,
 hashes, pins the model, calls the adapter, checks answer structure, and returns
 a replayable bundle. It never returns a domain verdict or performs an action.
 
+Release: canary, envelope `0.2`. Fields, meanings, reason codes, and status
+mapping are fixed within `0.2`; new response fields may appear, so ignore
+unknown ones. This skill is portable: it needs only two environment values.
+
+| Variable | Value |
+|----------|-------|
+| `LEX_BASE_URL` | deployment URL; canary is `https://lexproto.vercel.app` |
+| `LEX_TOKEN` | bearer token bound to your `project_id`, issued by the operator |
+
+Call from server-side code or a terminal only. CORS is denied by design.
+
 ## Endpoints
 
 | Route | Use |
@@ -26,16 +37,26 @@ The token must belong to the request `project_id`.
 
 ## Quick start
 
-Use the repository script. It reads the token from `.env` and never prints it.
-`LEX_BASE_URL` overrides the default `https://lexproto.vercel.app`.
-
 ```bash
-node scripts/lex-request.mjs v1/capabilities
-node scripts/lex-request.mjs v1/decisions POST .project/.jev/generic/intent-decision-request.json
-node scripts/lex-request.mjs v1/replays POST path/to/replay_bundle.json
+curl -sS "$LEX_BASE_URL/v1/capabilities" -H "Authorization: Bearer $LEX_TOKEN" -H "Accept: application/json"
+
+curl -sS "$LEX_BASE_URL/v1/decisions" \
+  -H "Authorization: Bearer $LEX_TOKEN" -H "Accept: application/json" \
+  -H "Content-Type: application/json" --data @decision.json > result.json
+
+# replay: post the bundle itself as the body
+node -e 'process.stdout.write(JSON.stringify(require("./result.json").replay_bundle))' > bundle.json
+curl -sS "$LEX_BASE_URL/v1/replays" \
+  -H "Authorization: Bearer $LEX_TOKEN" -H "Accept: application/json" \
+  -H "Content-Type: application/json" --data @bundle.json
 ```
 
-Never print, log, or commit the bearer token or provider keys.
+Check `operations.decision` is `true` in capabilities before relying on it.
+Inside the LeX repository, `node scripts/lex-request.mjs <route> [method]
+[body-file]` does the same with the token from `LEX_TOKEN` or `.env`.
+
+Never print, log, or commit the bearer token or provider keys. Never put the
+token in `state`, `metadata`, or question text.
 
 ## Request shape
 
@@ -119,7 +140,7 @@ Problems use RFC 9457 with a stable `reason`. No request error calls a provider.
 | 422 `response_budget` | State, questions, or answers exceed the body budget |
 | 401 / 403 | missing or wrong token, or token lacks `project_id` |
 | 406 / 415 | wrong `Accept` or `Content-Type` |
-| 502 / 503 / 504 | provider failure or no adapter; not retried by LeX |
+| 503 `admission_limited` / `provider_unavailable`, 502, 504 | transient; LeX never retries. Retry with backoff; each retry is a new provider call and a new decision |
 
 ## Agent loop
 
@@ -145,6 +166,9 @@ build State + QuestionSet
 
 ## References
 
+Paths in the LeX repository (`github.com/fastygo/lex`); not needed to call the API.
+
+- Client guide with TypeScript, Python, and Go clients: `.project/.lex/client-integration.md`
 - Contract: `.project/.lex/generic-decision-api.md`
 - Checks and error classes: `.project/.lex/checks.md`
 - Capability map: `.project/.jev/capability.md`

@@ -1,7 +1,7 @@
 # What LeX can ask Jev
 
-Status: legacy claim-validation remains a `0.1-draft` canary. The additive
-generic typed-decision API is `0.2-draft`. This file maps the research question
+Status: canary release. The generic typed-decision API uses envelope `0.2`;
+deprecated legacy claim-validation uses envelope `0.1`. This file maps the research question
 maps under [examples/](examples/) onto both surfaces. It is not a second
 protocol.
 

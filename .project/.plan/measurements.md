@@ -21,7 +21,7 @@ Every sampled response in this run was HTTP 200 with verdict `validated`.
 | Warm `POST /v1/replays` | 10000 | 1.05 ms | 2.99 ms | 5.60 ms | 172.38 ms |
 | Stub `POST /v1/evaluations` | 1000 | 2.75 ms | 4.40 ms | 6.49 ms | 110.82 ms |
 
-The proposed warm-replay targets are 250 ms at P95 and 1 s at P99. This sample
+The warm-replay targets are 250 ms at P95 and 1 s at P99. This sample
 is inside those numbers and does not establish them. Stub evaluations do not
 measure SLO-02. No cold/warm platform label was available. No deployment region,
 CPU, or RSS figure is claimed from this run.

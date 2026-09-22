@@ -17,7 +17,7 @@
   ],
   "properties": {
     "bundle_kind": {"const": "typed_decision"},
-    "protocol_version": {"const": "0.2-draft"},
+    "protocol_version": {"const": "0.2"},
     "verifier_version": {"type": "string", "minLength": 1, "maxLength": 128},
     "project_id": {"$ref": "#/$defs/id"},
     "decision": {

@@ -17,7 +17,7 @@ LeX must not treat the model’s answer as the source of truth. Its job is to sp
 - [`../.lex/`](../.lex/README.md) — checks, protocol, analysis (normative for this repo).
 - [`research-findings.md`](research-findings.md) — observations from completed experiments and limits of the conclusions.
 - [`context-runtime-role.md`](context-runtime-role.md) — the role of Context Runtime in the Jev integration.
-- [`lex-protocol-draft.md`](lex-protocol-draft.md) — historical extended draft, preserved for research history; not a maintained mirror.
+- [`lex-protocol-history.md`](lex-protocol-history.md) — historical extended protocol notes, preserved for research history; not a maintained mirror.
 
 ## Experiments
 

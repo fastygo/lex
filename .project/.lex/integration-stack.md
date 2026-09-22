@@ -1,7 +1,7 @@
 # Integration stack
 
-Status: normative integration draft; examples and provider access-path notes
-are informative. Shared semantics belong to [protocol.md](protocol.md).
+Status: normative integration contract, canary release; examples and
+provider access-path notes are informative. Shared semantics belong to [protocol.md](protocol.md).
 
 ## Roles
 

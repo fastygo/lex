@@ -1,6 +1,6 @@
 # LeX Protocol
 
-Status: historical research draft `0.1`, non-normative and not maintained as a mirror.
+Status: historical research notes, non-normative and not maintained as a mirror.
 
 This file preserves an earlier design, including examples and readiness ideas
 that may conflict with the current protocol. Do not implement from this file.

@@ -1,7 +1,8 @@
 # ADR-0010: Authority, isolation, and safe transport
 
-Status: proposed. Date: 2026-09-21. Project binding and transport limits are implemented.
-Vulnerability review is deferred. See [progress.md](../progress.md).
+Status: accepted. Date: 2026-09-22. Project binding, bearer auth, endpoint
+allowlists, and transport limits are implemented. The per-release
+vulnerability review is a stable-release gate in [progress.md](../progress.md).
 
 ## Context
 

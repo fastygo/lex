@@ -1,7 +1,7 @@
 # LeX checks
 
-Status: normative check catalog draft. Shared semantics belong to
-[protocol.md](protocol.md); release blockers are in [analysis.md](analysis.md).
+Status: normative check catalog, canary release. Shared semantics belong to
+[protocol.md](protocol.md); stable-release blockers are in [analysis.md](analysis.md).
 
 ## Generic structural checks
 

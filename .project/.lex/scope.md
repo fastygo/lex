@@ -150,4 +150,4 @@ Downstream products may require human-facing rules (source for claims, authority
 
 ## Maturity note
 
-The **v0.1 working draft** has research observations on **hand-authored** states in `.project/.jev/`. These do not prove implemented LeX behavior. Release requires the proof gates in [analysis.md](analysis.md), including real ContextPack API runs, conformance fixtures, calibration, replay, and interoperability.
+The **canary release** runs revision-pinned decisions and replays on a deployment ([conformance report](../.plan/conformance-report.md)). Research observations on **hand-authored** states in `.project/.jev/` do not prove implemented LeX behavior. The stable release requires the proof gates in [analysis.md](analysis.md), including calibration, independent interoperability, and use by several products.

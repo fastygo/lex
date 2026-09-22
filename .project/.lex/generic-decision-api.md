@@ -1,7 +1,7 @@
 # Generic typed-decision API
 
-Status: canonical API working draft for the additive `0.2-draft` wire
-operation. This document defines `POST /v1/decisions`; it does not replace the
+Status: canonical API, canary release, wire envelope `0.2`. Calling it from
+external applications is covered in [client-integration.md](client-integration.md). This document defines `POST /v1/decisions`; it does not replace the
 deprecated claim-validation compatibility operation during its support window.
 
 ## Purpose and ownership

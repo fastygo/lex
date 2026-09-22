@@ -9,6 +9,12 @@ verification, traces, and conformance. The current slice makes generic typed
 decisions and replays them. Controlled execution and operation receipts are
 deferred.
 
+Release: **canary** (generic envelope `0.2`, legacy envelope `0.1`). The
+canary compatibility promises are in `.project/.lex/governance.md`; stable
+follows after several products use LeX and the gates in
+`.project/.plan/progress.md` close. Version identifiers carry no
+pre-release suffix; a breaking wire change needs a new envelope version.
+
 ## Central principle
 
 No uncertain interpretation becomes an authorized operation without explicit
@@ -67,7 +73,11 @@ Read in this order:
 Agent tooling in this repository:
 
 - `.cursor/skills/lex-api/SKILL.md` - how to call the deployed or local API,
-  build requests, read responses, and replay bundles.
+  build requests, read responses, and replay bundles. It is portable: copy
+  the folder into an external application's `.cursor/skills/`.
+- `.project/.lex/client-integration.md` - external application guide:
+  tokens, base URL, clients in curl, TypeScript, Python, and Go, retention,
+  and compatibility promises.
 - `.cursor/rules/lex-code-structure.mdc` - package map and the procedure for
   adding primitives, routes, adapters, and entities without leaking domain
   meaning into the generic core.
@@ -76,7 +86,7 @@ Agent tooling in this repository:
 
 - `research-findings.md` records observed behavior and limitations.
 - `examples/` contains hand-authored fixtures and captured responses.
-- `lex-protocol-draft.md` is a historical extended draft and may lag
+- `lex-protocol-history.md` is historical extended protocol text and may lag
   `.project/.lex/protocol.md`.
 
 When documents disagree, `.project/.lex/` wins. Do not create another complete
@@ -227,7 +237,7 @@ legacy `error` verdict is HTTP 422 and still returns the sealed bundle. An
 empty legacy exact selection is HTTP 200 `insufficient`, does not call a
 provider, and still returns a replay bundle. Replay refuses a bundle outside
 the authenticated principal's projects. The generic wire envelope is
-`0.2-draft`; the legacy envelope remains `0.1-draft`.
+`0.2`; the legacy envelope is `0.1`.
 
 Generic request errors never call a provider. A body that is not JSON is 400
 `invalid_json`. Well-formed JSON that violates the decision request schema, or
@@ -278,7 +288,6 @@ failure as "the model was wrong."
 
 ## Repository rules
 
-- Human-readable repository content is English only outside `.manual/`.
 - Code comments must be English.
 - Keep credentials, API keys, personal data, and provider secrets out of the
   repository and traces.

@@ -11,7 +11,7 @@ RAM-only operation cannot promise a durable job resource or history lookup.
 
 ## Decision
 
-Serve POST /v1/evaluations, POST /v1/replays, GET /v1/capabilities, and GET /healthz. Publish OpenAPI as a draft artifact of this working draft. POST returns 200 for completed non-error verdicts. A technical error verdict is HTTP 422 and still returns the sealed bundle. Malformed JSON is 400, auth is 401/403, unsupported media is 415, the body limit is 413, a retryable provider failure is 503, a provider contract failure including a refused redirect is 502, the caller deadline is 504, and an internal failure is 500. Method and Accept behavior are specified in the HTTP binding. These routes are the running surface. ADR acceptance still waits on the black-box evidence listed in progress.md.
+Serve POST /v1/decisions, deprecated POST /v1/evaluations, POST /v1/replays, GET /v1/capabilities, and GET /healthz. Publish OpenAPI `0.2` as the canary contract artifact. A generic decision returns 200 when structurally valid; a well-formed body that violates the decision schema is 422 `question_error`. Legacy POST returns 200 for completed non-error verdicts. A technical error verdict is HTTP 422 and still returns the sealed bundle. Malformed JSON is 400, auth is 401/403, unsupported media is 415, the body limit is 413, a retryable provider failure is 503, a provider contract failure including a refused redirect is 502, the caller deadline is 504, and an internal failure is 500. Method and Accept behavior are specified in the HTTP binding. These routes are the running surface. ADR acceptance still waits on the black-box evidence listed in progress.md.
 
 ## Consequences and alternatives
 

@@ -118,9 +118,9 @@ stays thin. Proof status per criterion is in
 - [x] Ten invariants: evidence, judgment, authority, execution, and verified success kept distinct
 - [x] Six verdicts with total precedence `error > conflict > insufficient > manual_review > rejected > validated`; all findings retained
 - [x] Stage-classified failures `retrieval | pack | question | decision | policy | verification`; policy denial is a finding, not `policy_error`
-- [x] Legacy wire envelope `0.1-draft`; legacy verifier `0.2.0`; unsupported legacy versions and the `0.1` profile refused
-- [x] Additive generic `0.2-draft` decision bundle: DecisionIdentity, State hash, caller QuestionSet, raw DecisionSet, optional Context binding, structural report, and self-hash
-- [ ] Envelope frozen as `0.1` with a stated compatibility rule for later minor versions
+- [x] Legacy wire envelope `0.1`; legacy verifier `0.2.0`; unsupported legacy versions and the `0.1` profile refused
+- [x] Generic envelope `0.2` decision bundle: DecisionIdentity, State hash, caller QuestionSet, raw DecisionSet, optional Context binding, structural report, and self-hash
+- [x] Envelopes frozen for canary (`0.2` generic, `0.1` legacy) with the compatibility rule in [governance.md](../.lex/governance.md): additive within a version, breaking changes get a new version
 - [-] Universal ontology, automatic question generation, or a question DSL
 
 ### Evidence plane
@@ -179,12 +179,13 @@ stays thin. Proof status per criterion is in
 ### HTTP surface
 
 - [x] `GET /healthz`, `GET /v1/capabilities`, `POST /v1/decisions`, deprecated `POST /v1/evaluations`, `POST /v1/replays`
-- [x] JSON Schema 2020-12 for requests, responses, and bundles; draft OpenAPI 3.1 validated in tests
+- [x] JSON Schema 2020-12 for requests, responses, and bundles; OpenAPI 3.1.1 `0.2` validated in tests
 - [x] RFC 9457 problem responses with stage and reason; HTTP status agrees with problem status
 - [x] Method, Accept specificity, media type, body cap, response budget, `no-store`, 499/502/503/504 mappings
 - [x] Capabilities disclose runtime, retrieval mode, evidence inputs, policy calibration, limits, and retention
 - [x] Lifecycle trace rendered through the state machine; illegal sequences cannot be emitted
-- [ ] OpenAPI promoted from draft once the envelope is frozen
+- [x] OpenAPI promoted to the canary contract `0.2`
+- [x] External client guide ([client-integration.md](../.lex/client-integration.md)) and portable agent skill (`.cursor/skills/lex-api`)
 - [-] TypeScript SDK, binary transports, gRPC, or asynchronous messaging
 - [-] Durable 202 jobs, resumable upload, or exactly-once guarantees
 
@@ -194,7 +195,7 @@ stays thin. Proof status per criterion is in
 - [x] Authenticated principal-to-project binding; secrets outside the repository and traces
 - [x] `govulncheck` run once with no vulnerabilities in called code
 - [x] Local latency sample published as a measurement
-- [x] Canary on production `beta`: revision `4bc5680`, two signal samples, rollback deployment `6579270758` still present, alias not switched
+- [x] Canary on production `beta`, revision-pinned in [conformance-report.md](conformance-report.md) with a named rollback deployment
 - [ ] Release conformance report that closes the deferred exclusions, plus recorded toolchain, region, and cold start (ADR-0001, ADR-0002)
 - [ ] SLO measurements with the 28-day window, published as measurements
 - [ ] Vulnerability review named by the release checklist, repeated per release
@@ -208,12 +209,14 @@ stays thin. Proof status per criterion is in
 
 ### Readiness statement
 
-The protocol core, evidence plane, profile model, verifier, replay, and HTTP
-surface are built and tested locally, and the direct adapter has run live.
-Revision `4bc5680` on production is the canary: two samples of the 19 request
-bodies replayed with no HTTP 5xx, no `verification_error`, no `pack_rebuild`,
-and no `snapshot_identity`, and deployment `6579270758` remains the rollback
-point. The items still open are stable-release proof, not canary function:
-a conformance report that closes every deferred exclusion, hosted-adapter
-proof, race evidence, SLO measurements, a vulnerability review per release,
-and a calibration report. The envelope is therefore still `0.1-draft`.
+LeX is at **canary**. The protocol core, generic decision API, evidence
+plane, verifier, replay, and HTTP surface are built, tested locally, and
+proven on a revision-pinned production deployment through the direct adapter;
+the canary revision and rollback point are recorded in
+[conformance-report.md](conformance-report.md). External applications can
+call it through [client-integration.md](../.lex/client-integration.md).
+
+The items still open are stable-release proof, not canary function: a
+conformance report that closes every deferred exclusion, hosted-adapter proof,
+race evidence, SLO measurements, a vulnerability review per release, a
+calibration report, and use by several independent products.

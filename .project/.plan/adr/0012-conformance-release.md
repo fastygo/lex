@@ -1,7 +1,8 @@
 # ADR-0012: Standards conformance and release evidence
 
-Status: proposed. Date: 2026-09-21. Local conformance tests exist.
-The revision-pinned release report is deferred. See [progress.md](../progress.md).
+Status: accepted. Date: 2026-09-22. The requirement-to-proof register,
+local conformance tests, and revision-pinned canary report are in use. The
+stable conformance report is a stable-release gate in [progress.md](../progress.md).
 
 ## Context
 

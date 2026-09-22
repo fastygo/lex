@@ -14,7 +14,7 @@ import (
 
 const (
 	// ProtocolVersion is the wire envelope this verifier seals and replays.
-	ProtocolVersion = "0.1-draft"
+	ProtocolVersion = "0.1"
 	// VerifierVersion pins the deterministic interpreter recorded in every bundle.
 	VerifierVersion = "0.2.0"
 )

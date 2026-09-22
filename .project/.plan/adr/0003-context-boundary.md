@@ -1,7 +1,8 @@
 # ADR-0003: Context public boundary and RAM integration
 
-Status: selected dependency; the embedded runtime is called from the evaluation handler. Updated: 2026-09-22.
-Owner: LeX maintainers. Full acceptance still requires the race evidence named in [progress.md](../progress.md).
+Status: accepted. Updated: 2026-09-22. The embedded runtime is called from
+the evaluation handler and verifies generic Context bindings.
+Owner: LeX maintainers. Race evidence is a stable-release gate in [progress.md](../progress.md).
 
 ## Context
 

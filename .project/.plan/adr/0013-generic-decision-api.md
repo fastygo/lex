@@ -1,6 +1,8 @@
 # ADR-0013: Generic typed-decision API
 
-Status: proposed. Date: 2026-09-22.
+Status: accepted. Date: 2026-09-22. `/v1/decisions` is implemented with
+envelope `0.2` and proven on a revision-pinned canary. Hosted-adapter
+deployment proof is a stable-release gate in [progress.md](../progress.md).
 
 ## Context
 

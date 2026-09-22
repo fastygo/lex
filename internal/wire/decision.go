@@ -11,7 +11,7 @@ import (
 
 const (
 	// DecisionProtocolVersion is the additive caller-defined decision envelope.
-	DecisionProtocolVersion = "0.2-draft"
+	DecisionProtocolVersion = "0.2"
 	// DecisionBundleKind distinguishes generic decision bundles from legacy
 	// claim-validation replay bundles.
 	DecisionBundleKind = "typed_decision"

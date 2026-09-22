@@ -137,16 +137,16 @@
     {
       "name": "without-self-hash",
       "kind": "jcs",
-      "input": "{\"id\":\"claim-1\",\"protocol_version\":\"0.1-draft\"}",
-      "canonical": "{\"id\":\"claim-1\",\"protocol_version\":\"0.1-draft\"}",
-      "sha256": "4668880632b04f5cbb20fcbe4c3386fe717df33c41e41bb3d6d6c6cbc70ecd4b"
+      "input": "{\"id\":\"claim-1\",\"protocol_version\":\"0.1\"}",
+      "canonical": "{\"id\":\"claim-1\",\"protocol_version\":\"0.1\"}",
+      "sha256": "b7378a2c0c47061815366590d4daff9322d178b2032d600b583567f823ad5366"
     },
     {
       "name": "with-self-hash",
       "kind": "jcs",
-      "input": "{\"bundle_hash\":\"0000\",\"id\":\"claim-1\",\"protocol_version\":\"0.1-draft\"}",
-      "canonical": "{\"bundle_hash\":\"0000\",\"id\":\"claim-1\",\"protocol_version\":\"0.1-draft\"}",
-      "sha256": "e766d60b9cda8e225d3433d6bb592483c6d281b4a77d63418f0300a3777c9699"
+      "input": "{\"bundle_hash\":\"0000\",\"id\":\"claim-1\",\"protocol_version\":\"0.1\"}",
+      "canonical": "{\"bundle_hash\":\"0000\",\"id\":\"claim-1\",\"protocol_version\":\"0.1\"}",
+      "sha256": "9fcfee3b0a7e58723adfee7f03703d42af051354fee323cdb7fd949d7bf7f824"
     },
     {
       "name": "source-bytes",

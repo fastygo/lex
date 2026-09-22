@@ -1,8 +1,8 @@
 # SLOs and resource budgets
 
-Status: proposed targets, not measured performance or an SLA. Numeric choices
-below are LeX engineering targets, not vendor guarantees. Record measured
-baselines before release. Method: [Google SRE SLO guidance](https://sre.google/workbook/implementing-slos/).
+Status: canary targets, not measured performance or an SLA. Numeric choices
+below are LeX engineering targets, not vendor guarantees. Measured baselines
+over the declared window are a stable-release gate. Method: [Google SRE SLO guidance](https://sre.google/workbook/implementing-slos/).
 
 ## Measurement contract
 
@@ -55,7 +55,7 @@ complete LeX envelope. Upstream's 128-source/2 MiB hard ceilings do not bound
 response size or total process memory; its snapshot and rejected material also
 consume the LeX bundle budget.
 
-Proposed advertised maximums:
+Advertised maximums:
 
 - Request and response bodies: 2 MiB each, measured as uncompressed UTF-8 bytes.
   Replay's enclosing request must fit too; reserve envelope space when exporting.

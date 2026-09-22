@@ -2,8 +2,8 @@
   "openapi": "3.1.1",
   "info": {
     "title": "LeX API",
-    "version": "0.1-draft",
-    "summary": "Synchronous validation and caller-owned replay. This document is a working draft, not a certification."
+    "version": "0.2",
+    "summary": "Typed decisions over caller-owned State and QuestionSets, with caller-owned replay. Canary contract; not a conformance certification."
   },
   "paths": {
     "/healthz": {
@@ -209,7 +209,7 @@
         "additionalProperties": false,
         "required": ["protocol_status", "context", "operations", "policy", "limits", "retention", "typed_decision"],
         "properties": {
-          "protocol_status": {"const": "working_draft"},
+          "protocol_status": {"const": "canary"},
           "context": {
             "type": "object",
             "additionalProperties": false,
@@ -278,7 +278,7 @@
         "additionalProperties": false,
         "required": ["protocol_version", "verdict", "findings", "context_runtime", "replay_available", "trace", "policy", "retention"],
         "properties": {
-          "protocol_version": {"const": "0.1-draft"},
+          "protocol_version": {"const": "0.1"},
           "verdict": {"enum": ["validated", "rejected", "insufficient", "conflict", "manual_review"]},
           "findings": {"type": "array", "items": {"$ref": "#/components/schemas/Finding"}},
           "context_runtime": {"const": "memory-exact-v1"},
@@ -297,7 +297,7 @@
         "additionalProperties": false,
         "required": ["protocol_version", "decision", "state_hash", "question_set", "decision_set", "structural_status", "findings", "replay_available", "replay_bundle", "trace", "retention"],
         "properties": {
-          "protocol_version": {"const": "0.2-draft"},
+          "protocol_version": {"const": "0.2"},
           "decision": {
             "type": "object",
             "additionalProperties": false,

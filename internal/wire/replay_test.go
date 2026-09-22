@@ -31,7 +31,7 @@ func TestValidateReplayBundleRejectsAuditTimestamp(t *testing.T) {
 }
 
 func TestValidateReplayBundleRejectsDuplicateKey(t *testing.T) {
-	raw := strings.Replace(validReplayBundle, `"protocol_version":"0.1-draft"`, `"protocol_version":"0.1-draft","protocol_version":"0.1-draft"`, 1)
+	raw := strings.Replace(validReplayBundle, `"protocol_version":"0.1"`, `"protocol_version":"0.1","protocol_version":"0.1"`, 1)
 	if err := ValidateReplayBundle([]byte(raw)); err == nil {
 		t.Fatal("ValidateReplayBundle() accepted a duplicate key")
 	}
@@ -72,7 +72,7 @@ func hashedReplayBundle(t *testing.T) []byte {
 }
 
 const validReplayBundle = `{
-  "protocol_version":"0.1-draft",
+  "protocol_version":"0.1",
   "verifier_version":"v0.1.0",
   "entity":{
     "id":"entity-1",

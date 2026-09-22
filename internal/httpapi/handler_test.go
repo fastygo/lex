@@ -1787,7 +1787,7 @@ func TestEvaluationSkipsProviderWhenSourceExceedsFocusBudget(t *testing.T) {
 
 func TestReplayRejectsMalformedBundle(t *testing.T) {
 	handler := mustHandler(t)
-	request := httptest.NewRequest(http.MethodPost, "/v1/replays", strings.NewReader(`{"protocol_version":"0.1-draft"}`))
+	request := httptest.NewRequest(http.MethodPost, "/v1/replays", strings.NewReader(`{"protocol_version":"0.1"}`))
 	request.Header.Set("Authorization", "Bearer test-token")
 	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()

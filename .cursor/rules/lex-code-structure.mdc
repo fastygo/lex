@@ -16,7 +16,7 @@ internal/httpapi            HTTP boundary: parse, auth, stages, problems, respon
   reasons.go                stable problem reason codes (RFC 9457)
 internal/wire               schemas, typed records, bundle sealing, replay
   schema/*.json             request/bundle schemas + openapi.json (normative wire)
-  decision*.go              generic 0.2-draft; bundle.go/replay.go legacy 0.1-draft
+  decision*.go              generic envelope 0.2; bundle.go/replay.go legacy 0.1
 internal/verify             deterministic structural checks and finding codes
 internal/lifecycle          legal stage graph per request kind
 internal/canonical          RFC 8785 JCS + SHA-256; the only hashing path
@@ -58,12 +58,19 @@ Hard boundaries, enforced by `internal/conformance/generic_boundary_test.go`:
    a place in the sealed bundle, a replay check, and a normative definition in
    `.project/.lex/protocol.md`. If it changes a durable boundary, write an ADR
    in `.project/.plan/adr/`.
+6. A new checkpoint (deterministic check)? Add a finding code in
+   `verify/codes.go` with its test, emit it from the verifier that owns the
+   stage, list it in `.project/.lex/checks.md`, and make replay reproduce it.
+   A check inspects structure, hashes, pins, or bindings; it never judges
+   domain meaning. New finding codes are additive.
 
 ## Change discipline
 
 - Schema first, then typed record, then verifier, then handler, then docs.
-- Wire changes bump the envelope version; old bundles keep their verifier.
-  Additive fields only within a version.
+- Canary rule (`.project/.lex/governance.md`): fields, meanings, reason codes,
+  and status mapping are fixed within an envelope version; add, never change.
+  A breaking change gets a new envelope version and the previous verifier
+  stays available for replay. Version identifiers carry no pre-release suffix.
 - Hash only through `internal/canonical`. Never hash `metadata` or transport
   details into a bundle.
 - Request errors never reach a provider: 400 `invalid_json` for non-JSON, 422

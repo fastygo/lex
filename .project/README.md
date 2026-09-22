@@ -1,6 +1,7 @@
 # LeX project documentation
 
-Status: v0.1 working draft; no released protocol or conformance claim.
+Status: canary release (generic envelope `0.2`, legacy `0.1`); no stable
+release or conformance certification is claimed.
 
 ## Directory ownership
 
@@ -10,9 +11,7 @@ Status: v0.1 working draft; no released protocol or conformance claim.
 - [Research](.jev/README.md): non-normative manual inputs, captured responses, and historical notes.
 - [Assets](.assets/README.md): informative illustrations.
 
-Start with the [canonical reading order](.lex/README.md). The
-[brainstorm](../.manual/protocol/protocol-brainstorm.md) is design input, not an
-approved specification or an instruction to implement every suggestion.
+Start with the [canonical reading order](.lex/README.md).
 
 Edit the owning canonical document when behavior changes; link instead of
 maintaining parallel specifications. Preserve research captures. Examples do

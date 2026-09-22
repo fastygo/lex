@@ -425,7 +425,7 @@ func TestReplayRejectsForeignVerifierVersion(t *testing.T) {
 }
 
 func TestReplayRejectsUnsupportedProtocolVersion(t *testing.T) {
-	raw := strings.Replace(string(sealedBundle(t)), `"protocol_version":"0.1-draft"`, `"protocol_version":"0.9-draft"`, 1)
+	raw := strings.Replace(string(sealedBundle(t)), `"protocol_version":"0.1"`, `"protocol_version":"0.9"`, 1)
 	if _, err := Replay([]byte(raw)); err == nil {
 		t.Fatal("accepted an unsupported protocol version")
 	}

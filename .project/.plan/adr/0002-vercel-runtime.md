@@ -1,7 +1,8 @@
 # ADR-0002: Vercel Go deployment and handler lifecycle
 
-Status: proposed. Date: 2026-09-21. The handler is deployed.
-Toolchain, region, duration, and cold-start evidence are still open. See [progress.md](../progress.md).
+Status: accepted. Date: 2026-09-22. One handler runs on Vercel with the Go
+preset and serves the canary. Toolchain, region, duration, and cold-start
+records are stable-release gates in [progress.md](../progress.md).
 
 ## Context
 

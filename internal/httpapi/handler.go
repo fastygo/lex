@@ -264,7 +264,7 @@ func capabilities(w http.ResponseWriter, request *http.Request, config Config) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"protocol_status": "working_draft",
+		"protocol_status": "canary",
 		"context": map[string]any{
 			"capability": contextmemory.Version,
 			"retrieval":  "exact_phrase",

@@ -1,10 +1,12 @@
 # Architecture decision register
 
-Status: decision records for the Go REST, Vercel, RAM-only profile. ADR-0004,
-ADR-0005, ADR-0006, ADR-0007, and ADR-0008 are accepted. ADR-0003 selects
-published Context v0.1.0; its race evidence remains pending. The other records
-stay proposed until the evidence named in [progress.md](../progress.md) exists.
-Accept only with recorded review and linked evidence; keep a supersession trail.
+Status: decision records for the Go REST, Vercel, RAM-only profile. All
+records ADR-0001 through ADR-0013 are accepted for the canary release: each
+decision is implemented and tested. Evidence still owed for the stable release
+(race, SLO, vulnerability review, hosted proof, toolchain and region records)
+is listed under "Open until stable" in [progress.md](../progress.md).
+New records start as proposed and are accepted only with recorded review and
+linked evidence; keep a supersession trail.
 User constraints do not need reconfirmation. Unresolved engineering details
 must not be presented as shipped behavior.
 

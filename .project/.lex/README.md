@@ -1,6 +1,8 @@
 # LeX verification infrastructure
 
-Status: canonical working draft, not a released interoperability contract.
+Status: canonical specification, canary release (generic envelope `0.2`,
+legacy envelope `0.1`). See [governance.md](governance.md) for canary
+compatibility promises.
 
 LeX turns evidence and uncertain judgments into governed, inspectable,
 replayable outcomes. Its protocol defines contracts; implementations supply
@@ -9,15 +11,17 @@ schemas, adapters, policy enforcement, verification, and execution controls.
 ## Reading order and authority
 
 1. [concept.md](concept.md): purpose, vocabulary, and boundaries.
-2. [protocol.md](protocol.md): normative draft for entities, invariants, lifecycle, and replay.
-3. [checks.md](checks.md): normative draft for checks, verdicts, and errors.
-4. [integration-stack.md](integration-stack.md): normative draft for integration boundaries and adapter obligations; examples are informative.
-5. [generic-decision-api.md](generic-decision-api.md): additive `0.2-draft`
+2. [protocol.md](protocol.md): normative entities, invariants, lifecycle, and replay.
+3. [checks.md](checks.md): normative checks, verdicts, and errors.
+4. [integration-stack.md](integration-stack.md): normative integration boundaries and adapter obligations; examples are informative.
+5. [generic-decision-api.md](generic-decision-api.md): canonical `0.2`
    caller-owned State + QuestionSet API.
-6. [scope.md](scope.md): system boundary and scope constraints.
-7. [analysis.md](analysis.md): informative implementation plan and release blockers.
-8. [VSA guidance](../.vsa/README.md): subordinate implementation architecture.
-9. [sources.md](sources.md): references and applicability.
+6. [client-integration.md](client-integration.md): calling LeX from external
+   applications and agents.
+7. [scope.md](scope.md): system boundary and scope constraints.
+8. [analysis.md](analysis.md): informative implementation plan and stable-release blockers.
+9. [VSA guidance](../.vsa/README.md): subordinate implementation architecture.
+10. [sources.md](sources.md): references and applicability.
 
 `protocol.md` owns shared semantics. Checks and integration contracts refine
 them without overriding them. Conceptual explanations, plans, research,
@@ -62,7 +66,10 @@ A validation verdict alone does not prove that an operation occurred.
 
 Research contains hand-authored inputs and response captures. It does not
 establish real Context retrieval quality or LeX conformance. Versioned wire
-schemas, a verifier, release fixtures, a transport binding, and independent
-interoperability results remain work tracked in [analysis.md](analysis.md).
+schemas, the verifier, fixtures, and the HTTP binding are implemented and
+proven on a revision-pinned canary
+([conformance report](../.plan/conformance-report.md)). Independent
+interoperability results and the remaining stable gates are tracked in
+[analysis.md](analysis.md) and [progress.md](../.plan/progress.md).
 Optional root tooling can scan for English-only text. The deployment-specific
 ADR register, SLO targets, and acceptance criteria live in [the plan](../.plan/README.md).

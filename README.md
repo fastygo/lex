@@ -32,16 +32,20 @@ protocol identities.
 
 ## Status
 
-LeX is a working draft. No released protocol, conformance certification,
-achieved SLO, or calibration is claimed.
+Release: **canary**. External applications can call it today; the contract
+is frozen within each envelope version and changes additively
+([compatibility promises](.project/.lex/governance.md)).
 
-- Generic envelope `0.2-draft`: `POST /v1/decisions`, generic replay.
+- Generic envelope `0.2`: `POST /v1/decisions`, generic replay.
   Revision-pinned canary proof is in
   [conformance-report.md](.project/.plan/conformance-report.md).
-- Legacy envelope `0.1-draft`: deprecated `POST /v1/evaluations` with the
+- Legacy envelope `0.1`: deprecated `POST /v1/evaluations` with the
   embedded `claim-validation` `0.2.0` profile and an explicitly
   `uncalibrated` policy.
-- Open proof items are listed in [progress.md](.project/.plan/progress.md).
+- Stable follows after several products use LeX; the remaining gates
+  (calibration, SLO window, race evidence, vulnerability review, hosted
+  adapter proof) are listed in [progress.md](.project/.plan/progress.md).
+  Conformance certification is not claimed.
 
 Running profile:
 
@@ -123,8 +127,8 @@ POST /v1/evaluations    deprecated claim-validation compatibility
 ```
 
 The wire profile uses JSON Schema 2020-12, RFC 8785 JCS with SHA-256, and
-RFC 9457 Problem Details. Schemas live in `internal/wire/schema/`, including a
-draft OpenAPI 3.1.1 document.
+RFC 9457 Problem Details. Schemas live in `internal/wire/schema/`, including
+the OpenAPI 3.1.1 document (`openapi.json`, version `0.2`).
 
 ### Generic decision request
 
@@ -174,6 +178,18 @@ and `Link` headers. The 19 scenario bodies are in
 An empty exact selection is HTTP 200 `insufficient` without a provider call; a
 technical `error` verdict is HTTP 422 with the sealed bundle.
 
+## Using LeX from another application
+
+1. Ask the operator for a bearer token bound to your `project_id`.
+2. Call `https://lexproto.vercel.app` (or your own deployment) from server-side
+   code; never ship the token to a browser.
+3. Keep every `replay_bundle` you may need to prove later; LeX stores nothing.
+
+[client-integration.md](.project/.lex/client-integration.md) has curl,
+TypeScript, Python, and Go clients. For agents, copy
+[`.cursor/skills/lex-api/`](.cursor/skills/lex-api/SKILL.md) into the
+application's `.cursor/skills/`; it works without this repository.
+
 ## Running locally
 
 Configure bearer tokens and one decision credential outside version control.
@@ -209,13 +225,14 @@ go vet ./...
 npm run check:english
 ```
 
-These enforce the working-draft schemas, OpenAPI document, and local
-conformance tests. They are not a conformance certification.
+These enforce the canary schemas, OpenAPI document, and local conformance
+tests. They are not a conformance certification.
 
 ## Documentation
 
 1. [Canonical specification](.project/.lex/README.md)
-2. [Generic typed-decision API](.project/.lex/generic-decision-api.md)
+2. [Generic typed-decision API](.project/.lex/generic-decision-api.md) and
+   [client integration](.project/.lex/client-integration.md)
 3. [Concept and boundaries](.project/.lex/concept.md)
 4. [Protocol entities and lifecycle](.project/.lex/protocol.md)
 5. [Checks, verdicts, and errors](.project/.lex/checks.md)
@@ -228,8 +245,6 @@ Additional material: [VSA and ICOM guidance](.project/.vsa/README.md),
 [Jev research](.project/.jev/README.md) (non-normative), and the
 [project documentation map](.project/README.md). When documents disagree,
 `.project/.lex/` owns protocol semantics.
-
-Human-readable content outside `.manual/` is English only.
 
 ## License
 

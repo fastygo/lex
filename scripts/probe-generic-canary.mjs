@@ -65,6 +65,10 @@ const probes = [
 ];
 
 async function call(path, body) {
+  return callRaw(path, JSON.stringify(body));
+}
+
+async function callRaw(path, text) {
   const started = performance.now();
   const response = await fetch(new URL(path, origin), {
     method: "POST",
@@ -73,12 +77,12 @@ async function call(path, body) {
       Accept: "application/json",
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(body),
+    body: text,
   });
-  const text = await response.text();
+  const responseText = await response.text();
   let parsed;
   try {
-    parsed = JSON.parse(text);
+    parsed = JSON.parse(responseText);
   } catch {
     parsed = {};
   }
@@ -92,16 +96,49 @@ const capabilityJSON = await capability.json();
 if (
   capability.status !== 200 ||
   capabilityJSON.operations?.decision !== true ||
-  capabilityJSON.typed_decision?.semantic_verdict !== false
+  capabilityJSON.typed_decision?.semantic_verdict !== false ||
+  capabilityJSON.protocol_status !== "canary"
 ) {
-  throw new Error("production capabilities do not expose the generic decision contract");
+  throw new Error("production capabilities do not expose the canary generic decision contract");
+}
+
+const rawJevBody = JSON.stringify({
+  project_id: contextFixture.project_id,
+  decision: { id: "negative-step", version: "1" },
+  state: { text: "negative probe" },
+  question_set: {
+    id: "example.negative",
+    version: "1",
+    questions: { route: { type: "choice", instructions: "Which route?", criteria: { a: "A", b: "B" } } },
+  },
+});
+const negatives = [
+  { name: "raw-jev-criteria", text: rawJevBody, status: 422, reason: "question_error", detail: "/question_set/questions/route" },
+  { name: "broken-json", text: '{"project_id":', status: 400, reason: "invalid_json" },
+];
+const negativeRows = [];
+for (const negative of negatives) {
+  const result = await callRaw("/v1/decisions", negative.text);
+  if (
+    result.status !== negative.status ||
+    result.parsed?.reason !== negative.reason ||
+    (negative.detail && !String(result.parsed?.detail ?? "").includes(negative.detail))
+  ) {
+    throw new Error(`${negative.name} returned ${result.status} ${result.parsed?.reason}`);
+  }
+  negativeRows.push({ name: negative.name, http: result.status, reason: result.parsed.reason, detail: result.parsed.detail ?? null });
 }
 
 const rows = [];
 for (const probe of probes) {
   const decision = await call("/v1/decisions", probe.request);
   const bundle = decision.parsed?.replay_bundle;
-  if (decision.status !== 200 || decision.parsed?.structural_status !== "valid" || !bundle) {
+  if (
+    decision.status !== 200 ||
+    decision.parsed?.structural_status !== "valid" ||
+    decision.parsed?.protocol_version !== "0.2" ||
+    bundle?.protocol_version !== "0.2"
+  ) {
     throw new Error(`${probe.name} did not return a valid generic DecisionSet`);
   }
   const replay = await call("/v1/replays", bundle);
@@ -138,11 +175,12 @@ const output = new URL(`../.project/.jev/test-vercel/generic-canary/${runID}/`, 
 mkdirSync(output, { recursive: true });
 writeFileSync(
   new URL("summary.json", output),
-  `${JSON.stringify({ origin, revision, deployment_id: Number(deploymentID), probes: rows }, null, 2)}\n`,
+  `${JSON.stringify({ origin, revision, deployment_id: Number(deploymentID), probes: rows, negatives: negativeRows }, null, 2)}\n`,
 );
 writeFileSync(
   new URL("capabilities.json", output),
   `${JSON.stringify({
+    protocol_status: capabilityJSON.protocol_status,
     operations: capabilityJSON.operations,
     typed_decision: capabilityJSON.typed_decision,
   }, null, 2)}\n`,
@@ -150,5 +188,8 @@ writeFileSync(
 
 for (const row of rows) {
   console.log(`${row.name}\t${row.decision_http}\t${row.replay_http}\t${row.bundle_hash}`);
+}
+for (const row of negativeRows) {
+  console.log(`${row.name}\t${row.http}\t${row.reason}`);
 }
 console.log(`.project/.jev/test-vercel/generic-canary/${runID}`);

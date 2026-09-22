@@ -1,7 +1,8 @@
 # ADR-0011: Budgets, measurement, and overload
 
-Status: proposed. Date: 2026-09-21. Budgets are implemented.
-SLO measurement is deferred. See [progress.md](../progress.md).
+Status: accepted. Date: 2026-09-22. Input, output, time, and admission
+budgets are implemented. SLO measurement over the declared window is a
+stable-release gate in [progress.md](../progress.md).
 
 ## Context
 

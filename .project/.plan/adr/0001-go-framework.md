@@ -1,7 +1,8 @@
 # ADR-0001: Go, Framework, and dependency direction
 
-Status: proposed. Date: 2026-09-21. The module pins are implemented.
-Acceptance evidence for the deployed toolchain is still open. See [progress.md](../progress.md).
+Status: accepted. Date: 2026-09-22. The module pins and dependency direction
+are implemented and deployed. Recording the deployed toolchain identity is a
+stable-release gate in [progress.md](../progress.md).
 
 ## Context
 

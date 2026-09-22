@@ -1,8 +1,9 @@
-# LeX Protocol v0.1
+# LeX Protocol
 
-Status: canonical normative working draft. Not a frozen wire specification.
-Requirement keywords follow [governance.md](governance.md). Unresolved release
-contracts are tracked in [analysis.md](analysis.md), not in historical drafts.
+Status: canonical normative specification, canary release. Wire envelopes:
+generic `0.2`, legacy compatibility `0.1`. Requirement keywords and canary
+compatibility promises follow [governance.md](governance.md). Stable-release
+gates are tracked in [analysis.md](analysis.md).
 
 ## Purpose
 
