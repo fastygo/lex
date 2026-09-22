@@ -1,6 +1,9 @@
 # Architecture and Vercel profile
 
-Status: proposed implementation architecture under the fixed scope in [README.md](README.md).
+Status: implementation architecture of the running validation and replay slice
+under the fixed scope in [README.md](README.md). The capability checklist at
+the end of this file states what is built, what is open, and what is
+deliberately kept out of the protocol.
 
 ## Request path
 
@@ -102,3 +105,110 @@ Apply [SLO budgets](slo.md) to decoded input, provider responses, bundle size,
 concurrency, and time. Validate the maximum possible response budget before
 calling a provider; reject excessive upstream output. Never truncate evidence
 or omit required raw answers to produce a success-shaped response.
+
+## Capability checklist
+
+Updated: 2026-09-22. `[x]` is built and covered by tests in this repository;
+`[ ]` is open; `[-]` is deliberately excluded from this slice so the protocol
+stays thin. Proof status per criterion is in
+[conformance-report.md](conformance-report.md); the open proof list is in
+[progress.md](progress.md).
+
+### Protocol core
+
+- [x] Normative text in `.project/.lex/` with RFC 2119 obligations, each mapped to a test (`internal/conformance/obligations_test.go`)
+- [x] Ten invariants: evidence, judgment, authority, execution, and verified success kept distinct
+- [x] Six verdicts with total precedence `error > conflict > insufficient > manual_review > rejected > validated`; all findings retained
+- [x] Stage-classified failures `retrieval | pack | question | decision | policy | verification`; policy denial is a finding, not `policy_error`
+- [x] Wire envelope `0.1-draft`; verifier `0.2.0`; unsupported versions and the `0.1` profile refused
+- [ ] Envelope frozen as `0.1` with a stated compatibility rule for later minor versions
+- [-] Universal ontology, automatic question generation, or a question DSL
+
+### Evidence plane
+
+- [x] Embedded Context `v0.1.0`, capability `memory-exact-v1`, one runtime per evaluation, 256 KiB input, 128 sources
+- [x] Input `sources`: caller text frozen through Context under the profile focus
+- [x] Input `frozen_context`: caller-frozen pack, snapshot, and pack request, accepted only after Context reproduces them
+- [x] Evidence controls owned by LeX: project and runtime binding, profile focus with no caller controls, provenance, byte checksum, full-source surface, admissibility
+- [x] Selection, budgeting, and rejection owned by Context; LeX compares the rebuild, never recomputes
+- [x] Instruction and policy items refused as evidence; inference-only packs are `insufficient`
+- [x] Empty exact selection is `insufficient` with a sealed bundle and no provider call
+- [-] Context HTTP client on the evaluation path
+- [-] Second retrieval engine, dense or morphology retrieval, or fuzzy matching inside LeX
+- [-] Fetching evidence by URL
+
+### Profiles and policy
+
+- [x] Profile as an immutable object: question set, policy document and gate, entity kind, Context focus, canonical hashes
+- [x] Registry composed by the deployment; live evaluation uses the first profile, replay resolves the profile a bundle names
+- [x] `claim-validation` `0.2.0`: five independent Noul predicates and one action Choice with `manual_review` and `other`
+- [x] Thresholds external to the model and disclosed as `uncalibrated`
+- [x] Calibration procedure and one recorded trial that did not change thresholds
+- [ ] A calibration report per adapter path that supports a threshold decision
+- [ ] A second profile in the registry, proving the verifier is generic in practice
+- [-] Caller-supplied policy that can lower a gate
+- [-] Score inside `claim-validation` (it stays a conforming adapter type)
+
+### Decision plane
+
+- [x] Provider-neutral `DecisionSet`: raw typed answers, adapter id and version, resolved model, request id, timing, usage
+- [x] Adapter contract `0.1.0` with common conformance fixtures
+- [x] Direct System One adapter live (`direct-systemone`, `jev-1.13.0`)
+- [x] Hosted OpenRouter adapter passing local fixtures
+- [x] Retryable provider failure reported as `provider_unavailable`, not retried; no silent model or provider fallback
+- [x] Credential never retained in a response, including a Unicode-escaped copy
+- [ ] Hosted adapter proven on the deployment
+- [-] Provider orchestration, fan-out across providers, or majority voting
+- [-] Provider names inside protocol object names or verdict semantics
+
+### Verification and replay
+
+- [x] Deterministic verifier generic over profiles; answer domains, bindings, provenance, thresholds, action consistency
+- [x] Typed replay bundle mirrored from `replay-bundle.schema.json`; drift fails a test
+- [x] JCS (RFC 8785) and SHA-256 with independent Python vectors agreeing with Go
+- [x] Self-hash seal; tampering detected on replay
+- [x] Replay without retrieval or provider; Context rebuild from the bundle's own snapshot; fresh-instance safe
+- [x] Replay refused for a bundle outside the principal's projects
+- [ ] Race evidence on a gcc-capable runner
+- [-] Bundle signatures, issuer authentication, or OIDC
+- [-] Server-side history, GET by run id, or durable jobs
+
+### HTTP surface
+
+- [x] `GET /healthz`, `GET /v1/capabilities`, `POST /v1/evaluations`, `POST /v1/replays`
+- [x] JSON Schema 2020-12 for requests, responses, and bundles; draft OpenAPI 3.1 validated in tests
+- [x] RFC 9457 problem responses with stage and reason; HTTP status agrees with problem status
+- [x] Method, Accept specificity, media type, body cap, response budget, `no-store`, 499/502/503/504 mappings
+- [x] Capabilities disclose runtime, retrieval mode, evidence inputs, policy calibration, limits, and retention
+- [x] Lifecycle trace rendered through the state machine; illegal sequences cannot be emitted
+- [ ] OpenAPI promoted from draft once the envelope is frozen
+- [-] TypeScript SDK, binary transports, gRPC, or asynchronous messaging
+- [-] Durable 202 jobs, resumable upload, or exactly-once guarantees
+
+### Deployment and operations
+
+- [x] Go handler on Vercel, `PORT`, RAM-only, no `/tmp` or mounted storage writes
+- [x] Authenticated principal-to-project binding; secrets outside the repository and traces
+- [x] `govulncheck` run once with no vulnerabilities in called code
+- [x] Local latency sample published as a measurement
+- [ ] Conformance report pinned to the current deployment revision, with rollback to the previous immutable build
+- [ ] Deployed toolchain identity, region, duration, bundle size, and cold start recorded (ADR-0001, ADR-0002)
+- [ ] SLO measurements with the 28-day window, published as measurements
+- [ ] Vulnerability review named by the release checklist, repeated per release
+- [-] Database, durable queue, distributed workers, or multi-tenant billing
+
+### Outside this slice by design
+
+- [-] Executor, authorized mutation, operation receipt, and `execution_error`
+- [-] Any side effect triggered by a verdict
+- [-] Product, chat, or agent shell on top of the protocol
+
+### Readiness statement
+
+The protocol core, evidence plane, profile model, verifier, replay, and HTTP
+surface are built and tested locally, and the direct adapter has run live.
+The items still open are proof, not function: revision-pinned conformance,
+hosted-adapter proof, race evidence, SLO measurements, a vulnerability review
+per release, and a calibration report. The envelope is therefore still
+`0.1-draft`. A canary of the current revision is appropriate; calling it
+stable is not until the open proof items above are recorded.
