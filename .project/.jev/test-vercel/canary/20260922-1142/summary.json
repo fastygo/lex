@@ -1,0 +1,259 @@
+[
+  {
+    "request": "chaos-conflicted-duplicate-charge.json",
+    "http": 200,
+    "elapsed_ms": 1014,
+    "findings": [
+      "evidence_conflict",
+      "establishment_below_threshold",
+      "review_required"
+    ],
+    "verdict": "conflict",
+    "replay_http": 200,
+    "replay_elapsed_ms": 661,
+    "replay_verdict": "conflict",
+    "replay_matches": true
+  },
+  {
+    "request": "chaos-conflicted-sign-in.json",
+    "http": 200,
+    "elapsed_ms": 826,
+    "findings": [
+      "review_required"
+    ],
+    "verdict": "manual_review",
+    "replay_http": 200,
+    "replay_elapsed_ms": 741,
+    "replay_verdict": "manual_review",
+    "replay_matches": true
+  },
+  {
+    "request": "chaos-llm-augmented-sign-in.json",
+    "http": 200,
+    "elapsed_ms": 856,
+    "findings": [
+      "establishment_below_threshold",
+      "review_required"
+    ],
+    "verdict": "insufficient",
+    "replay_http": 200,
+    "replay_elapsed_ms": 722,
+    "replay_verdict": "insufficient",
+    "replay_matches": true
+  },
+  {
+    "request": "chaos-raw-sign-in.json",
+    "http": 200,
+    "elapsed_ms": 772,
+    "findings": [
+      "review_required"
+    ],
+    "verdict": "manual_review",
+    "replay_http": 200,
+    "replay_elapsed_ms": 731,
+    "replay_verdict": "manual_review",
+    "replay_matches": true
+  },
+  {
+    "request": "chaos-resolved-account-access.json",
+    "http": 200,
+    "elapsed_ms": 762,
+    "findings": [
+      "safety_gate"
+    ],
+    "verdict": "manual_review",
+    "replay_http": 200,
+    "replay_elapsed_ms": 652,
+    "replay_verdict": "manual_review",
+    "replay_matches": true
+  },
+  {
+    "request": "chaos-resolved-sign-in.json",
+    "http": 200,
+    "elapsed_ms": 793,
+    "findings": [
+      "safety_gate"
+    ],
+    "verdict": "manual_review",
+    "replay_http": 200,
+    "replay_elapsed_ms": 663,
+    "replay_verdict": "manual_review",
+    "replay_matches": true
+  },
+  {
+    "request": "context-account-access-frozen.json",
+    "http": 200,
+    "elapsed_ms": 868,
+    "findings": [
+      "safety_gate"
+    ],
+    "verdict": "manual_review",
+    "replay_http": 200,
+    "replay_elapsed_ms": 755,
+    "replay_verdict": "manual_review",
+    "replay_matches": true
+  },
+  {
+    "request": "context-account-access.json",
+    "http": 200,
+    "elapsed_ms": 813,
+    "findings": [
+      "safety_gate"
+    ],
+    "verdict": "manual_review",
+    "replay_http": 200,
+    "replay_elapsed_ms": 732,
+    "replay_verdict": "manual_review",
+    "replay_matches": true
+  },
+  {
+    "request": "context-duplicate-charge.json",
+    "http": 200,
+    "elapsed_ms": 806,
+    "findings": [
+      "negative_result"
+    ],
+    "verdict": "rejected",
+    "replay_http": 200,
+    "replay_elapsed_ms": 662,
+    "replay_verdict": "rejected",
+    "replay_matches": true
+  },
+  {
+    "request": "context-refund.json",
+    "http": 200,
+    "elapsed_ms": 759,
+    "findings": [
+      "support_below_threshold",
+      "establishment_below_threshold",
+      "action_inconsistent"
+    ],
+    "verdict": "insufficient",
+    "replay_http": 200,
+    "replay_elapsed_ms": 738,
+    "replay_verdict": "insufficient",
+    "replay_matches": true
+  },
+  {
+    "request": "context-restore-access.json",
+    "http": 200,
+    "elapsed_ms": 832,
+    "findings": [
+      "safety_gate"
+    ],
+    "verdict": "manual_review",
+    "replay_http": 200,
+    "replay_elapsed_ms": 778,
+    "replay_verdict": "manual_review",
+    "replay_matches": true
+  },
+  {
+    "request": "llm-hallucination-structural.json",
+    "http": 200,
+    "elapsed_ms": 784,
+    "findings": [
+      "safety_gate"
+    ],
+    "verdict": "manual_review",
+    "replay_http": 200,
+    "replay_elapsed_ms": 633,
+    "replay_verdict": "manual_review",
+    "replay_matches": true
+  },
+  {
+    "request": "llm-next-token.json",
+    "http": 200,
+    "elapsed_ms": 822,
+    "findings": [
+      "establishment_below_threshold",
+      "safety_gate",
+      "action_inconsistent"
+    ],
+    "verdict": "insufficient",
+    "replay_http": 200,
+    "replay_elapsed_ms": 629,
+    "replay_verdict": "insufficient",
+    "replay_matches": true
+  },
+  {
+    "request": "llm-proposal-not-authority.json",
+    "http": 200,
+    "elapsed_ms": 1443,
+    "findings": [
+      "review_required"
+    ],
+    "verdict": "manual_review",
+    "replay_http": 200,
+    "replay_elapsed_ms": 766,
+    "replay_verdict": "manual_review",
+    "replay_matches": true
+  },
+  {
+    "request": "llm-temperature-zero.json",
+    "http": 200,
+    "elapsed_ms": 819,
+    "findings": [
+      "establishment_below_threshold",
+      "review_required"
+    ],
+    "verdict": "insufficient",
+    "replay_http": 200,
+    "replay_elapsed_ms": 803,
+    "replay_verdict": "insufficient",
+    "replay_matches": true
+  },
+  {
+    "request": "playground-cannot-generate-strings.json",
+    "http": 200,
+    "elapsed_ms": 854,
+    "findings": [
+      "safety_gate"
+    ],
+    "verdict": "manual_review",
+    "replay_http": 200,
+    "replay_elapsed_ms": 778,
+    "replay_verdict": "manual_review",
+    "replay_matches": true
+  },
+  {
+    "request": "playground-noul-no-confidence.json",
+    "http": 200,
+    "elapsed_ms": 852,
+    "findings": [
+      "safety_gate"
+    ],
+    "verdict": "manual_review",
+    "replay_http": 200,
+    "replay_elapsed_ms": 787,
+    "replay_verdict": "manual_review",
+    "replay_matches": true
+  },
+  {
+    "request": "playground-parallel-questions.json",
+    "http": 200,
+    "elapsed_ms": 788,
+    "findings": [
+      "safety_gate"
+    ],
+    "verdict": "manual_review",
+    "replay_http": 200,
+    "replay_elapsed_ms": 942,
+    "replay_verdict": "manual_review",
+    "replay_matches": true
+  },
+  {
+    "request": "playground-structured-decisions.json",
+    "http": 200,
+    "elapsed_ms": 831,
+    "findings": [
+      "establishment_below_threshold",
+      "safety_gate",
+      "action_inconsistent"
+    ],
+    "verdict": "insufficient",
+    "replay_http": 200,
+    "replay_elapsed_ms": 912,
+    "replay_verdict": "insufficient",
+    "replay_matches": true
+  }
+]

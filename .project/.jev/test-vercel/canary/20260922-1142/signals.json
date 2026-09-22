@@ -1,0 +1,14 @@
+{
+  "origin": "https://lexproto.vercel.app",
+  "revision": "4bc5680ea2842357f14c440d1cb2f8637464cfbb",
+  "deployment_id": 6589372666,
+  "requests": 19,
+  "http_5xx": 0,
+  "verification_error": 0,
+  "pack_rebuild": 0,
+  "snapshot_identity": 0,
+  "replay_matches": 19,
+  "rollback_deployment_id": 6579270758,
+  "rollback_health_http": 401,
+  "alias_switched": false
+}

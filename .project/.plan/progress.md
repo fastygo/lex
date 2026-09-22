@@ -39,11 +39,17 @@ adapter. Unchecked items are still open.
 - [x] Typed replay bundle: `wire.Bundle` decoded after schema and self-hash validation; `TestBundleTypeMirrorsSchema` fails on drift from `replay-bundle.schema.json`
 - [x] Docs aligned: `checks.md`, `integration-stack.md`, `scope.md`, `architecture.md`, ADR-0003, ADR-0004, `conformance-report.md`, `README.md`, `AGENTS.md`
 
+## Canary
+
+- [x] Production on `beta`, revision `4bc5680ea2842357f14c440d1cb2f8637464cfbb` (deployment `6589372666`), declared in `.project/.plan/conformance-report.md`
+- [x] Two samples of the 19 evaluation bodies on `https://lexproto.vercel.app`: no HTTP 5xx, no `verification_error`, no `pack_rebuild`, no `snapshot_identity`, replay matched 19/19 in each sample (`.project/.jev/test-vercel/canary/20260922-1117`, `.project/.jev/test-vercel/canary/20260922-1142`)
+- [x] Rollback point `2e1a013551c3` (deployment `6579270758`) still answers; the production alias was not switched
+
 ## Deferred
 
 - [ ] Race evidence on a runner with gcc
 - [ ] SLO measurements, including the 28-day window, published as measurements
-- [ ] Conformance report pinned to a deployment revision, with exclusions and rollback to the previous immutable build
+- [ ] Release conformance report that closes the deferred exclusions. The canary pin above does not close this item.
 - [ ] Vulnerability review named by the release checklist
 
 ## Still open

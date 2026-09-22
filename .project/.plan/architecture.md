@@ -191,8 +191,8 @@ stays thin. Proof status per criterion is in
 - [x] Authenticated principal-to-project binding; secrets outside the repository and traces
 - [x] `govulncheck` run once with no vulnerabilities in called code
 - [x] Local latency sample published as a measurement
-- [ ] Conformance report pinned to the current deployment revision, with rollback to the previous immutable build
-- [ ] Deployed toolchain identity, region, duration, bundle size, and cold start recorded (ADR-0001, ADR-0002)
+- [x] Canary on production `beta`: revision `4bc5680`, two signal samples, rollback deployment `6579270758` still present, alias not switched
+- [ ] Release conformance report that closes the deferred exclusions, plus recorded toolchain, region, and cold start (ADR-0001, ADR-0002)
 - [ ] SLO measurements with the 28-day window, published as measurements
 - [ ] Vulnerability review named by the release checklist, repeated per release
 - [-] Database, durable queue, distributed workers, or multi-tenant billing
@@ -207,8 +207,10 @@ stays thin. Proof status per criterion is in
 
 The protocol core, evidence plane, profile model, verifier, replay, and HTTP
 surface are built and tested locally, and the direct adapter has run live.
-The items still open are proof, not function: revision-pinned conformance,
-hosted-adapter proof, race evidence, SLO measurements, a vulnerability review
-per release, and a calibration report. The envelope is therefore still
-`0.1-draft`. A canary of the current revision is appropriate; calling it
-stable is not until the open proof items above are recorded.
+Revision `4bc5680` on production is the canary: two samples of the 19 request
+bodies replayed with no HTTP 5xx, no `verification_error`, no `pack_rebuild`,
+and no `snapshot_identity`, and deployment `6579270758` remains the rollback
+point. The items still open are stable-release proof, not canary function:
+a conformance report that closes every deferred exclusion, hosted-adapter
+proof, race evidence, SLO measurements, a vulnerability review per release,
+and a calibration report. The envelope is therefore still `0.1-draft`.

@@ -14,6 +14,29 @@ model pinning have regression coverage. Python hash verification now uses
 The production observation dated 2026-09-22 below is for revision `4bc5680`.
 Earlier Vercel notes, including revision `1c9cc90`, do not validate it.
 
+## Canary
+
+`4bc5680ea2842357f14c440d1cb2f8637464cfbb` on `https://lexproto.vercel.app`
+(GitHub deployment `6589372666`) is the canary. Production stays on `beta`.
+The alias was not switched. The rollback target remains deployment
+`6579270758`, commit `2e1a013551c3`; its host returned HTTP 401 from
+Deployment Protection during the second sample, which is a live deployment,
+not a missing one.
+
+Two samples of the 19 request bodies, each followed by replay of the sealed
+bundle:
+
+| Sample | HTTP 5xx | `verification_error` | `pack_rebuild` | `snapshot_identity` | Replay match |
+|---|---:|---:|---:|---:|---:|
+| `canary/20260922-1117` | 0 | 0 | 0 | 0 | 19/19 |
+| `canary/20260922-1142` | 0 | 0 | 0 | 0 | 19/19 |
+
+The first sample included one HTTP 422 `error` (`invalid_choice:action`,
+`safety_gate`) on `context-account-access-frozen.json`. The second sample
+returned HTTP 200 `manual_review` for that body. Both replays reproduced the
+verdict of their own evaluation. This is not the 28-day SLO and not a stable
+release.
+
 | Criterion | Result | Evidence |
 |---|---|---|
 | STD-01 requirement language | Local pass for MUST lines | `go test ./internal/conformance -count=1` fails if a MUST line in `protocol.md`, `checks.md`, or `integration-stack.md` has no test, or if a mapped test function is missing. `governance.md` only defines the keywords. This is not a certification that every test assertion is exhaustive. |
