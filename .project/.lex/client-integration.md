@@ -2,8 +2,9 @@
 
 Status: canary release, generic envelope `0.2`. This guide is for external
 applications and agents that call LeX over HTTP. The contract itself is
-[generic-decision-api.md](generic-decision-api.md); compatibility promises
-are in [governance.md](governance.md).
+[protocol.md](protocol.md) and [checks.md](checks.md); compatibility promises
+are in [governance.md](governance.md). Request examples are in
+`.project/examples/`.
 
 ## What a client gets
 
@@ -149,6 +150,7 @@ Problems are RFC 9457 JSON with a stable `reason`:
 - 422 `pack_error`: the Context binding did not reproduce.
 - 422 `decision_error`: the provider's answers failed structural checks; the
   sealed bundle is still returned.
+- 422 `response_budget`: State, questions, or answers do not fit the body limit.
 - 401/403: token missing, wrong, or not bound to `project_id`.
 - 503 `admission_limited` or `provider_unavailable`, 502, 504: transient.
   LeX never retries. A client may retry with backoff; each retry is a new
@@ -167,7 +169,16 @@ Within envelope `0.2`, fields, meanings, reason codes, and status mapping
 do not change; new fields may appear, so ignore unknown response fields.
 Check `protocol_version` in responses is `0.2`. A breaking change ships as a
 new envelope version, announced in capabilities, with the previous verifier
-kept for replay. `POST /v1/evaluations` is deprecated; do not build on it.
+kept for replay.
+
+## Migrating a direct Jev call
+
+Keep the Jev state as `state`, add a stable `project_id` and `decision`, and
+wrap the question map in a versioned `question_set`. Copy a Choice `criteria`
+object to `options` and a Score `criteria` array to `levels`; a Noul keeps
+`type` and `instructions`. Do not send `model`, credentials, endpoints, or
+retries: the deployment owns the adapter pin. Move client correlation values
+to `metadata`.
 
 ## Agents
 

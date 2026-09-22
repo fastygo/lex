@@ -13,34 +13,32 @@ var obligations = []struct {
 	needle string
 	tests  []string
 }{
-	{"A decision MUST NOT be evidence", []string{"TestReplayRefusesInferenceOnlyEvidence"}},
-	{"Evidence MUST be addressable", []string{"TestReplayRejectsSurfaceThatBreaksChecksum", "TestReplayRejectsPartialSourceSurface"}},
-	{"Questions MUST be typed and atomic", []string{"TestReplayRejectsCompoundQuestionEvenWhenSelfHashMatches", "TestValidateAnswersAcceptsTypedAnswers", "TestQuestionsNameTheFrozenState"}},
-	{"verified success MUST remain distinct", []string{"TestNoExecutionRoute", "TestEvaluationRejectsCallerPolicy", "TestInterpretKeepsConflictAheadOfInsufficient"}},
-	{"MUST preserve `insufficient` and `conflict`", []string{"TestInterpretCoversEveryVerdict"}},
-	{"Policy and thresholds MUST be external", []string{"TestEvaluationRejectsCallerPolicy"}},
-	{"MUST require deterministic verification", []string{"TestInterpretAcceptsConsistentClaim"}},
-	{"Runs MUST pin entity", []string{"TestReplayRejectsUnpinnedPolicyWithoutProviderCall", "TestReplayRejectsForeignAdapterVersion", "TestReplayRejectsFocusOutsideEmbeddedProfile", "TestReplayRejectsUnresolvedModelIdentity"}},
-	{"verifier versions MUST also be recorded", []string{"TestReplayRejectsForeignVerifierVersion"}},
+	{"State and QuestionSet MUST reach the adapter", []string{"TestDecisionPassesCallerStateAndQuestionsWithoutDomainInterpretation"}},
+	{"Questions MUST be typed and atomic", []string{"TestDecisionRequestRejectsAmbiguousOrInvalidPrimitives", "TestDecisionRejectsMalformedQuestionSetBeforeProvider", "TestValidateAnswersAcceptsTypedAnswers"}},
+	{"LeX MUST NOT derive a domain verdict", []string{"TestCoreHasNoDomainVerdictOrProfile", "TestMalformedAnswerIsStructuralFindingNotVerdict", "TestCapabilitiesDiscloseTheDecisionContract"}},
+	{"verified success MUST remain distinct", []string{"TestNoExecutionOrRemovedRoutes", "TestMalformedBodiesNeverReachTheProvider", "TestSecurityProfileRejectsCookiesAndCORS"}},
+	{"Context binding MUST be reproduced by Context", []string{"TestContextThatContextCannotReproduceNeverReachesTheProvider", "TestContextBindingIsVerifiedByContextRebuild"}},
+	{"Context MUST NOT be merged into State", []string{"TestDecisionBindsOptionalContextWithoutMergingItIntoState"}},
+	{"Runs MUST pin project", []string{"TestReplayRejectsUnpinnedModelAdapterAndVerifier", "TestSealedStateTamperingBreaksTheBundleHash", "TestDecisionBundleReplaysAllPrimitives"}},
 	{"criteria change MUST produce", []string{"TestCriteriaChangeProducesNewQuestionSetHash"}},
-	{"MUST NOT substitute for a resolved model", []string{"TestReplayRejectsUnresolvedModelIdentity", "TestEvaluateRejectsSubstitutedModel"}},
-	{"MUST NOT rewrite the semantic answers", []string{"TestEvaluatePreservesRawAnswers"}},
-	{"Trace data MUST exclude credentials", []string{"TestProviderFailureDoesNotEchoSecrets", "TestProblemResponseOmitsBearerToken"}},
-	{"It MUST NOT claim", []string{"TestNoExecutionRoute"}},
-	{"validation verdict MUST NOT be treated as credentials", []string{"TestNoExecutionRoute", "TestSecurityProfileRejectsCookiesApprovalAndCORS"}},
-	{"MUST NOT contact a retrieval service", []string{"TestReplayDoesNotUseNetwork"}},
-	{"MUST compare a recomputation", []string{"TestReplayRejectsRewrittenPackChecksum"}},
-	{"saved pack MUST NOT be replaced", []string{"TestReplayLeavesTheSavedBundleUnchanged"}},
-	{"MUST refuse a replay whose entity project", []string{"TestReplayRefusesAnotherProject"}},
-	{"The verifier MUST check", []string{"TestReplayRejectsPackHashThatDoesNotMatchContent", "TestValidateAnswersReportsMalformedAnswers", "TestReplayRejectsPartialSourceSurface", "TestReplayRefusesInferenceOnlyEvidence", "TestInterpretKeepsConflictAheadOfInsufficient", "TestInterpretRejectsEstablishedNegativeClaim", "TestSecurityProfileRejectsCookiesApprovalAndCORS"}},
-	{"MUST preserve all material epistemic", []string{"TestInterpretKeepsSafetyGateBesideConflict"}},
-	{"An adapter MUST:", []string{"TestEvaluationKeepsInjectedSourceTextOutOfQuestions", "TestEvaluateDeclaresQuestionCapabilitiesBeforeDial", "TestEvaluatePreservesRawAnswers", "TestReplayRejectsForeignAdapterVersion", "TestAdapterMetadataStaysOutOfTheReplayBundle", "TestEvaluateKeepsProviderMetadataOnlyWhenPresent", "TestRetryableProviderFailureIsNotADecisionError", "TestEvaluateClassifiesRetryableProviderStatus", "TestSelectRefusesSilentFallback", "TestEvaluateRejectsSubstitutedModel", "TestDirectAdapterConformanceFixture", "TestHostedAdapterConformanceFixture"}},
+	{"MUST NOT substitute for a resolved model", []string{"TestEvaluateRejectsAliasAndRemoteEndpoint", "TestHostedPinRejectsAliasesAndRequiresConfiguration", "TestEvaluateRejectsSubstitutedModel"}},
+	{"MUST NOT rewrite the semantic answers", []string{"TestEvaluatePreservesRawAnswers", "TestCaseFoldedAnswerFieldIsRefusedNotMerged"}},
+	{"Trace data MUST exclude credentials", []string{"TestEvaluateDropsResponsesThatEchoTheCredential", "TestProviderFailuresAreClassifiedByStage", "TestPanicBecomesProblemJSON", "TestLoadConfigRejectsAmbiguousTokensWithoutEcho"}},
+	{"`metadata` MUST NOT reach the adapter", []string{"TestAdapterMetadataStaysOutOfTheReplayBundle", "TestDecisionPassesCallerStateAndQuestionsWithoutDomainInterpretation"}},
+	{"structurally invalid answer MUST be reported", []string{"TestMalformedAnswersRemainReplayableStructuralFailures"}},
+	{"An adapter MUST:", []string{"TestEvaluateDeclaresQuestionCapabilitiesBeforeDial", "TestEvaluatePreservesRawAnswers", "TestEvaluateRecordsResolvedHostedModel", "TestEvaluateKeepsProviderMetadataOnlyWhenPresent", "TestEvaluateClassifiesRetryableProviderStatus", "TestSelectRefusesSilentFallback", "TestDirectAdapterConformanceFixture", "TestHostedAdapterConformanceFixture"}},
+	{"Replay MUST NOT contact a retrieval service", []string{"TestReplayDoesNotUseNetwork"}},
+	{"saved pack MUST NOT be replaced", []string{"TestReplayLeavesTheSavedBundleUnchanged", "TestContextBindingIsVerifiedByContextRebuild"}},
+	{"Replay MUST refuse a bundle whose project", []string{"TestReplayRefusesAnotherProject"}},
+	{"The verifier MUST check", []string{"TestSealedStateTamperingBreaksTheBundleHash", "TestReplayRejectsUnpinnedModelAdapterAndVerifier", "TestValidateAnswersReportsMalformedAnswers", "TestContextBindingIsVerifiedByContextRebuild", "TestReplayRefusesAnotherProject"}},
+	{"retryable provider failure MUST NOT be retried", []string{"TestEvaluateClassifiesRetryableProviderStatus", "TestProviderFailuresAreClassifiedByStage"}},
+	{"MUST be refused with `response_budget`", []string{"TestResponseBudgetIsCheckedBeforeAndAfterTheProvider", "TestFullAnswerBudgetStillFitsTheResponse"}},
 }
 
 func TestNormativeMustLinesHaveTests(t *testing.T) {
 	root := filepath.Join("..", "..")
 	var lines []string
-	for _, name := range []string{"protocol.md", "checks.md", "integration-stack.md"} {
+	for _, name := range []string{"protocol.md", "checks.md"} {
 		raw, err := os.ReadFile(filepath.Join(root, ".project", ".lex", name))
 		if err != nil {
 			t.Fatal(err)
