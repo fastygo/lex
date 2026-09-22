@@ -6,16 +6,37 @@ contracts are tracked in [analysis.md](analysis.md), not in historical drafts.
 
 ## Purpose
 
-LeX defines provider-neutral contracts between evidence, typed judgments,
-policy, deterministic verification, controlled operations, and proof artifacts.
-Consumers supply domain schemas, criteria, risk rules, and authority.
+LeX defines provider-neutral contracts for typed decisions, optional evidence
+bindings, deterministic structural verification, controlled operations, and
+proof artifacts. Consumers supply domain schemas, criteria, risk rules,
+thresholds, and authority.
+
+The canonical decision operation is:
+
+```text
+caller State + caller QuestionSet + optional frozen Context binding
+  -> typed-decision adapter
+  -> raw DecisionSet
+  -> structural verification
+  -> trace + replay bundle
+```
+
+The caller owns question meaning, interpretation, sequencing, and any later
+tool call or action. LeX does not select a domain profile, retrieve evidence,
+rewrite state, derive a semantic domain verdict, or choose the next step.
+Claim-validation is a compatibility consumer of this operation, not the
+identity of the core protocol.
 
 ## Participants
 
-- Consumer: supplies the entity and ValidationIntent.
-- Context Runtime: retrieves evidence and builds the ContextPack.
-- Profile author: defines versioned meanings and atomic questions.
-- Policy authority: supplies rules and any required external approvals.
+- Consumer: supplies decision identity, state, QuestionSet, and any
+  interpretation or action policy.
+- Context Runtime: optionally retrieves evidence and builds a ContextPack
+  before the consumer calls LeX.
+- Profile author: compatibility-only author of versioned meanings and atomic
+  questions.
+- Policy authority: compatibility-only supplier of rules and any required
+  external approvals.
 - Decision adapter: obtains typed answers over frozen inputs.
 - Verifier: checks bindings and policy deterministically.
 - Trace custodian: preserves inputs, outputs, and verification artifacts.
@@ -32,9 +53,10 @@ Consumers supply domain schemas, criteria, risk rules, and authority.
 4. Support, establishment, authority, action, and verified success MUST remain distinct.
 5. Implementations MUST preserve `insufficient` and `conflict` as valid outcomes.
 6. Policy and thresholds MUST be external to the judgment model.
-7. A `validated` verdict MUST require deterministic verification.
-8. Runs MUST pin entity, ContextPack, QuestionSet, policy, adapter, and resolved
-   model versions. Profile and verifier versions MUST also be recorded.
+7. A compatibility `validated` verdict MUST require deterministic verification.
+8. Generic runs pin project, decision identity, State, QuestionSet, adapter,
+   resolved model, and verifier versions. An optional Context binding is pinned
+   when present. Runs MUST pin entity, ContextPack, QuestionSet, policy, adapter, and resolved model versions for compatibility validation. Profile and verifier versions MUST also be recorded.
 9. A criteria change MUST produce a new QuestionSet version and hash.
 10. A model alias such as `latest` MUST NOT substitute for a resolved model identifier.
 
@@ -45,21 +67,39 @@ These requirements apply to the first slice, not only a future release.
 These are logical contracts, not final JSON field definitions. Schemas must
 specify required fields, reference resolution, and hash scope before release.
 
+### DecisionIdentity and State
+
+DecisionIdentity is caller-owned stable id and version for one decision step.
+State is a caller-owned JSON object. LeX validates its transport form and
+canonical hash, then supplies its semantics unchanged to the adapter. State is
+not evidence by default and it is not implicitly populated from Context.
+
 ### EntityEnvelope
 
 Identifies the evaluated entity, its project, type, schema, version, checksum,
-and source references. Its payload is immutable within a run.
+and source references. It is a compatibility-validation contract; generic
+decisions use DecisionIdentity instead.
 
 ### ValidationIntent
 
 Identifies the objective, entity, FocusProfile, SemanticProfile, QuestionSet,
 PolicySnapshot, and risk class. It requests evaluation, not a predetermined result.
+It is a compatibility-validation contract, not required by generic decisions.
+
+### QuestionSet
+
+Exact versioned typed questions, hash, per-question purpose, answer domains,
+and capability requirements. Generic QuestionSets are caller-owned and contain
+Noul, Choice, or Score questions only. A Choice declares exact unique options;
+a Score declares two through ten ordered levels. LeX validates this structure
+but does not decide whether a taxonomy is useful for a particular product.
 
 ### FocusProfile and ContextPack
 
 Context-owned contracts. FocusProfile constrains evidence selection, trust,
-classes, and budget. ContextPack is the frozen evidence handoff. LeX records the
-upstream contract version and checks compatibility rather than redefining it.
+classes, and budget. ContextPack is an optional frozen evidence handoff. LeX
+records and verifies an optional upstream binding rather than redefining or
+automatically merging it into State.
 
 ### EvidenceSet and EvidenceBinding
 
@@ -73,50 +113,48 @@ and pass verification when required by the profile.
 ### SemanticProfile
 
 Versioned domain definitions, atomic predicates, criteria, ordered rubrics,
-evidence requirements, and mappings to a QuestionSet. It is not a universal ontology.
-
-### QuestionSet
-
-Exact versioned typed questions, hash, per-question purpose, answer domains,
-abstention paths, and capability requirements. The contract is provider-neutral.
-Independent support questions use Noul; mutually exclusive action recommendations
-use Choice; genuinely ordered rubrics use Score.
+evidence requirements, and mappings to a QuestionSet. It is a compatibility
+consumer artifact, not a universal ontology or a generic-decision requirement.
 
 ### PolicySnapshot
 
 Frozen evidence eligibility, trust requirements, thresholds, risk rules,
 permissions, approval requirements, and allowed component/model versions.
-Credentials themselves are not persisted in this object or in traces.
+Credentials themselves are not persisted in this object or in traces. It is
+required only when a compatibility consumer derives semantic findings or a
+Verdict.
 
 ### DecisionSet
 
-Raw typed answers bound to the exact pack and QuestionSet, with adapter version
-and resolved model identity. Provider, request identifier, timing, and usage
-are recorded when available as adapter metadata. Missing metadata must not be
-fabricated. Missing reproducible model identity prevents a conforming replay claim.
-Transport normalization MUST NOT rewrite the semantic answers.
+Raw typed answers bound to exact State, QuestionSet, optional Context binding,
+adapter version, and resolved model identity. Provider, request identifier,
+timing, and usage are recorded when available as adapter metadata. Missing
+metadata must not be fabricated. Missing reproducible model identity prevents a
+conforming replay claim. Transport normalization MUST NOT rewrite the semantic answers.
 
 ### VerificationReport
 
-Deterministic check results with evidence bindings and reasons: input integrity,
-answer completeness and types, evidence eligibility, conflicts, thresholds,
-authority, and supported versions. A verifier checks declared obligations; it
-does not independently prove every natural-language proposition true.
+Generic deterministic checks cover input integrity, question/answer types,
+answer domains, optional Context binding, adapter/model pins, and supported
+versions. A compatibility verifier may additionally check evidence eligibility,
+conflicts, thresholds, and authority. Neither form proves every natural-language
+proposition true.
 
 ### Verdict
 
-The validation disposition:
+The compatibility-validation disposition:
 `validated | rejected | insufficient | conflict | manual_review | error`.
 
 [checks.md](checks.md) owns the detailed definitions. Verdict is distinct from
 a recommended action, operation progress, and execution success. All material
 findings must remain in the report even when one primary verdict is selected.
 
-### EvaluationTrace
+### DecisionTrace and EvaluationTrace
 
-Records stage outcomes and binds the frozen inputs, raw DecisionSet,
-VerificationReport, Verdict, component versions, and applicable approval
-references. Trace data MUST exclude credentials and provider secrets.
+DecisionTrace records generic stage outcomes and binds State, QuestionSet,
+optional Context binding, raw DecisionSet, structural report, component
+versions, and hashes. EvaluationTrace extends it with compatibility Verdict and
+policy findings. Trace data MUST exclude credentials and provider secrets.
 A replay record must retain the authorized evidence needed to resolve bindings;
 a redacted export must disclose any resulting replay limitation. In the
 [current deployment profile](../.plan/architecture.md), the service retains
@@ -133,7 +171,7 @@ actually executed and the postcondition verification result. It MUST NOT claim
 verified success merely because a model recommended an action or validation passed.
 Failures and incomplete postcondition checks remain explicit.
 
-## Predicate meanings
+## Compatibility predicate meanings
 
 - `supported`: eligible evidence supports the proposition.
 - `established`: the profile's sufficiency and coherence requirements are met.
@@ -144,10 +182,17 @@ Failures and incomplete postcondition checks remain explicit.
 Independent Noul probabilities need not sum to one. High confidence does not
 establish source truth, domain calibration, or authority.
 
-## Validation lifecycle
+## Decision lifecycle
 
-The following stage order is the conceptual baseline, not a complete remote
-operation state machine:
+The generic decision stage order is:
+
+```text
+RECEIVE -> DECIDE -> VERIFY
+```
+
+An optional Context binding is verified before DECIDE but does not create or
+alter State. The compatibility validation lifecycle is the following extended
+baseline, not a complete remote operation state machine:
 
 ```text
 RECEIVE -> FREEZE -> RETRIEVE -> PACK -> PREFLIGHT
@@ -184,13 +229,16 @@ extension. Cancellation is operation status, not a seventh verdict.
 
 ## Replay
 
-Deterministic replay uses the saved entity, pack, profiles, QuestionSet,
-PolicySnapshot, raw DecisionSet, approval evidence, and pinned verifier version.
-It MUST NOT contact a retrieval service, call a decision provider, or execute side effects.
-It MUST compare a recomputation from the frozen snapshot and pack request with the saved pack.
-The saved pack MUST NOT be replaced.
-The service MUST refuse a replay whose entity project is outside the authenticated principal's projects.
-It reproduces deterministic findings and verdict under the same defined rules.
+Generic replay uses saved decision identity, State, QuestionSet, optional
+Context binding, raw DecisionSet, adapter/model pins, and verifier version. It
+MUST NOT contact a retrieval service, call a decision provider, or execute side
+effects. It reproduces structural findings, not a new semantic interpretation.
+When a Context binding is present it MUST compare a recomputation from the
+frozen snapshot and pack request with the saved pack. The saved pack MUST NOT be replaced.
+Generic replay refuses requests outside the authenticated project.
+Compatibility replay MUST refuse a replay whose entity project is outside the
+authenticated principal's projects. Compatibility replay additionally reproduces
+deterministic findings and Verdict.
 
 A fresh model call is a new evaluation even with the same resolved model.
 Audit timestamps, request identifiers, and replay-run identifiers may differ;

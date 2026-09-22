@@ -34,7 +34,9 @@ type Decision struct {
 //	receive -> pack (freeze or accept evidence) -> decide -> verify
 //
 // Each stage either advances the recorder or ends the request with a traced problem.
-func evaluate(w http.ResponseWriter, request *http.Request, config Config, verifier wire.Verifier) {
+func evaluate(w http.ResponseWriter, request *http.Request, config Config, verifier wire.Verifier, decisionVerifier wire.DecisionVerifier) {
+	w.Header().Set("Deprecation", "true")
+	w.Header().Set("Link", "</v1/decisions>; rel=\"successor-version\"")
 	prof := config.profile()
 	body, err := readEvaluation(request, prof)
 	if err != nil {
@@ -93,6 +95,13 @@ func evaluate(w http.ResponseWriter, request *http.Request, config Config, verif
 	}
 	st.completed("decide")
 	if writeRequestStop(w, request.Context().Err(), st.ending("verify", "failed")) {
+		return
+	}
+	if err := verifyLegacyDecisionStructure(request.Context(), prof, body, frozen, items, config.Decider, decision, decisionVerifier); err != nil {
+		if writeRequestStop(w, err, st.ending("verify", "failed")) {
+			return
+		}
+		tracedProblem(w, http.StatusBadGateway, reasonDecisionError, "the decision adapter returned answers that cannot be structurally verified", st.ending("verify", "failed"))
 		return
 	}
 

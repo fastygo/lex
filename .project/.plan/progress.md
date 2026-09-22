@@ -8,7 +8,7 @@ adapter. Unchecked items are still open.
 
 - [x] Go REST service, Framework `v0.3.0`, Context `v0.1.0`, capability `memory-exact-v1`
 - [x] Vercel deployment of synchronous evaluation and caller-owned replay
-- [x] Routes `GET /healthz`, `GET /v1/capabilities`, `POST /v1/evaluations`, `POST /v1/replays`
+- [x] Routes `GET /healthz`, `GET /v1/capabilities`, `POST /v1/decisions`, deprecated `POST /v1/evaluations`, `POST /v1/replays`
 - [x] Embedded profile `claim-validation` `0.2.0` with `support`, `established`, `refuted`, `conflict`, `safe_to_auto_act`, and one action Choice
 - [x] Verdict precedence `error > conflict > insufficient > manual_review > rejected > validated`
 - [x] Policy disclosure `uncalibrated`; wire envelope `0.1-draft`; profile `0.1` bundles rejected
@@ -38,6 +38,23 @@ adapter. Unchecked items are still open.
 - [x] `wire/bundle.go` and `httpapi/evaluation.go` split by responsibility: `document.go`, `verifier.go`, `evidence.go`, `answers.go`; `request.go`, `evaluation.go`, `response.go`, `trace.go`; stage traces rendered through the lifecycle machine
 - [x] Typed replay bundle: `wire.Bundle` decoded after schema and self-hash validation; `TestBundleTypeMirrorsSchema` fails on drift from `replay-bundle.schema.json`
 - [x] Docs aligned: `checks.md`, `integration-stack.md`, `scope.md`, `architecture.md`, ADR-0003, ADR-0004, `conformance-report.md`, `README.md`, `AGENTS.md`
+
+## Generic typed-decision API (local, 2026-09-22)
+
+- [x] `POST /v1/decisions`: caller-owned DecisionIdentity, JSON State, and
+  versioned Noul/Choice/Score QuestionSet; no profile selection, semantic
+  threshold, Verdict, retrieval, or next-action decision.
+- [x] `0.2-draft` request and bundle schemas; typed Go records; canonical state
+  and QuestionSet hashes; optional frozen Context binding; self-hash and
+  provider-free structural replay.
+- [x] Generic API dispatch and capability disclosure; legacy evaluation is
+  marked deprecated and keeps its claim-validation profile/policy semantics.
+- [x] Cross-domain intent and storage fixtures, malformed-domain and model-pin
+  vectors, migration guidance, generic-boundary dependency test, full Go suite,
+  vet, and editor lint checks.
+- [ ] Revision-pinned generic deployment proof. It requires a committed,
+  deployed revision and generic Noul, Choice, Score, and optional Context
+  probes; the existing `4bc5680` claim-validation canary is not evidence.
 
 ## Canary
 

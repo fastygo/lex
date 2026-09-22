@@ -26,7 +26,7 @@ func TestOpenAPIMatchesSynchronousContract(t *testing.T) {
 		t.Fatalf("openapi version = %#v", document["openapi"])
 	}
 	paths, _ := document["paths"].(map[string]any)
-	for _, path := range []string{"/healthz", "/v1/capabilities", "/v1/evaluations", "/v1/replays"} {
+	for _, path := range []string{"/healthz", "/v1/capabilities", "/v1/evaluations", "/v1/decisions", "/v1/replays"} {
 		if _, exists := paths[path]; !exists {
 			t.Fatalf("missing path %s", path)
 		}
@@ -50,6 +50,7 @@ func TestOpenAPIMatchesSynchronousContract(t *testing.T) {
 	required := map[string]map[string][]string{
 		"/v1/capabilities": {"get": {"200", "400", "401", "403", "405", "406", "413", "503"}},
 		"/v1/evaluations":  {"post": {"200", "400", "401", "403", "405", "406", "413", "415", "422", "499", "500", "502", "503", "504"}},
+		"/v1/decisions":    {"post": {"200", "400", "401", "403", "405", "406", "413", "415", "422", "499", "500", "502", "503", "504"}},
 		"/v1/replays":      {"post": {"200", "400", "401", "403", "405", "406", "413", "415", "422", "499", "500", "503", "504"}},
 	}
 	for path, methods := range required {

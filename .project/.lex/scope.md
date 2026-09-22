@@ -10,6 +10,13 @@ LeX is a subject-neutral infrastructure for evidence, judgment, policy, verifica
 
 The LeX Protocol standardizes the contracts between those layers. It is not the complete system by itself.
 
+The generic API is a typed-decision switch, not a domain router. An agent
+supplies State and QuestionSet, receives a structurally verified DecisionSet,
+and decides whether to ask again, retrieve more context, call a tool, or act.
+Context Runtime is optional upstream infrastructure for that call. The
+claim-validation endpoint remains a compatibility slice with additional
+evidence and policy semantics.
+
 ## Included in the LeX notion
 
 ### 1. Entity under validation
@@ -24,7 +31,9 @@ Anything that can be frozen, referenced, and checked, for example:
 - candidate actions (route, approve, refund, delete);
 - taxonomies and criteria definitions.
 
-Each run uses an **EntityEnvelope**: stable id, type, schema, version, checksum, and source refs.
+Compatibility validation runs use an **EntityEnvelope**: stable id, type,
+schema, version, checksum, and source refs. Generic decision runs use a
+caller-owned DecisionIdentity and State instead.
 
 ### 2. Validation intent
 

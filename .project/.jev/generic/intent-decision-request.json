@@ -1,0 +1,32 @@
+{
+  "project_id": "example-project",
+  "decision": {
+    "id": "intent-step",
+    "version": "1"
+  },
+  "state": {
+    "message": "I need a site to show recent client work."
+  },
+  "question_set": {
+    "id": "example.intent",
+    "version": "1",
+    "questions": {
+      "intent": {
+        "type": "choice",
+        "instructions": "Which declared intent best matches the supplied state?",
+        "options": {
+          "portfolio": "Show a body of work.",
+          "catalogue": "Browse a product collection.",
+          "other": "None of the declared intents."
+        }
+      },
+      "has_purchase_flow": {
+        "type": "noul",
+        "instructions": "Does the supplied state require a purchase flow?"
+      }
+    }
+  },
+  "metadata": {
+    "fixture": "intent"
+  }
+}

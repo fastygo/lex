@@ -42,6 +42,27 @@ func TestBundleTypeMirrorsSchema(t *testing.T) {
 	expectMirror(t, "decision_set", reflect.TypeOf(DecisionRecord{}), keys(decisionUnion))
 }
 
+func TestDecisionBundleTypeMirrorsSchema(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("schema", "decision-bundle.schema.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := canonical.DecodeJSON(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema := value.(map[string]any)
+	properties := schema["properties"].(map[string]any)
+	definitions := schema["$defs"].(map[string]any)
+
+	expectMirror(t, "decision bundle", reflect.TypeOf(DecisionBundle{}), keys(properties))
+	expectMirror(t, "decision identity", reflect.TypeOf(DecisionIdentityRecord{}), keys(properties["decision"].(map[string]any)["properties"].(map[string]any)))
+	expectMirror(t, "decision state", reflect.TypeOf(DecisionStateRecord{}), keys(properties["state"].(map[string]any)["properties"].(map[string]any)))
+	questionSet := definitions["questionSet"].(map[string]any)
+	expectMirror(t, "generic question set", reflect.TypeOf(GenericQuestionSetRecord{}), keys(questionSet["properties"].(map[string]any)))
+	expectMirror(t, "generic decision set", reflect.TypeOf(GenericDecisionRecord{}), keys(properties["decision_set"].(map[string]any)["properties"].(map[string]any)))
+}
+
 func TestDecodeBundleRoundTripsSealedBytes(t *testing.T) {
 	raw := sealedBundle(t)
 	bundle, err := DecodeBundle(raw)

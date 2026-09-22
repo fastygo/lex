@@ -24,9 +24,10 @@ not protocol identities.
 
 ## Status
 
-LeX is a **v0.1 working draft**. The service implements synchronous evaluation
-and caller-owned replay. No released protocol, conformance certification,
-achieved SLO, or production deployment is claimed.
+LeX is a working draft. The service implements an additive generic typed-
+decision API, legacy synchronous claim validation, and caller-owned replay. No
+released protocol, conformance certification, achieved SLO, or production
+deployment is claimed.
 
 The running profile is:
 
@@ -41,7 +42,13 @@ The running profile is:
   side-effect execution;
 - no TypeScript SDK or JavaScript application runtime in v0.1.
 
-Context v0.1.0 and Framework v0.3.0 are pinned. The service freezes a Context
+Context v0.1.0 and Framework v0.3.0 are pinned. The generic `0.2-draft`
+operation accepts caller-owned JSON state and a caller-owned QuestionSet,
+optionally binds a frozen Context state, calls a pinned typed-decision adapter,
+validates raw answer structure, and returns a replayable DecisionSet. The
+agent owns semantic interpretation and subsequent tools or actions.
+
+The compatibility evaluation operation freezes a Context
 pack with embedded `memory-exact-v1` from caller text, or accepts a state the
 caller already froze through that runtime and has Context reproduce it. It then
 asks the embedded `claim-validation` `0.2.0` question set through a direct or
@@ -62,6 +69,14 @@ revision-pinned conformance report, and vulnerability review. Calibration of
 ## Architecture
 
 ```text
+Agent: State + QuestionSet + optional Context binding
+  -> LeX: schema + hash + model pin + structural answer verification
+  -> Jev: raw typed answers
+  -> LeX: DecisionSet + trace + replay bundle
+  -> Agent: interpret, clarify, retrieve, call MCP/web/tool, or stop
+```
+
+```text
 EntityEnvelope + ValidationIntent
   -> frozen PolicySnapshot + profiles + QuestionSet
   -> Context Runtime -> frozen ContextPack + EvidenceBinding
@@ -75,10 +90,10 @@ Replay consumes a caller-retained frozen bundle. It does not contact a retrieval
 service or invoke a decision provider. Context's rebuild from the frozen
 snapshot checks the saved pack and does not replace it.
 
-Profiles are objects: each pins a question set, a policy document and gate,
-an entity kind, and a Context focus, and hashes them. The deployment composes
-a registry; live evaluation uses its first profile and replay resolves the
-profile a bundle names. The verifier is generic over profiles.
+Profiles are legacy compatibility objects: each pins a question set, a policy
+document and gate, an entity kind, and a Context focus. The deployment composes
+a registry only for claim evaluation and its legacy replay bundles. Generic
+decisions have no profile registry; they use a caller-defined QuestionSet.
 
 Controlled execution is deliberately outside the first slice. A validation
 verdict does not prove that an operation occurred.
@@ -129,19 +144,25 @@ authority.
 The handler serves:
 
 ```text
+POST /v1/decisions
 POST /v1/evaluations
 POST /v1/replays
 GET  /v1/capabilities
 GET  /healthz
 ```
 
+`POST /v1/decisions` is the canonical generic operation. It accepts State,
+QuestionSet, and an optional frozen Context binding and returns no semantic
+verdict. `POST /v1/evaluations` is deprecated claim-validation compatibility
+behavior.
+
 The wire profile uses JSON Schema 2020-12, RFC 8785 JCS with SHA-256 for LeX
 canonical hashes, and RFC 9457 Problem Details. A draft OpenAPI 3.1.1 document
-is at `internal/wire/schema/openapi.json`. The handler enforces the evaluation
-schema. `GET /v1/capabilities` reports exact-phrase retrieval, the uncalibrated
-`claim-validation` `0.2.0` policy, and the configured body, deadline, focus,
-and per-process admission limits. Research maps under `.project/.jev/examples/`
-are not evaluation requests. These routes are the working draft surface. They
+is at `internal/wire/schema/openapi.json`. `GET /v1/capabilities` reports
+generic primitives and limits alongside legacy Context and policy capability.
+Research maps under `.project/.jev/examples/` are not legacy evaluation
+requests; agents translate their question/state material into generic decision
+requests. These routes are the working draft surface. They
 are not a released protocol while the remaining ADRs are proposed.
 
 ## Delivery path

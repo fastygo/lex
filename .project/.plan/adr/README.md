@@ -20,6 +20,7 @@ must not be presented as shipped behavior.
 - [ADR-0010: Authority, isolation, and safe transport](0010-security.md).
 - [ADR-0011: Budgets, measurement, and overload](0011-slo-observability.md).
 - [ADR-0012: Standards conformance and release evidence](0012-conformance-release.md).
+- [ADR-0013: Generic typed-decision API](0013-generic-decision-api.md).
 
 Resolve 0001-0003 in P0, 0004-0008 in P1, 0009 in P2, and 0010-0012
 by P3. Security and budgets apply from the first implementation, even when

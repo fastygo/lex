@@ -17,6 +17,7 @@ import (
 	contextmemory "github.com/fastygo/context/pkg/contextkit/runtime"
 	frameworkapp "github.com/fastygo/framework/pkg/app"
 	"github.com/fastygo/framework/pkg/web/security"
+	"github.com/fastygo/lex/internal/adapters"
 	"github.com/fastygo/lex/internal/canonical"
 	"github.com/fastygo/lex/internal/evidence"
 	"github.com/fastygo/lex/internal/verify"
@@ -32,6 +33,7 @@ func NewHandler(config Config) (http.Handler, error) {
 	}
 
 	verifier := config.verifier()
+	decisionVerifier := config.decisionVerifier()
 	builder := frameworkapp.New(frameworkapp.Config{}).
 		DisableStatic().
 		WithSecurity(security.Config{Enabled: false}).
@@ -41,9 +43,14 @@ func NewHandler(config Config) (http.Handler, error) {
 		capabilities(w, request, config)
 	}))))
 	mux.Handle("/v1/evaluations", recoverProblem(authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		evaluate(w, request, config, verifier)
+		evaluate(w, request, config, verifier, decisionVerifier)
 	}))))
-	mux.Handle("/v1/replays", recoverProblem(authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { replay(w, r, config, verifier) }))))
+	mux.Handle("/v1/decisions", recoverProblem(authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		decide(w, request, config, decisionVerifier)
+	}))))
+	mux.Handle("/v1/replays", recoverProblem(authenticated(config, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		replay(w, r, config, verifier, decisionVerifier)
+	}))))
 
 	return withKnownRoutes(withRequestLimits(builder.Build().Handler(), config, newAdmission(config.MaxInFlight))), nil
 }
@@ -63,7 +70,7 @@ func recoverProblem(next http.Handler) http.Handler {
 func withKnownRoutes(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		switch request.URL.Path {
-		case "/healthz", "/v1/capabilities", "/v1/evaluations", "/v1/replays":
+		case "/healthz", "/v1/capabilities", "/v1/evaluations", "/v1/decisions", "/v1/replays":
 			next.ServeHTTP(w, request)
 		default:
 			writeProblem(w, http.StatusNotFound, reasonNotFound, "the route is not provided")
@@ -265,8 +272,22 @@ func capabilities(w http.ResponseWriter, request *http.Request, config Config) {
 		},
 		"operations": map[string]bool{
 			"evaluation": config.Decider != nil,
+			"decision":   config.Decider != nil,
 			"replay":     true,
 			"execution":  false,
+		},
+		"typed_decision": map[string]any{
+			"primitives":            []string{"noul", "choice", "score"},
+			"max_questions":         64,
+			"max_choice_options":    255,
+			"max_score_levels":      10,
+			"max_state_bytes":       config.MaxBodyBytes,
+			"context_binding":       "optional",
+			"adapter_contract":      adapters.ContractVersion,
+			"resolved_model_policy": "exact_pin",
+			"replay":                true,
+			"semantic_verdict":      false,
+			"legacy_evaluation":     "deprecated",
 		},
 		"policy": policyDisclosure(prof),
 		"limits": map[string]int64{
@@ -281,7 +302,7 @@ func capabilities(w http.ResponseWriter, request *http.Request, config Config) {
 	})
 }
 
-func replay(w http.ResponseWriter, request *http.Request, config Config, verifier wire.Verifier) {
+func replay(w http.ResponseWriter, request *http.Request, config Config, verifier wire.Verifier, decisionVerifier wire.DecisionVerifier) {
 	if request.Method != http.MethodPost {
 		w.Header().Set("Allow", http.MethodPost)
 		writeProblem(w, http.StatusMethodNotAllowed, reasonMethodNotAllowed, "only POST is supported")
@@ -311,6 +332,10 @@ func replay(w http.ResponseWriter, request *http.Request, config Config, verifie
 	projects, _ := request.Context().Value(projectsKey{}).([]string)
 	if projectID, ok := declaredReplayProject(raw); ok && !containsProject(projects, projectID) {
 		writeProblem(w, http.StatusForbidden, reasonProjectForbidden, "the authenticated principal cannot access this project")
+		return
+	}
+	if genericDecisionBundle(raw) {
+		replayDecision(w, request, decisionVerifier, raw)
 		return
 	}
 	report, err := verifier.ReplayContext(request.Context(), raw)
@@ -348,6 +373,9 @@ func declaredReplayProject(raw []byte) (string, bool) {
 	if !ok {
 		return "", false
 	}
+	if projectID, ok := object["project_id"].(string); ok && projectID != "" {
+		return projectID, true
+	}
 	entity, ok := object["entity"].(map[string]any)
 	if !ok {
 		return "", false
@@ -357,6 +385,15 @@ func declaredReplayProject(raw []byte) (string, bool) {
 		return "", false
 	}
 	return projectID, true
+}
+
+func genericDecisionBundle(raw []byte) bool {
+	value, err := canonical.DecodeJSON(raw)
+	if err != nil {
+		return false
+	}
+	bundle, ok := value.(map[string]any)
+	return ok && bundle["bundle_kind"] == wire.DecisionBundleKind
 }
 
 func writeProblem(w http.ResponseWriter, status int, reason, detail string) {

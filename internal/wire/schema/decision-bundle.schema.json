@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lex.fastygo.dev/schema/v0.2/decision-bundle",
+  "title": "LeX v0.2 typed decision bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_kind",
+    "protocol_version",
+    "verifier_version",
+    "project_id",
+    "decision",
+    "state",
+    "question_set",
+    "decision_set",
+    "bundle_hash"
+  ],
+  "properties": {
+    "bundle_kind": {"const": "typed_decision"},
+    "protocol_version": {"const": "0.2-draft"},
+    "verifier_version": {"type": "string", "minLength": 1, "maxLength": 128},
+    "project_id": {"$ref": "#/$defs/id"},
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "checksum"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "version": {"type": "string", "minLength": 1, "maxLength": 128},
+        "checksum": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["value", "hash"],
+      "properties": {
+        "value": {"type": "object"},
+        "hash": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "question_set": {"$ref": "#/$defs/questionSet"},
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pack", "snapshot", "pack_request", "pack_hash"],
+      "properties": {
+        "pack": {"type": "object"},
+        "snapshot": {"type": "object"},
+        "pack_request": {"type": "object"},
+        "pack_hash": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "decision_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state_hash",
+        "question_set_hash",
+        "adapter_id",
+        "adapter_version",
+        "resolved_model",
+        "answers"
+      ],
+      "properties": {
+        "state_hash": {"$ref": "#/$defs/sha256"},
+        "question_set_hash": {"$ref": "#/$defs/sha256"},
+        "context_pack_hash": {"$ref": "#/$defs/sha256"},
+        "adapter_id": {"$ref": "#/$defs/id"},
+        "adapter_version": {"type": "string", "minLength": 1, "maxLength": 128},
+        "resolved_model": {"$ref": "#/$defs/id"},
+        "answers": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 64,
+          "additionalProperties": {"$ref": "#/$defs/answer"}
+        }
+      }
+    },
+    "bundle_hash": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9._:-]{0,255}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "questionSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "hash", "questions"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "version": {"type": "string", "minLength": 1, "maxLength": 128},
+        "hash": {"$ref": "#/$defs/sha256"},
+        "questions": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 64,
+          "propertyNames": {"pattern": "^[A-Za-z][A-Za-z0-9_-]{0,127}$"},
+          "additionalProperties": {"$ref": "#/$defs/question"}
+        }
+      }
+    },
+    "question": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "instructions"],
+          "properties": {
+            "type": {"const": "noul"},
+            "instructions": {"type": "string", "minLength": 1, "maxLength": 16384}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "instructions", "options"],
+          "properties": {
+            "type": {"const": "choice"},
+            "instructions": {"type": "string", "minLength": 1, "maxLength": 16384},
+            "options": {
+              "type": "object",
+              "minProperties": 2,
+              "maxProperties": 255,
+              "propertyNames": {"pattern": "^[A-Za-z][A-Za-z0-9_-]{0,127}$"},
+              "additionalProperties": {"type": "string", "minLength": 1, "maxLength": 16384}
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "instructions", "levels"],
+          "properties": {
+            "type": {"const": "score"},
+            "instructions": {"type": "string", "minLength": 1, "maxLength": 16384},
+            "levels": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 10,
+              "items": {"type": "string", "minLength": 1, "maxLength": 16384},
+              "uniqueItems": true
+            }
+          }
+        }
+      ]
+    },
+    "answer": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["type"],
+      "properties": {
+        "type": {"enum": ["noul", "choice", "score"]}
+      }
+    }
+  }
+}

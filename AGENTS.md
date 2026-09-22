@@ -3,10 +3,11 @@
 LeX is subject-neutral operational infrastructure for turning evidence and
 uncertain judgments into governed, inspectable, reproducible outcomes.
 
-The protocol is one part of LeX. The concept includes schemas, evidence
-contracts, semantic profiles, typed judgments, policy, deterministic
-verification, traces, and conformance. The current slice validates and
-replays. Controlled execution and operation receipts are deferred.
+The protocol is one part of LeX. The concept includes schemas, optional
+evidence contracts, typed judgments, compatibility policy, deterministic
+verification, traces, and conformance. The current slice makes generic typed
+decisions and replays them. Controlled execution and operation receipts are
+deferred.
 
 ## Central principle
 
@@ -23,9 +24,9 @@ execution != verified success
 ## Canonical architecture
 
 ```text
-Context Runtime     evidence plane                 current
+Context Runtime     optional evidence plane        current
 Typed decision      judgment plane                 current
-LeX verifier        policy binding + gates         current
+LeX verifier        structural verification        current
 Trace + replay      caller-owned bundle            current
 Executor            authorized operation           deferred
 Receipt             postcondition proof            deferred
@@ -39,7 +40,7 @@ changing LeX core semantics.
 LeX binds to a provider-neutral contract:
 
 ```text
-Frozen ContextPack + QuestionSet
+Caller State + QuestionSet + optional frozen Context binding
   -> typed Noul / Choice / Score answers
   -> raw DecisionSet with resolved model and provider metadata
   -> deterministic verification
@@ -81,8 +82,9 @@ copy of the protocol.
 5. `insufficient` and `conflict` are valid outcomes, not errors to hide.
 6. Policy and thresholds are external to the judgment model.
 7. `validated` requires deterministic verification.
-8. Runs pin entity, ContextPack, QuestionSet, policy, adapter, and resolved
-   model versions.
+8. Generic runs pin project, DecisionIdentity, State, QuestionSet, optional
+   Context binding, adapter, and resolved model versions. Compatibility claim
+   evaluations additionally pin entity, ContextPack, policy, and profile.
 9. Criteria changes produce a new QuestionSet version/hash.
 10. Aliases such as `latest` are not reproducible model identifiers.
 
@@ -107,7 +109,7 @@ validated | rejected | insufficient | conflict | manual_review | error
   action.
 - Do not treat confidence as authority or domain calibration.
 
-Preferred fan-out:
+Preferred fan-out for the claim-validation compatibility profile:
 
 ```text
 support Noul x N
@@ -135,9 +137,11 @@ Use ICOM to describe the functional contract:
 - **Mechanism**: Context Runtime, Jev adapter, tools, verifier.
 - **Output**: verdict, authorized mutation, report, trace, or receipt.
 
-The current slice returns a verdict, trace, and replay bundle. It does not
-authorize a mutation or emit a receipt. Mechanisms may choose internal paths,
-but they cannot weaken Control.
+The generic current slice returns a DecisionSet, structural report, trace, and
+replay bundle. The caller interprets it and chooses any next action. The
+deprecated claim-validation compatibility route additionally returns a Verdict.
+Neither route authorizes a mutation or emits a receipt. Mechanisms may choose
+internal paths, but they cannot weaken Control.
 
 Enforce three boundary tiers:
 
@@ -156,7 +160,8 @@ transport details into the same LeX `DecisionSet`.
 
 Every adapter must:
 
-- accept a frozen state and exact QuestionSet;
+- accept exact caller State and QuestionSet, plus an optional frozen Context
+  binding;
 - preserve raw typed answers without semantic rewriting;
 - record provider, request id, resolved model id, timing, and usage when
   available;
@@ -172,45 +177,48 @@ not a conforming typed-decision adapter.
 ## Current slice
 
 Keep LeX thin. Context Runtime owns retrieval, selection, budgeting, rejection,
-and ContextPack construction. The service uses the embedded `memory-exact-v1`
-runtime. It does not call the Context HTTP API, it does not contain a second
-retrieval engine, and it does not recompute Context's selection: the verifier
-asks Context to rebuild the frozen state and compares. Decision adapters own
-provider transport. LeX owns:
+and ContextPack construction. Generic decisions do not invoke it automatically:
+they optionally verify a frozen Context binding supplied by the caller. The
+service uses the embedded `memory-exact-v1` runtime. It does not call the
+Context HTTP API, it does not contain a second retrieval engine, and it does
+not recompute Context's selection: the verifier asks Context to rebuild a
+supplied frozen state and compares. Decision adapters own provider transport.
+LeX owns:
 
 - protocol schemas and hashes;
-- profiles as objects (`internal/profile`): question set, policy document and
-  gate, entity kind, and Context focus, composed into a registry by the
-  deployment; `claim-validation` `0.2.0` lives in
-  `internal/profile/claimvalidation`;
-- the evidence plane adapter (`internal/evidence`): two inputs, `sources` and
-  `frozen_context`, ending in one frozen state;
-- preflight checks and the evidence controls (binding, focus, provenance,
-  checksums, admissibility);
-- the deterministic verifier, generic over profiles;
-- the verdict state machine and the request lifecycle trace;
-- the typed replay bundle mirrored from the published schema.
+- generic State, QuestionSet, DecisionSet, hashes, pins, structural verifier,
+  lifecycle trace, and typed replay bundle;
+- optional Context binding checks: project/runtime identity, hashes, and
+  reproduction;
+- legacy compatibility profiles (`internal/profile/claimvalidation`), evidence
+  source freezing, policy gate, Verdict, and legacy replay bundle only behind
+  `/v1/evaluations`.
 
 The implemented path is:
 
 ```text
-ValidationIntent
-  -> profile from the registry (focus, questions, policy gate)
-  -> frozen state: freeze sources through memory-exact-v1,
-     or accept a Context frozen state and have Context reproduce it
-  -> QuestionSet 0.2.0
+Generic: State + QuestionSet + optional frozen Context
   -> provider-neutral DecisionSet
-  -> verifier
-  -> Verdict + trace + replay bundle
+  -> structural verifier
+  -> structural report + trace + replay bundle
+
+Compatibility: ValidationIntent
+  -> claim-validation profile + frozen Context state
+  -> provider-neutral DecisionSet
+  -> policy verifier
+  -> Verdict + trace + legacy replay bundle
 ```
 
 The HTTP surface is `GET /healthz`, `GET /v1/capabilities`,
-`POST /v1/evaluations`, and `POST /v1/replays`. Non-error verdicts are HTTP 200.
-A technical `error` verdict is HTTP 422 and still returns the sealed bundle.
-An empty exact selection is HTTP 200 `insufficient`, does not call a provider,
-and still returns a replay bundle. Replay refuses a bundle whose entity project
-is outside the authenticated principal's projects. The wire envelope is
-`0.1-draft`. Bundles pinned to the `0.1` profile are rejected by this verifier.
+`POST /v1/decisions`, deprecated `POST /v1/evaluations`, and
+`POST /v1/replays`. A generic valid decision is HTTP 200
+`structural_status: valid`; structural answer failure is HTTP 422 with its
+sealed generic bundle. Non-error legacy Verdicts are HTTP 200. A technical
+legacy `error` verdict is HTTP 422 and still returns the sealed bundle. An
+empty legacy exact selection is HTTP 200 `insufficient`, does not call a
+provider, and still returns a replay bundle. Replay refuses a bundle outside
+the authenticated principal's projects. The generic wire envelope is
+`0.2-draft`; the legacy envelope remains `0.1-draft`.
 
 Do not add a universal ontology, automatic question generation, a new retrieval
 engine, provider orchestration, server-side history, or an executor inside this
@@ -221,7 +229,9 @@ slice.
 `.project/.jev/examples/` holds research question and response maps. They are
 not evaluation requests and do not prove retrieval quality, calibration, or
 production safety. Protocol requests for those scenarios live in
-`.project/.jev/test-vercel/requests/` and go through `POST /v1/evaluations`.
+`.project/.jev/test-vercel/requests/` and go through legacy
+`POST /v1/evaluations`. Generic cross-domain request fixtures live in
+`.project/.jev/generic/` and go through `POST /v1/decisions`.
 
 Local tests already cover a real embedded ContextPack, versioned schemas and
 canonical hashes, raw answers retained only in the response bundle, the

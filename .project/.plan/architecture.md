@@ -1,34 +1,32 @@
 # Architecture and Vercel profile
 
-Status: implementation architecture of the running validation and replay slice
-under the fixed scope in [README.md](README.md). The capability checklist at
-the end of this file states what is built, what is open, and what is
-deliberately kept out of the protocol.
+Status: implementation architecture of the generic typed-decision and legacy
+claim-validation compatibility slices under the fixed scope in
+[README.md](README.md). The capability checklist at the end of this file
+states what is built, what is open, and what is deliberately kept out of the
+protocol.
 
 ## Request path
 
 ```text
-REST caller: entity + intent + (versioned source texts | Context frozen state)
+REST caller: project + DecisionIdentity + State + QuestionSet + optional Context frozen state
   -> Framework HTTP middleware
   -> authentication + project binding + bounded decoding
-  -> evidence input: freeze text through Context v0.1.0, or accept a frozen
-     state and have Context reproduce it
   -> typed-decision adapter -> frozen DecisionSet
-  -> deterministic verifier
-  -> Verdict + VerificationReport + EvaluationTrace + replay bundle
+  -> structural verifier -> DecisionSet + DecisionTrace + replay bundle
+  -> caller decides any subsequent retrieval, tool, or action
 ```
 
 Replay uses the caller-retained bundle. It does not contact a retrieval service
-or a decision provider. It asks the embedded Context runtime to rebuild the
-snapshot and pack from the frozen sources and pack request in the bundle and
-compares that result with the saved state. The saved pack is not replaced, and
-LeX does not recompute selection, budgeting, or rejection itself.
+or a decision provider. When a Context binding exists it asks the embedded
+Context runtime to rebuild the snapshot and pack from the frozen sources and
+pack request, then compares that result with the saved state. The saved pack is
+not replaced, and LeX does not recompute selection, budgeting, or rejection.
 
-Profiles are objects, not packages: a profile pins its question set, policy
-document and gate, entity kind, and Context focus, and hashes them. The
-deployment composes a registry of profiles; live evaluation uses the first,
-and replay resolves the profile a bundle names by question-set and policy
-reference. The verifier stays generic over profiles.
+Profiles are compatibility-only objects: a profile pins its question set,
+policy document and gate, entity kind, and Context focus. The generic decision
+path has no profile registry; it validates a caller-defined QuestionSet and
+returns structural results only.
 
 Core logic uses Go domain types and explicit ports. Framework owns HTTP
 composition. Context public types and compatibility checks stay in the evidence
@@ -120,7 +118,8 @@ stays thin. Proof status per criterion is in
 - [x] Ten invariants: evidence, judgment, authority, execution, and verified success kept distinct
 - [x] Six verdicts with total precedence `error > conflict > insufficient > manual_review > rejected > validated`; all findings retained
 - [x] Stage-classified failures `retrieval | pack | question | decision | policy | verification`; policy denial is a finding, not `policy_error`
-- [x] Wire envelope `0.1-draft`; verifier `0.2.0`; unsupported versions and the `0.1` profile refused
+- [x] Legacy wire envelope `0.1-draft`; legacy verifier `0.2.0`; unsupported legacy versions and the `0.1` profile refused
+- [x] Additive generic `0.2-draft` decision bundle: DecisionIdentity, State hash, caller QuestionSet, raw DecisionSet, optional Context binding, structural report, and self-hash
 - [ ] Envelope frozen as `0.1` with a stated compatibility rule for later minor versions
 - [-] Universal ontology, automatic question generation, or a question DSL
 
@@ -139,18 +138,21 @@ stays thin. Proof status per criterion is in
 
 ### Profiles and policy
 
-- [x] Profile as an immutable object: question set, policy document and gate, entity kind, Context focus, canonical hashes
-- [x] Registry composed by the deployment; live evaluation uses the first profile, replay resolves the profile a bundle names
+- [x] Legacy profile as an immutable compatibility object: question set, policy document and gate, entity kind, Context focus, canonical hashes
+- [x] Legacy registry composed by the deployment; legacy evaluation uses the first profile, legacy replay resolves the profile a bundle names
 - [x] `claim-validation` `0.2.0`: five independent Noul predicates and one action Choice with `manual_review` and `other`
 - [x] Thresholds external to the model and disclosed as `uncalibrated`
 - [x] Calibration procedure and one recorded trial that did not change thresholds
 - [ ] A calibration report per adapter path that supports a threshold decision
-- [ ] A second profile in the registry, proving the verifier is generic in practice
+- [-] A second core profile registry; generic use cases define per-request QuestionSets instead
 - [-] Caller-supplied policy that can lower a gate
 - [-] Score inside `claim-validation` (it stays a conforming adapter type)
 
 ### Decision plane
 
+- [x] Generic `/v1/decisions`: caller-owned State + QuestionSet, all Noul/Choice/Score primitives, no semantic Verdict
+- [x] Generic structural verifier and provider-free replay, including state/question/answer/pin bindings
+- [x] Optional generic frozen Context binding is verified but never merged into State
 - [x] Provider-neutral `DecisionSet`: raw typed answers, adapter id and version, resolved model, request id, timing, usage
 - [x] Adapter contract `0.1.0` with common conformance fixtures
 - [x] Direct System One adapter live (`direct-systemone`, `jev-1.13.0`)
@@ -163,7 +165,8 @@ stays thin. Proof status per criterion is in
 
 ### Verification and replay
 
-- [x] Deterministic verifier generic over profiles; answer domains, bindings, provenance, thresholds, action consistency
+- [x] Generic deterministic structural verifier: answer domains, state/question/context bindings, model pins, and replay self-hash
+- [x] Legacy deterministic verifier: profile policy, provenance, thresholds, action consistency, and Verdict
 - [x] Typed replay bundle mirrored from `replay-bundle.schema.json`; drift fails a test
 - [x] JCS (RFC 8785) and SHA-256 with independent Python vectors agreeing with Go
 - [x] Self-hash seal; tampering detected on replay
@@ -175,7 +178,7 @@ stays thin. Proof status per criterion is in
 
 ### HTTP surface
 
-- [x] `GET /healthz`, `GET /v1/capabilities`, `POST /v1/evaluations`, `POST /v1/replays`
+- [x] `GET /healthz`, `GET /v1/capabilities`, `POST /v1/decisions`, deprecated `POST /v1/evaluations`, `POST /v1/replays`
 - [x] JSON Schema 2020-12 for requests, responses, and bundles; draft OpenAPI 3.1 validated in tests
 - [x] RFC 9457 problem responses with stage and reason; HTTP status agrees with problem status
 - [x] Method, Accept specificity, media type, body cap, response budget, `no-store`, 499/502/503/504 mappings

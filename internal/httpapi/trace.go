@@ -20,6 +20,10 @@ func evaluationStages() *stages {
 	return &stages{kind: lifecycle.Evaluation, events: []lifecycle.Event{{Name: "receive", Status: "completed"}}}
 }
 
+func decisionStages() *stages {
+	return &stages{kind: lifecycle.Decision, events: []lifecycle.Event{{Name: "receive", Status: "completed"}}}
+}
+
 func (s *stages) completed(name string) *stages { return s.mark(name, "completed") }
 func (s *stages) failed(name string) *stages    { return s.mark(name, "failed") }
 func (s *stages) skipped(name string) *stages   { return s.mark(name, "skipped") }

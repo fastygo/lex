@@ -39,6 +39,7 @@
     "/v1/evaluations": {
       "post": {
         "operationId": "evaluate",
+        "deprecated": true,
         "security": [{"bearerAuth": []}],
         "requestBody": {
           "required": true,
@@ -52,6 +53,41 @@
             "headers": {"Cache-Control": {"schema": {"const": "no-store"}}},
             "content": {
               "application/json": {"schema": {"$ref": "#/components/schemas/EvaluationResponse"}}
+            }
+          },
+          "400": {"$ref": "#/components/responses/Problem"},
+          "401": {"$ref": "#/components/responses/Problem"},
+          "403": {"$ref": "#/components/responses/Problem"},
+          "405": {"$ref": "#/components/responses/Problem"},
+          "406": {"$ref": "#/components/responses/Problem"},
+          "413": {"$ref": "#/components/responses/Problem"},
+          "415": {"$ref": "#/components/responses/Problem"},
+          "422": {"$ref": "#/components/responses/Problem"},
+          "499": {"$ref": "#/components/responses/Problem"},
+          "500": {"$ref": "#/components/responses/Problem"},
+          "502": {"$ref": "#/components/responses/Problem"},
+          "503": {"$ref": "#/components/responses/Problem"},
+          "504": {"$ref": "#/components/responses/Problem"}
+        }
+      }
+    },
+    "/v1/decisions": {
+      "post": {
+        "operationId": "decide",
+        "deprecated": false,
+        "security": [{"bearerAuth": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {"schema": {"$ref": "decision-request.schema.json"}}
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A structurally valid caller-defined typed decision. This response has no semantic domain verdict.",
+            "headers": {"Cache-Control": {"schema": {"const": "no-store"}}},
+            "content": {
+              "application/json": {"schema": {"$ref": "#/components/schemas/DecisionResponse"}}
             }
           },
           "400": {"$ref": "#/components/responses/Problem"},
@@ -171,7 +207,7 @@
       "CapabilitiesResponse": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["protocol_status", "context", "operations", "policy", "limits", "retention"],
+        "required": ["protocol_status", "context", "operations", "policy", "limits", "retention", "typed_decision"],
         "properties": {
           "protocol_status": {"const": "working_draft"},
           "context": {
@@ -193,11 +229,30 @@
           "operations": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["evaluation", "replay", "execution"],
+            "required": ["evaluation", "decision", "replay", "execution"],
             "properties": {
               "evaluation": {"type": "boolean"},
+              "decision": {"type": "boolean"},
               "replay": {"const": true},
               "execution": {"const": false}
+            }
+          },
+          "typed_decision": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["primitives", "max_questions", "max_choice_options", "max_score_levels", "max_state_bytes", "context_binding", "adapter_contract", "resolved_model_policy", "replay", "semantic_verdict", "legacy_evaluation"],
+            "properties": {
+              "primitives": {"type": "array", "items": {"enum": ["noul", "choice", "score"]}, "minItems": 3, "maxItems": 3},
+              "max_questions": {"const": 64},
+              "max_choice_options": {"const": 255},
+              "max_score_levels": {"const": 10},
+              "max_state_bytes": {"type": "integer", "minimum": 1, "maximum": 2097152},
+              "context_binding": {"const": "optional"},
+              "adapter_contract": {"const": "0.1.0"},
+              "resolved_model_policy": {"const": "exact_pin"},
+              "replay": {"const": true},
+              "semantic_verdict": {"const": false},
+              "legacy_evaluation": {"const": "deprecated"}
             }
           },
           "policy": {"$ref": "#/components/schemas/PolicyDisclosure"},
@@ -233,6 +288,33 @@
           "stage": {"type": "string"},
           "trace": {"type": "array", "items": {"$ref": "#/components/schemas/TraceStage"}},
           "policy": {"$ref": "#/components/schemas/PolicyDisclosure"},
+          "retention": {"$ref": "#/components/schemas/Retention"},
+          "adapter_metadata": {"$ref": "#/components/schemas/AdapterMetadata"}
+        }
+      },
+      "DecisionResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["protocol_version", "decision", "state_hash", "question_set", "decision_set", "structural_status", "findings", "replay_available", "replay_bundle", "trace", "retention"],
+        "properties": {
+          "protocol_version": {"const": "0.2-draft"},
+          "decision": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "version"],
+            "properties": {
+              "id": {"type": "string", "minLength": 1},
+              "version": {"type": "string", "minLength": 1}
+            }
+          },
+          "state_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "question_set": {"type": "object"},
+          "decision_set": {"type": "object"},
+          "structural_status": {"const": "valid"},
+          "findings": {"type": "array", "maxItems": 0},
+          "replay_available": {"const": true},
+          "replay_bundle": {"type": "object"},
+          "trace": {"type": "array", "items": {"$ref": "#/components/schemas/TraceStage"}},
           "retention": {"$ref": "#/components/schemas/Retention"},
           "adapter_metadata": {"$ref": "#/components/schemas/AdapterMetadata"}
         }

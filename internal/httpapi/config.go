@@ -10,7 +10,6 @@ import (
 	"github.com/fastygo/lex/internal/adapters/typesafe"
 	"github.com/fastygo/lex/internal/canonical"
 	"github.com/fastygo/lex/internal/profile"
-	"github.com/fastygo/lex/internal/profile/claimvalidation"
 	"github.com/fastygo/lex/internal/wire"
 )
 
@@ -30,9 +29,8 @@ type Config struct {
 	MaxInFlight         int
 	Decider             Decider
 	HostedResolvedModel string
-	// Profiles are the question sets and policies this deployment evaluates
-	// and replays. The first profile serves live evaluations. Empty means the
-	// embedded claim-validation profile.
+	// Profiles are compatibility-only claim evaluation profiles. Generic
+	// decisions use caller-owned QuestionSets and never inspect this registry.
 	Profiles profile.Registry
 }
 
@@ -60,9 +58,6 @@ func LoadConfig() (Config, error) {
 }
 
 func (c *Config) validate() error {
-	if _, ok := c.Profiles.Default(); !ok {
-		c.Profiles = profile.MustRegistry(claimvalidation.Profile())
-	}
 	if c.HostedResolvedModel != "" && !openrouter.ValidResolvedPin(c.HostedResolvedModel) {
 		return fmt.Errorf("LEX_HOSTED_RESOLVED_MODEL must be an exact resolved identity")
 	}
@@ -134,15 +129,23 @@ func parseBearerTokens(raw string) (map[string][]string, error) {
 }
 
 func (c Config) verifier() wire.Verifier {
+	return wire.NewVerifier(c.legacyProfiles(), c.adapterPins())
+}
+
+func (c Config) decisionVerifier() wire.DecisionVerifier {
+	return wire.NewDecisionVerifier(c.adapterPins())
+}
+
+func (c Config) adapterPins() map[string]wire.AdapterPin {
 	pins := map[string]wire.AdapterPin{typesafe.AdapterID: {Version: typesafe.AdapterVersion, Model: typesafe.Model}}
 	if c.HostedResolvedModel != "" {
 		pins[openrouter.AdapterID] = wire.AdapterPin{Version: openrouter.AdapterVersion, Model: c.HostedResolvedModel}
 	}
-	return wire.NewVerifier(c.Profiles, pins)
+	return pins
 }
 
-// profile is the profile live evaluations use. validate guarantees one exists.
+// profile is the profile live evaluations use.
 func (c Config) profile() profile.Profile {
-	prof, _ := c.Profiles.Default()
+	prof, _ := c.legacyProfiles().Default()
 	return prof
 }

@@ -6,16 +6,33 @@ are informative. Shared semantics belong to [protocol.md](protocol.md).
 ## Roles
 
 ```text
-Context Runtime      evidence plane
+Context Runtime         optional evidence plane
 Typed-decision adapter  judgment plane
-LeX verifier         policy binding + deterministic gates
-Executor             explicitly authorized operation only
-Trace / Receipt      audit + replay / execution postconditions
+LeX                     transport binding + structural verification + replay
+Consumer / agent        question meaning, interpretation, and next action
+Executor                explicitly authorized operation only
+Trace / Receipt         audit + replay / execution postconditions
 ```
 
 Jev is the reference decision model. Direct TypeSafe System One and OpenRouter
 are provider access paths, not protocol identities. Endpoint availability and
 capabilities must be checked by the adapter before execution.
+
+## Generic decision boundary
+
+The canonical operation is caller-owned `State + QuestionSet -> DecisionSet`.
+The caller chooses the state, defines all Noul, Choice, and Score questions,
+and interprets the answers. LeX preserves that state semantically, hashes the
+input, pins the adapter and resolved model, validates answer shape and domains,
+and returns a caller-owned replay bundle.
+
+LeX does not generate questions, route between profiles, infer product
+meaning, choose a threshold, retrieve evidence, or invoke a later tool. An
+agent can use the returned answers to clarify a request, construct another
+state, call Context Runtime, perform a web or MCP lookup, or stop.
+
+`/v1/evaluations` is a claim-validation compatibility operation. It owns the
+current fixed profile and semantic Verdict; it is not the generic core API.
 
 ## Context boundary
 
@@ -34,23 +51,17 @@ Context field definitions remain upstream; local EvidenceBinding maps those
 fields without inventing an alternative ContextPack schema. See
 [sources.md](sources.md) for the public API and evidence-contract references.
 
-## Evidence inputs
+## Optional Context binding
 
-An evaluation obtains its frozen state through one of two inputs. Both end in
-the same frozen state, the same replay bundle, and the same verifier checks;
-capabilities disclose which inputs a deployment accepts.
+A generic decision may carry a frozen Context state as an optional binding. The
+agent obtains it from Context before calling LeX. LeX validates project/runtime
+identity and asks Context to reproduce the frozen state; it never merges pack
+content into caller State or recomputes selection.
 
-- `sources`: the caller sends versioned text. LeX labels it as project source
-  text, builds the pack request from the profile focus, and freezes it with the
-  embedded Context runtime.
-- `frozen_context`: the caller sends a pack, snapshot, and pack request it
-  already obtained from the pinned Context runtime. LeX does not trust it: the
-  pack request query must equal the request query, the focus must be the
-  profile focus, and Context must reproduce the snapshot and pack before a
-  provider is called.
-
-Selection, budgeting, and rejection are Context mechanisms in both inputs.
-LeX never recomputes them; it compares Context's rebuild with the frozen state.
+The compatibility evaluation operation additionally supports `sources` and
+`frozen_context`: it freezes caller text through its fixed Context focus or
+accepts a state obtained from Context. Those convenience inputs are not part of
+the generic decision State contract.
 
 ## Current deployment restriction
 
@@ -66,7 +77,8 @@ acceptance gates in [ADR-0003](../.plan/adr/0003-context-boundary.md).
 
 An adapter MUST:
 
-1. Accept the exact frozen pack and QuestionSet.
+1. Accept the exact State and QuestionSet, plus an optional frozen Context
+   binding when the caller supplied one.
 2. Declare supported typed primitives, limits, and metadata capabilities before a call.
 3. Preserve raw typed answers without semantic rewriting.
 4. Bind results to inputs, adapter version, and resolved model identity.
@@ -91,26 +103,27 @@ belongs to the HTTP composition and adapters. The direct default is pinned;
 the hosted path requires an explicitly configured, provider-confirmed identity.
 An echoed selector or a different resolved identity fails without fallback.
 
-## Question design
+## Caller-owned question design
 
-Use independent support Noul questions for each hypothesis; separate atomic
-establishment, refutation, conflict, and safety questions; one action Choice for mutually
-exclusive operational alternatives; optional Score for a genuinely ordered rubric.
-Include `other` when the taxonomy is incomplete and an explicit non-action
-path such as `manual_review` for risky action recommendations.
+Use Noul for one independent condition, Choice for mutually exclusive
+categories, and Score for a genuinely ordered rubric. A Choice has exact
+unique option keys; a Score has two through ten ordered levels. Callers should
+include an `other` or clarification option when their taxonomy is incomplete.
+LeX validates these contracts but does not decide whether an option set is
+semantically adequate for the caller's product.
 
 Illustrative interpretation:
 
 ```text
 retain raw answers in request RAM and the response bundle
-derive support, establishment, conflict, and safety signals
-apply evidence, threshold, policy, and authority checks
-preserve epistemic findings in VerificationReport
-emit Verdict and any separately governed action disposition
+validate answer types, domains, pins, and optional Context binding
+return structural findings and DecisionSet to the caller
+let the caller apply domain threshold, policy, authority, and next-step logic
 ```
 
-A conflict can require human review operationally without being relabeled
-`manual_review` epistemically. A high safety signal never grants authority.
+The claim-validation compatibility adapter separately derives support,
+conflict, safety, and `manual_review`. A high model probability never grants
+authority in either API.
 
 ## Evidence eligibility
 

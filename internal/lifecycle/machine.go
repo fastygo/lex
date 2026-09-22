@@ -10,6 +10,8 @@ type Kind string
 const (
 	// Evaluation is the live validation path.
 	Evaluation Kind = "evaluation"
+	// Decision is the generic typed-decision path.
+	Decision Kind = "decision"
 	// Replay is the caller-supplied bundle path.
 	Replay Kind = "replay"
 )
@@ -31,11 +33,32 @@ func Run(kind Kind, events []Event) error {
 	switch kind {
 	case Evaluation:
 		return runEvaluation(events)
+	case Decision:
+		return runDecision(events)
 	case Replay:
 		return runReplay(events)
 	default:
 		return fmt.Errorf("unknown lifecycle %q", kind)
 	}
+}
+
+func runDecision(events []Event) error {
+	if len(events) < 2 || len(events) > 3 || events[0].Name != "receive" || events[0].Status != statusCompleted {
+		return fmt.Errorf("illegal decision transition")
+	}
+	if events[1].Name != "decide" || (events[1].Status != statusCompleted && events[1].Status != statusFailed) {
+		return fmt.Errorf("illegal decision transition")
+	}
+	if events[1].Status == statusFailed {
+		if len(events) == 2 {
+			return nil
+		}
+		return fmt.Errorf("illegal decision transition")
+	}
+	if len(events) == 3 && events[2].Name == "verify" && (events[2].Status == statusCompleted || events[2].Status == statusFailed) {
+		return nil
+	}
+	return fmt.Errorf("illegal decision transition")
 }
 
 func runReplay(events []Event) error {

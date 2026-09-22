@@ -1,6 +1,6 @@
 # LeX verification infrastructure
 
-Status: canonical v0.1 working draft, not a released interoperability contract.
+Status: canonical working draft, not a released interoperability contract.
 
 LeX turns evidence and uncertain judgments into governed, inspectable,
 replayable outcomes. Its protocol defines contracts; implementations supply
@@ -12,10 +12,12 @@ schemas, adapters, policy enforcement, verification, and execution controls.
 2. [protocol.md](protocol.md): normative draft for entities, invariants, lifecycle, and replay.
 3. [checks.md](checks.md): normative draft for checks, verdicts, and errors.
 4. [integration-stack.md](integration-stack.md): normative draft for integration boundaries and adapter obligations; examples are informative.
-5. [scope.md](scope.md): system boundary and scope constraints.
-6. [analysis.md](analysis.md): informative implementation plan and release blockers.
-7. [VSA guidance](../.vsa/README.md): subordinate implementation architecture.
-8. [sources.md](sources.md): references and applicability.
+5. [generic-decision-api.md](generic-decision-api.md): additive `0.2-draft`
+   caller-owned State + QuestionSet API.
+6. [scope.md](scope.md): system boundary and scope constraints.
+7. [analysis.md](analysis.md): informative implementation plan and release blockers.
+8. [VSA guidance](../.vsa/README.md): subordinate implementation architecture.
+9. [sources.md](sources.md): references and applicability.
 
 `protocol.md` owns shared semantics. Checks and integration contracts refine
 them without overriding them. Conceptual explanations, plans, research,
@@ -31,7 +33,18 @@ databases, and server-side history are outside the current scope. Embedded pack
 construction uses [Context v0.1.0](../.plan/context-version.md), capability
 memory-exact-v1, under [ADR-0003](../.plan/adr/0003-context-boundary.md).
 
-## First validation slice
+## Generic typed-decision slice
+
+```text
+caller State + caller QuestionSet + optional frozen Context binding
+  -> typed-decision adapter -> retained raw DecisionSet
+  -> structural verifier -> DecisionTrace + replay bundle
+```
+
+The caller interprets answers and decides whether to ask again, use Context,
+call a tool, or stop. LeX does not own that orchestration.
+
+## Compatibility validation slice
 
 ```text
 EntityEnvelope + ValidationIntent

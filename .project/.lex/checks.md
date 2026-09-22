@@ -3,7 +3,22 @@
 Status: normative check catalog draft. Shared semantics belong to
 [protocol.md](protocol.md); release blockers are in [analysis.md](analysis.md).
 
-## Structural and preflight checks
+## Generic structural checks
+
+For `POST /v1/decisions`, LeX checks project authorization, bounded JSON State,
+DecisionIdentity, QuestionSet shape and hash, primitive domains, adapter and
+resolved-model pins, raw answer completeness/types/distributions, response
+budget, optional frozen Context binding, bundle self-hash, and replay project
+binding. A successful generic decision returns `structural_status: valid`; it
+does not return a domain verdict.
+
+The caller owns question meaning, semantic thresholds, policy findings, and
+all next actions. A malformed QuestionSet is `question_error`; malformed or
+incompatible typed answers are a structural decision error with a sealed
+bundle when possible. Generic replay rechecks structure and returns
+`decision_reproduced`; it does not contact Context retrieval or a provider.
+
+## Compatibility structural and preflight checks
 
 Before decision-provider execution, check:
 
@@ -23,7 +38,7 @@ Invalid packs or questions produce `pack_error` or `question_error` and skip
 model execution. Insufficient eligible evidence in an otherwise valid pack is
 an epistemic finding, not automatically a malformed-pack error.
 
-## Semantic judgments
+## Compatibility semantic judgments
 
 Use atomic Noul predicates for support, establishment, conflict, and semantic
 safety. Use Choice for one mutually exclusive action recommendation and Score
@@ -34,9 +49,9 @@ The verifier applies thresholds from PolicySnapshot. Thresholds require
 calibration per entity type, resolved model, provider path, and policy; this
 specification supplies no universal numeric default.
 
-## Post-decision verification
+## Compatibility post-decision verification
 
-The verifier MUST check:
+The verifier MUST check for compatibility evaluation:
 
 - Exact pack, QuestionSet, policy, adapter, and resolved-model bindings.
 - Required answers, answer domains, numeric validity, and declared types.
@@ -62,7 +77,7 @@ retrieval, selection, budgeting, or rejection itself. A snapshot Context
 does not reproduce is `snapshot_identity`; a pack it does not reproduce is
 `pack_rebuild`.
 
-## Verdict meanings
+## Compatibility verdict meanings
 
 - `validated`: the declared validation obligations pass deterministic checks;
   it does not imply an operation executed.
@@ -113,8 +128,8 @@ these new rules. Historical replay requires the historical verifier.
 
 - `retrieval_error`: a retrieval transport failed. This profile has no separate retrieval service. An empty exact selection is HTTP 200 `insufficient`, does not call a provider, and still returns a replay bundle. A failure while freezing sources is HTTP 422 `pack_error`. Cancellation remains HTTP 504 `deadline_exceeded` or HTTP 499 `client_canceled`. A canceled or expired pack rebuild stays that cancellation and is not reported as a pack mismatch.
 - `pack_error`: pack construction, integrity, or contract validation fails. HTTP 422. A caller-frozen `context` that is not a Context frozen state, or that Context cannot reproduce, is this error before any provider call; the response lists the same findings the verifier would emit at replay.
-- `question_error`: the QuestionSet or the request shape violates its contract. HTTP 422. A query that is empty after trimming is this error. A caller-frozen `context` whose pack request query differs from `query` is this error. It is not an `insufficient` verdict.
-- `decision_error`: provider execution or typed-answer validation fails. A provider contract failure is HTTP 502. A technical `error` verdict is HTTP 422 and still returns the sealed bundle. A retryable provider status is HTTP 503 `provider_unavailable` and is not retried. A refused provider redirect is a contract failure, not a temporary outage, and the endpoint address is not returned. A provider client timeout is `provider_unavailable` while the request context is still active. The request deadline stays `deadline_exceeded`. A response that contains the decision credential, including a Unicode-escaped copy, is rejected and that credential is not retained. Provider JSON deeper than 32 levels is a decision failure, and that body is not retained.
+- `question_error`: the QuestionSet or request shape violates its contract. HTTP 422 for a generic semantic contract failure; the legacy route returns its established request mapping. A legacy query that is empty after trimming is this error. A caller-frozen legacy `context` whose pack request query differs from `query` is this error. It is not an `insufficient` verdict.
+- `decision_error`: provider execution or typed-answer validation fails. A provider contract failure is HTTP 502. A generic structural-answer failure is HTTP 422 and still returns the sealed decision bundle, but it does not manufacture a domain verdict. A legacy technical `error` verdict is HTTP 422 and still returns its sealed bundle. A retryable provider status is HTTP 503 `provider_unavailable` and is not retried. A refused provider redirect is a contract failure, not a temporary outage, and the endpoint address is not returned. A provider client timeout is `provider_unavailable` while the request context is still active. The request deadline stays `deadline_exceeded`. A response that contains the decision credential, including a Unicode-escaped copy, is rejected and that credential is not retained. Provider JSON deeper than 32 levels is a decision failure, and that body is not retained.
 - `policy_error`: the evaluator cannot apply its thresholds. HTTP 500. A threshold denial stays a finding on the verdict response.
 - `verification_error`: deterministic verification cannot complete correctly. HTTP 500.
 - `execution_error`: an authorized operation or its postcondition verification fails. This slice has no execution route.
@@ -126,8 +141,9 @@ a model error. The reason codes above are the v0.1 wire mapping.
 
 ## Replay and conformance
 
-Replay consumes saved DecisionSet and frozen inputs under a pinned verifier;
-it compares deterministic findings and verdict, not fresh model outputs or
-wall-clock trace identifiers. [analysis.md](analysis.md) owns the single release
-checklist: real packs, schemas/hashes, persistence, verifier, fixtures,
-adversarial cases, calibration, replay, and two-adapter interoperability.
+Generic replay consumes saved DecisionSet, State, QuestionSet, optional Context
+binding, and pins under a structural verifier. It compares structural findings,
+not fresh model outputs or a domain verdict. Compatibility replay also compares
+its legacy verdict. [analysis.md](analysis.md) owns the single release
+checklist: schemas/hashes, verifier, fixtures, adversarial cases, replay, and
+two-adapter interoperability.

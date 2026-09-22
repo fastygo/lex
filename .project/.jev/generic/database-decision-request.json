@@ -1,0 +1,36 @@
+{
+  "project_id": "example-project",
+  "decision": {
+    "id": "storage-step",
+    "version": "1"
+  },
+  "state": {
+    "requirements": {
+      "transactions": true,
+      "relational_queries": true,
+      "budget": "bounded"
+    }
+  },
+  "question_set": {
+    "id": "example.storage",
+    "version": "1",
+    "questions": {
+      "relational_fit": {
+        "type": "score",
+        "instructions": "How strongly does the state fit the ordered relational-storage rubric?",
+        "levels": [
+          "weak",
+          "adequate",
+          "strong"
+        ]
+      },
+      "requires_durability": {
+        "type": "noul",
+        "instructions": "Does the supplied state require durable storage?"
+      }
+    }
+  },
+  "metadata": {
+    "fixture": "storage"
+  }
+}

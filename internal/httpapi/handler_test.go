@@ -54,7 +54,7 @@ func TestHandlerCapabilitiesReturnsNoStore(t *testing.T) {
 	if cacheControl := recorder.Header().Get("Cache-Control"); cacheControl != "no-store" {
 		t.Fatalf("Cache-Control = %q, want no-store", cacheControl)
 	}
-	if got := recorder.Body.String(); !strings.Contains(got, `"replay":true`) || !strings.Contains(got, `"evaluation":false`) || !strings.Contains(got, `"server_history":false`) || !strings.Contains(got, `"replay":"caller_owned"`) || !strings.Contains(got, `"idempotency":"none"`) || !strings.Contains(got, `"retrieval":"exact_phrase"`) || !strings.Contains(got, `"calibration":"uncalibrated"`) || !strings.Contains(got, `"focus_max_items":8`) || !strings.Contains(got, `"process_admission":4`) {
+	if got := recorder.Body.String(); !strings.Contains(got, `"replay":true`) || !strings.Contains(got, `"evaluation":false`) || !strings.Contains(got, `"decision":false`) || !strings.Contains(got, `"primitives":["noul","choice","score"]`) || !strings.Contains(got, `"adapter_contract":"0.1.0"`) || !strings.Contains(got, `"legacy_evaluation":"deprecated"`) || !strings.Contains(got, `"server_history":false`) || !strings.Contains(got, `"replay":"caller_owned"`) || !strings.Contains(got, `"idempotency":"none"`) || !strings.Contains(got, `"retrieval":"exact_phrase"`) || !strings.Contains(got, `"calibration":"uncalibrated"`) || !strings.Contains(got, `"focus_max_items":8`) || !strings.Contains(got, `"process_admission":4`) {
 		t.Fatalf("body = %s", got)
 	}
 }
