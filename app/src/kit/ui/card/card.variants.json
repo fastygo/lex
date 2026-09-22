@@ -1,0 +1,23 @@
+{
+  "$schema": "../../schemas/variants.schema.json",
+  "id": "ui.card",
+  "base": "flex flex-col gap-6 rounded-xl border bg-card py-6 text-card-foreground shadow-sm",
+  "keys": [
+    "variant"
+  ],
+  "defaults": {
+    "variant": "default"
+  },
+  "byKey": {
+    "variant": {
+      "default": "",
+      "raised": "",
+      "kpi": "bg-card/50",
+      "muted": "bg-muted/40",
+      "ghost": "border-dashed bg-background shadow-none",
+      "compact": "p-4",
+      "flat": "shadow-none",
+      "accent": "border-transparent bg-accent/30"
+    }
+  }
+}

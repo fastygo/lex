@@ -1,0 +1,26 @@
+{
+  "defaultScope": "layout",
+  "scopes": [
+    {
+      "name": "controls",
+      "files": [
+        "src/kit/**",
+        ".ui8px/scan/src/kit/**",
+        "src/assets/styles/**"
+      ],
+      "spacing": "control"
+    },
+    {
+      "name": "layout",
+      "files": [
+        "src/App.svelte",
+        "src/views/**",
+        "src/components/**",
+        ".ui8px/scan/src/App.svelte.html",
+        ".ui8px/scan/src/views/**",
+        ".ui8px/scan/src/components/**"
+      ],
+      "spacing": "layout"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+---
+description: Landmark Block vs nested Box/Stack/Group
+alwaysApply: true
+---
+
+# Block / Box
+
+Every component file **opens on `Block`**. `Box` is never a file root.
+One file, one `Block`. Nested layout in that file is never `Block`.
+
+`Block` uses `TagGroup.Layout` (`div`, landmarks, `figure`, `search`,
+`hgroup`). Omit `tag` only for the application frame: the brick falls back
+to `div` and is **not** a landmark. `Box` uses `TagGroup.BoxAllowed` (`div`
+only) and exists solely as nested wrap.
+
+## Roots
+
+| Surface | Root | Why |
+| --- | --- | --- |
+| Application frame (`src/App.svelte`) | `Block` (no `tag`) | viewport `div` |
+| Route / view | `Block tag="section"` | page region |
+| App chrome header | `Block tag="header"` | banner |
+| App chrome main | `Block tag="main"` + `id="main-content"` | primary content |
+| Complementary column | `Block tag="aside"` | complementary |
+
+Do not open a file with `Box`, `Stack`, or `Grid`.
+Do not put two `Block` roots in one file.
+Do not give the application frame `tag="main"` / `section` / `header`.
+
+## Assembly
+
+`header` and `main` are **siblings** inside the frame `Block`. The app frame
+opens on that frame and places them next to each other. Do not wrap both in
+a third chrome component.
+
+A child **file** may open on its own `Block`. That is composition, not
+nested layout.
+
+## Nested
+
+Use `Box`, `Stack`, `Group`, `Grid`, `Nav`, `List`.
+
+- Nested navigation / search → `Nav` (or `List`), never `Block tag="nav"`.
+- Centered modal → kit `Dialog`, never `Block` + `role="dialog"`.
+- Landmark drawer may keep `Block tag="aside"` with `role="dialog"`.
+- CSS grids → `Grid`, not `Box` pretending to be a grid.
+- `Box` stays a nested `div`. Never a landmark. Never a file root.
+
+The surface table names the lex-flow Svelte frame. Nested rules stay the same
+in any copy of this file.

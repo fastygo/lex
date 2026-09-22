@@ -1,0 +1,44 @@
+---
+description: HTML5 first, then @ui8kit/aria on kit primitives
+alwaysApply: true
+---
+
+# Accessibility
+
+Native HTML first. ARIA only when the host cannot express the role.
+Behavior comes from `@ui8kit/aria` on kit primitives, not from a second widget tree.
+
+## Structure
+
+- A screen or chrome landmark **starts with `Block`**.
+- Nested layout is never `Block`.
+- Names come from `Label` or `aria-label`. Copy and `id` values are set in
+  the app frame or passed as props.
+
+## `@ui8kit/aria`
+
+Register only the patterns this app uses in `src/lib/aria.ts`. Mark the host
+primitive with the contract attributes. Do not invent a parallel JS API.
+
+`package.json` → `ui8kit.aria` must stay `mode: "subset"` with
+`dialog`, `disclosure`, `tooltip`, `alert`.
+
+| Pattern | Primitive | Contract |
+| --- | --- | --- |
+| Dialog | `Dialog` | `data-ui8kit="dialog"`, open/close/overlay attrs, labelled |
+| Disclosure | `Box` + `Button` | `data-ui8kit="disclosure"`, trigger + content |
+| Tooltip | `Box` + `Text`/`Inline` | `data-ui8kit="tooltip"`, child `role="tooltip"` |
+| Alert | `Alert` | `data-ui8kit="alert"` or `role="alert"` when urgent |
+
+Do not put `data-ui8kit="disclosure"` on native `details` — that pattern
+expects a trigger/content pair, not `<summary>`.
+
+## Behavior
+
+- One `main`. Skip to `id="main-content"`.
+- Dialogs: name, description, focus, Escape, focus return.
+- Routine status is polite. Failures may be `role="alert"`.
+- Keep the kit focus ring.
+- Theme is `light` / `dark` / `system` on `<html class="dark">`.
+
+`bun run validate:ui8px-aria` must stay green.

@@ -1,0 +1,8 @@
+{
+  "$schema": "../../schemas/variants.schema.json",
+  "base": "flex items-center",
+  "byKey": {},
+  "defaults": {},
+  "id": "ui.group",
+  "keys": []
+}

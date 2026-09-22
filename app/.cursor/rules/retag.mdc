@@ -1,0 +1,39 @@
+---
+description: Raw HTML only in kit atoms and the document frame
+globs: src/**/*.{svelte,ts,html}
+alwaysApply: false
+---
+
+# Retag
+
+Atoms emit tags. Screens compose atoms. Add and export a kit brick before
+inventing a raw tag outside the kit.
+
+## Zones
+
+- `src/kit/ui/**` — raw HTML / host markup OK.
+- `index.html` — document frame only.
+- `src/components/**`, `src/views/**` — **0** raw layout / typography / controls.
+- App frame (`src/App.svelte`) — frame `Block`, skip link, header/main
+  siblings, view. Never open a file on `Box`.
+
+## Prefer
+
+| Instead of | Use |
+| --- | --- |
+| `<div>` | `Box` / `Stack` / `Group` / `Grid` |
+| `<p>` / `<span>` / `<h*>` | `Text` / `Inline` / `Title` |
+| landmarks | `Block` with a required `tag` |
+| lists | `List` / `ListItem` |
+| form | `Form` + `FormItem` + `Label` |
+| CTA | `Button` with `variant` / `size` |
+| card surface | `Card` |
+| unknown tag | `src/kit/utils/tags.ts` groups, then a brick |
+
+`bun run lint:ui8px` and `bun run validate:ui8px-aria` must stay green. When
+a UI structure script exists, it fails a screen that opens on `Box`, contains
+more than one `Block`, or uses raw layout tags.
+
+If no brick covers the tag, extend the kit. Do not fall back to raw HTML in
+views. Do not dump utility-class chains on a primitive to fake another
+primitive.

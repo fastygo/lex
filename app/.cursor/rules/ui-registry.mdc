@@ -1,0 +1,46 @@
+---
+description: Where UI lives in the lex-flow Svelte app
+alwaysApply: true
+---
+
+# UI registry
+
+One kit, one app shell, many screens. Product copy and transport stay out of
+atoms. Paths are relative to the `app/` package root.
+
+## Runtime
+
+| Runtime | App frame | Barrel |
+| --- | --- | --- |
+| Svelte | `src/App.svelte` | `$ui8kit/ui` → `src/kit/ui/index.svelte.ts` |
+
+Document frame is `index.html`. The client entry is `src/main.ts`.
+
+## Where to look
+
+| Need | Path | Import |
+| --- | --- | --- |
+| Atoms | `src/kit/ui/<name>` | `$ui8kit/ui` |
+| Helpers | `src/kit/utils` | `$ui8kit/utils` (`cn`) |
+| Chrome | `src/components/{AppHeader,AppMain}.svelte` | `$components/*` |
+| Organisms used twice | `src/components/widgets` | `$components/widgets/*` |
+| One screen | `src/views/<Name>View.svelte` | `$views/*` |
+| Session / route state | `src/App.svelte` | shell + view only |
+| Transport / DTOs | `src/lib` | `$lib/*` |
+| Copy | `src/lib/copy.ts` | imported by the app frame only |
+| ARIA register | `src/lib/aria.ts` | `@ui8kit/aria` subset |
+| Tokens | `src/assets/styles/styles.css` | semantic classes |
+
+## Placement
+
+- New atom → `src/kit/ui`, export from `src/kit/ui/index.svelte.ts`.
+- Used by ≥2 screens → `widgets/` (props and callbacks only).
+- One route body → `views/<Name>View.svelte`.
+- The app frame opens on `Block` (no `tag`), owns session, loading, errors,
+  and mutations.
+- Chrome is `AppHeader` + `AppMain` as siblings. Do not add a wrapper shell.
+- Do not add a second page shell inside a view.
+- Widgets and views take copy and callbacks as props. Type-only imports are
+  allowed. Do not call transport or invent copy strings there.
+- Composition outside the kit uses kit bricks. `*Classes()` stays inside
+  generated brick files.

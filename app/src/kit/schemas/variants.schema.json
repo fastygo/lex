@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ui8kit://variants.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "base", "keys", "defaults", "byKey"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": { "type": "string" },
+    "base": { "type": "string" },
+    "keys": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "byKey": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": { "type": "string" }
+      }
+    }
+  }
+}

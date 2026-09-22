@@ -1,4 +1,41 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "go"
+  "services": {
+    "web": {
+      "root": "app",
+      "framework": "vite",
+      "installCommand": "bun install",
+      "buildCommand": "bun run build",
+      "rewrites": [
+        {
+          "source": "/(.*)",
+          "destination": "/index.html"
+        }
+      ]
+    },
+    "api": {
+      "root": ".",
+      "framework": "go"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/healthz",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/v1/(.*)",
+      "destination": {
+        "service": "api"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "destination": {
+        "service": "web"
+      }
+    }
+  ]
 }

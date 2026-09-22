@@ -1,0 +1,42 @@
+---
+description: 8px rhythm, Tailwind on primitives, ui8px CLI
+alwaysApply: true
+---
+
+# UI8PX
+
+Language-neutral. Screens must not invent a second CSS system. Layout is
+Tailwind utilities on kit primitives. `src/assets/styles/styles.css` keeps
+tokens, document reset, `data-state` dialog, and reduced motion only.
+Paths are relative to the `app/` package root.
+
+## Do
+
+- Space on an **8px grid**. Layout: 8 / 16 / 24 / 32. Controls may use 4px.
+- Style bricks through **`variant` and `size`**. Extra layout is a short
+  utility list (`flex`, `gap-4`, `p-6`, `bg-card`).
+- Color and type live in semantic tokens (`bg-card`, `text-muted-foreground`).
+
+## Do not
+
+- Grow job-named CSS (`.chrome`, `.workspace-grid`) when a primitive +
+  utilities can do it.
+- Dump long class soups that fake another primitive.
+- Use palette names (`bg-blue-500`) or raw hex in screens.
+
+Kit recipes may emit utilities. That is the brick's job.
+
+## CLI (`ui8px` 0.2.4)
+
+Policy: `.ui8px/policy/`. The CLI reads `.html` / `.css`, not `.svelte`.
+`scripts/ui8px-prepare.mjs` mirrors Svelte hosts into `.ui8px/scan/` first.
+
+```text
+bun run lint:ui8px
+bun run validate:ui8px-aria
+npx ui8px validate patterns .ui8px/scan
+npx ui8px policy review
+```
+
+`.ui8px/policy/scopes.json`: `src/kit` is control scope; views, chrome, and
+the app frame (`src/App.svelte`) are layout scope.

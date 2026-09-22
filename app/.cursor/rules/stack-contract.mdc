@@ -1,0 +1,23 @@
+---
+description: UI8Kit host boundary — kit is product-neutral, Svelte runtime for lex-flow
+alwaysApply: true
+---
+
+# Stack contract
+
+lex-flow hosts **UI8Kit** on Svelte 5. The kit owns atoms, recipes, and tag
+groups. The app owns session, copy, routing, and transport. Product kinds
+stay out of the kit.
+
+Paths below are relative to the `app/` package root.
+
+- One kit, one app shell, many screens. Do not add a second CSS system or a
+  parallel widget tree.
+- The host runtime is Svelte. Recipes (`*.variants.json`), `*.shared.ts`,
+  and `src/kit/utils` stay shared.
+- Screens compose kit bricks. They do not invent host paths, disk layout, or
+  a second content API.
+- Product variation is copy, tokens, and view composition.
+- `@ui8kit/codegen` emits hosts. Do not hand-edit generated brick files.
+- Kit and `.cursor/rules` are copyable. lex-flow types stay in the app
+  (`src/lib`), never in `src/kit`.
