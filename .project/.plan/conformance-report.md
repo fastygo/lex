@@ -1,127 +1,46 @@
 # Conformance report
 
-Status: canary release evidence, 2026-09-22 (revision `20d876b`). This is not
-an IETF, ISO, or vendor certification, and it does not close the 28-day SLO
-window.
+Status: canary evidence, 2026-09-22. This is not a certification, a
+calibration report, or an SLO measurement.
 
-Profile hardening on 2026-09-22 supersedes the earlier profile-specific local
-results below. QuestionSet/policy/verifier `0.2.0` adds explicit refutation;
-regression tests distinguish refutation, missing evidence, contradictory signals,
-and operational review. The boundary truth table now contains 128 cells.
-Choice maxima, case-sensitive reserved fields, Unicode rejection, unchanged raw
-answer values in error bundles, immutable verifier configuration, and exact
-model pinning have regression coverage. Python hash verification now uses
-`rfc8785==0.1.4` with numeric-format boundaries and UTF-16 property-order vectors.
-The production observation dated 2026-09-22 below is for revision `4bc5680`.
-Earlier Vercel notes, including revision `1c9cc90`, do not validate it.
-The generic typed-decision implementation is newer than that revision. Its
-local and revision-pinned canary evidence is recorded below.
+## Canary
 
-## Canary release
+Revision `d3b7e84` on `https://lexproto.vercel.app` (GitHub deployment
+`6599093830`, Production, branch `beta`) is the canary of the typed-decision
+switch, envelope `0.2`. It is the first revision without the removed
+claim-validation route; bundles sealed by earlier revisions are not accepted.
 
-`20d876b0dab8d3321bc52d90bff3fb83069bb7fe` on `https://lexproto.vercel.app`
-(GitHub deployment `6598250508`, Production, branch `beta`) is the canary
-release. It freezes generic envelope `0.2`, legacy envelope `0.1`, OpenAPI
-`0.2`, and capabilities `protocol_status: canary`. The production alias was
-not switched away from `beta`.
+Rollback: deployment `6598362708` (commit `c83d77b`), the previous production
+build, reported `success` at the time of the samples. Rolling back restores
+the removed route.
 
-Rollback: deployment `6597698320` (commit `6b07b11`), the immediately
-previous production build, reported `success` at the time of the samples.
-The last build proven by an earlier canary is `6591859966` (`ad806d0`).
-Bundles sealed by either carry the pre-canary envelope label and replay only
-on their own deployment.
+| Sample | Decisions valid + replayed | Negative probes | Removed route |
+|---|---:|---|---|
+| `canary/20260922T194012Z` | 3/3 | 422 `question_error`, 400 `invalid_json` | 404 `not_found` |
+| `canary/20260922T194038Z` | 3/3 | 422 `question_error`, 400 `invalid_json` | not sampled |
 
-Two samples, each with the three generic probes plus replay, two negative
-generic probes, and the 19 legacy bodies plus replay:
+Each sample sent the three `.project/examples/` requests (Noul + Choice,
+Noul + Score, and Noul + Choice with a frozen Context binding). Every
+decision returned HTTP 200 `structural_status: valid`, `protocol_version: 0.2`,
+through `direct-systemone` / `jev-1.13.0`; every bundle replayed HTTP 200
+`decision_reproduced` and valid. No bundle retained request `metadata`. The
+raw-Jev `criteria` probe named `/question_set/questions/route` in `detail`;
+neither negative probe reached the provider. Summaries contain no credential,
+raw answer, or source text.
 
-| Sample | Generic valid + replayed | Negative probes | Legacy HTTP 5xx | `verification_error` | `pack_rebuild` | `snapshot_identity` | Wrong envelope | Legacy replay match |
-|---|---:|---|---:|---:|---:|---:|---:|---:|
-| `generic-canary/20260922T185042Z`, `canary/20260922T185059Z` | 3/3 | 422 `question_error`, 400 `invalid_json` | 0 | 0 | 0 | 0 | 0 | 19/19 |
-| `generic-canary/20260922T185113Z`, `canary/20260922T185130Z` | 3/3 | 422 `question_error`, 400 `invalid_json` | 0 | 0 | 0 | 0 | 0 | 19/19 |
+Probe: `LEX_REVISION=<sha> LEX_DEPLOYMENT_ID=<id> node scripts/probe-canary.mjs`.
 
-Every generic decision returned `protocol_version: 0.2` through
-`direct-systemone` / `jev-1.13.0` and replayed as `decision_reproduced`. The
-raw-Jev `criteria` probe's `detail` named `/question_set/questions/route`;
-neither negative probe reached the provider. Legacy verdicts were
-`manual_review` 10 and 12, `insufficient` 6 and 5, `conflict` 1 and 1,
-`rejected` 1 and 1. The first sample again included one HTTP 422 `error`
-(`invalid_choice:action`, `safety_gate`) on
-`context-account-access-frozen.json`: the provider returned an out-of-domain
-action Choice, LeX classified it as a technical error with the sealed bundle,
-and replay reproduced it. The second sample returned `manual_review` for that
-body. Evidence files contain no credential. This is not the 28-day SLO and not
-the stable release.
+## Local evidence
 
-Commit `5fc4028` (deployment `6598306610`) adds only this evidence and
-documentation on top of `20d876b`; no Go, schema, or configuration file
-differs. On it, an external-style client outside the repository (curl with
-only `LEX_BASE_URL` and `LEX_TOKEN`, following the `lex-api` skill) received a
-`0.2` `valid` Noul/Score decision and a `decision_reproduced` replay.
+At this revision `go test ./... -count=1`, `go vet ./...`, and
+`npm run check:english` pass. They cover:
 
-Probes: `scripts/probe-generic-canary.mjs` and `scripts/probe-legacy-canary.mjs`
-with `LEX_REVISION`, `LEX_DEPLOYMENT_ID`, and, for legacy,
-`LEX_ROLLBACK_DEPLOYMENT_ID`.
+- every MUST line in `protocol.md` and `checks.md` mapped to a test;
+- schemas and OpenAPI validated against live handler responses;
+- JCS hashes agreeing with independent `rfc8785` vectors;
+- network-free replay, tampering, pin, and project-isolation cases;
+- Context rebuild, malformed answers, budgets, deadlines, and adapter
+  conformance fixtures for the direct and hosted paths.
 
-## Earlier legacy canary
-
-`4bc5680ea2842357f14c440d1cb2f8637464cfbb` on `https://lexproto.vercel.app`
-(GitHub deployment `6589372666`) was the first legacy canary. Production stays on `beta`.
-The alias was not switched. The rollback target remains deployment
-`6579270758`, commit `2e1a013551c3`; its host returned HTTP 401 from
-Deployment Protection during the second sample, which is a live deployment,
-not a missing one.
-
-Two samples of the 19 request bodies, each followed by replay of the sealed
-bundle:
-
-| Sample | HTTP 5xx | `verification_error` | `pack_rebuild` | `snapshot_identity` | Replay match |
-|---|---:|---:|---:|---:|---:|
-| `canary/20260922-1117` | 0 | 0 | 0 | 0 | 19/19 |
-| `canary/20260922-1142` | 0 | 0 | 0 | 0 | 19/19 |
-
-The first sample included one HTTP 422 `error` (`invalid_choice:action`,
-`safety_gate`) on `context-account-access-frozen.json`. The second sample
-returned HTTP 200 `manual_review` for that body. Both replays reproduced the
-verdict of their own evaluation. This is not the 28-day SLO and not a stable
-release.
-
-## Earlier generic typed-decision canary
-
-`ad806d033d5aa26b304095cf2a6e38ec9de87867` on
-`https://lexproto.vercel.app` (GitHub deployment `6591859966`) was the first
-revision-pinned generic API canary. The deployed capability document advertises
-the three primitives, 64-question and body limits, optional Context binding,
-exact model pinning, provider-free replay, and deprecated legacy evaluation.
-
-`generic-canary/20260922T133416Z` exercised:
-
-- Noul + Choice over caller state, without Context;
-- Noul + Score over unrelated caller state, without Context;
-- Noul + Choice with a caller-frozen Context binding.
-
-All three decisions returned HTTP 200 `structural_status: valid` through
-`direct-systemone` / `jev-1.13.0`; all three replay calls returned HTTP 200
-`decision_reproduced` with `structural_status: valid`. The probe also rejected
-any replay-bundle retention of its non-normative metadata. Compact evidence is
-in `.project/.jev/test-vercel/generic-canary/20260922T133416Z/`; no request
-credential, raw provider answer, or source body is recorded there. That revision
-still used the pre-canary envelope label; its bundles replay only on that
-deployment. The canary release section below supersedes it.
-
-| Criterion | Result | Evidence |
-|---|---|---|
-| STD-01 requirement language | Local pass for MUST lines | `go test ./internal/conformance -count=1` fails if a MUST line in `protocol.md`, `checks.md`, or `integration-stack.md` has no test, or if a mapped test function is missing. `governance.md` only defines the keywords. This is not a certification that every test assertion is exhaustive. |
-| STD-02 JSON strictness | Local pass | Duplicate keys, trailing values, invalid UTF-8, non-finite numbers (`1e309`, `1e-400`), evaluation-body duplicates, and queries longer than 4096 characters are rejected. |
-| STD-03 canonical hashes | Local pass for the golden set | `scripts/jcs_vectors.py` uses pinned `rfc8785==0.1.4`. `internal/canonical/vectors_test.go` matches those forms. `scripts/verdict_gate.py` is a second reading of the `0.2.0` gates and the inference-only rule. `TestPythonConsumerAgreesOnGoldenVerdictsAndHashes` checks that reading, and the bundle self-hash with `bundle_hash` excluded, for every golden verdict. It does not rebuild a Context pack. |
-| STD-04 timestamps | Stated narrower profile | v0.1 messages carry no audit timestamps. An `observed_at` field is rejected on an evaluation request and on a replay bundle. A live evaluation response, including its Context pack, has no timestamp field. This is not RFC 3339 parsing and not full RFC coverage. |
-| STD-05 HTTP contract | Partial | Method 405 with Allow, Accept 406, media type, auth, no-store, 413, 422, 499 client disconnect, 502, 503, and 504 are tested locally. Accept uses media-range specificity, so an explicit refusal of `application/json` outweighs a wildcard. Unknown routes return 404 problem JSON. More than 128 sources is rejected before a provider call. The deployed revision does not include every later status. |
-| STD-06 OpenAPI and problems | Partial | OpenAPI 3.1.1 `0.2` validates its problem example, a technical-verdict example, and the evaluation request. The problem `reason` enum matches the handler's reason catalog. Published statuses include evaluation and replay HTTP 500 and the shared admission, body, and JSON failures on capabilities and replay. Finding codes match the published finding-code pattern. Live capabilities, evaluation, replay, and technical-verdict responses validate against the published response schemas. Capabilities discloses exact-phrase retrieval, the uncalibrated policy, and the configured body, deadline, focus, and per-process admission limits. Optional metadata is bounded and is not sent to the provider or stored in the bundle. |
-| GEN-01 generic typed decisions | Local and revision-pinned canary pass | `POST /v1/decisions` accepts a caller-owned State and versioned Noul/Choice/Score QuestionSet, produces a `0.2` self-hashed decision bundle, and replays structural findings without a provider. Fixtures cover unrelated intent and storage state, malformed primitive domains, answer-domain failure, state tampering, model substitution, optional Context binding without state merge, metadata exclusion, legacy-boundary imports, and OpenAPI response validation. `go test ./... -count=1`, `go vet ./...`, and editor diagnostics pass locally. Canary release deployment `6598250508`, revision `20d876b`, exercised Noul/Choice, Noul/Score, and Context-bound Noul/Choice twice with envelope `0.2`; each decision and replay was structurally valid, and schema violations returned 422 `question_error` with a JSON pointer before any provider call. |
-| LEX-01 evidence and authority | Partial | Project isolation, caller URL rejection, caller policy rejection, injection text staying out of questions, an entity type or schema outside the embedded profile is rejected before a provider call, inference-only replay, compound or overlapping questions rejected after a matching self-hash, source checksums checked against frozen text, a frozen source that is not project source text is rejected, a snapshot from another project or another runtime is rejected, duplicate snapshot source ids and unknown snapshot fields are rejected, secret redaction, including a provider response that echoes the decision credential in an answer or as a Unicode escape, and an unusable policy threshold classified as `policy_error` rather than a denial finding are tested. A calibration corpus is not. |
-| LEX-02 decisions and replay | Local pass for the embedded profile | All six verdicts, precedence, contradictory evidence at the HTTP boundary, rejected and manual review returned as HTTP 200 and reproduced without a second provider call, an insufficient result that keeps the review finding, conflict retained beside a safety-gate finding, network-disabled replay, and both adapter fixtures pass. A separate policy-gate reading agrees with the verifier on combined findings, including a conflict that keeps the review findings, and on all 64 boundary cells of the four thresholds and four actions. Conflict at the threshold stays `conflict` in every cell. It does not reimplement provenance or pack checks. A technical `error` verdict is HTTP 422 and includes the sealed replay bundle, which reproduces that verdict. Malformed answers in that verdict are listed in identifier order. The direct adapter rejects a substituted response model without retrying. The hosted adapter rejects an echoed request selector and a different model line, and records a resolved refinement of `typesafe/jev-1.13`. Both adapters declare noul, choice, and score before the call and reject any other question type without dialing. A retryable provider status is HTTP 503 `provider_unavailable` and is not retried; a non-retryable provider failure stays HTTP 502 `decision_error`. Neither response echoes the provider body. Provider request id, evaluation time, and usage are returned only when the provider sent them, and they stay outside the replay bundle. Replay accepts a direct model only when it is `jev-1.13.0` and a hosted model only when it is such a refinement. A golden replay set pins the verdict and canonical bundle hash for validated, rejected, insufficient, conflict, manual review, technical error, and inference-only evidence on both adapter ids where the verdict is valid. Evaluation and replay traces are emitted only through a request-scoped stage machine that rejects illegal transitions. A repeated request with the same Idempotency-Key on a fresh instance calls the provider again. Replay recomputes the pack hash and entity checksum and rejects a foreign verifier or adapter version. A criteria edit changes the question-set hash. |
-| SEC-01 deployment security | Partial | Bearer binding is checked before the body is read and before an admission slot is taken. A panic in the decision adapter becomes problem JSON with `internal_error` and does not echo the panic value. Replay refuses a bundle whose entity project is outside the token's projects and does not return that bundle's evidence or verdict. Cookie rejection, forged approval rejection, CORS denial, overload, depth, body limits, a 2 MiB provider-response cap that follows the remaining response budget, with no retry, an allowlist that rejects disguised loopback hosts and provider redirects, with a refused redirect classified as a non-retryable decision failure that does not echo the target address, ambiguous provider JSON, bearer-token configuration that rejects duplicate keys without echoing the token, and NUL source text pass locally. `govulncheck` found no called vulnerability. Race tests and a full telemetry inspection are not proven. |
-| DEP-01 Context pin | Partial | Context v0.1.0 builds a pack through the handler from caller text, or reproduces a caller-frozen state before any provider call. The verifier decodes the snapshot and pack request strictly into Context's public types, applies the LeX controls (project and runtime binding, profile focus with no caller controls, per-item provenance, byte checksum, full-source surface, admissibility), and compares Context's rebuild with the saved state by identity and canonical hash. LeX does not recompute selection, budgeting, or rejection; a rewritten pack purpose, chunk id, upstream checksum, evidence list, or rejection list is `pack_rebuild`, a snapshot Context does not reproduce is `snapshot_identity`, and a tampered caller-frozen state is HTTP 422 `pack_error` with those findings and no provider call. Eight matching sources reach the provider and a ninth stays a Context budget trim; input above 256 KiB or a duplicate source id is rejected before a provider call. Race tests on a gcc-capable runner are not proven. |
-| OPS-01 serverless | Partial | Evaluation leaves the working directory unchanged. The process read timeout covers the request deadline, and the write timeout is five seconds longer so a protocol error can still be sent. The 19 files in `.project/.jev/test-vercel/requests`, including one `frozen_context` body, match the evaluation schema, select evidence, and replay through the local handler. The eight research JSON maps under `.project/.jev/examples` are rejected before a provider call. Production `https://lexproto.vercel.app` at GitHub deployment `6589372666` is commit `4bc5680ea2842357f14c440d1cb2f8637464cfbb` (success, 2026-09-22T11:17:06Z). Capabilities there disclose `inputs` `sources` and `frozen_context`, retrieval `exact_phrase`, and policy `claim-validation` `0.2.0` `uncalibrated`. The same 19 bodies were sent once: 18 returned HTTP 200 and one, `context-account-access-frozen.json`, returned HTTP 422 `error` with findings `invalid_choice:action` and `safety_gate` after the direct adapter answered. No response was 5xx, `pack_error`, `snapshot_identity`, or `pack_rebuild`. Each sealed bundle was replayed on the deployment and reproduced its verdict (19/19). The resolved model on HTTP 200 responses was `jev-1.13.0` through `direct-systemone` `0.1.0`. Compact rows are in `.project/.jev/test-vercel/canary/20260922-1117/summary.json`. The previous successful production deployment is `6579270758`, commit `2e1a013551c3` (2026-09-21T22:19:09Z); that commit is the rollback point. Cold/warm platform labels and filesystem instrumentation on Vercel are absent. |
-| OPS-02 SLO | Preliminary | `.project/.plan/measurements.md` records one local sample. It is not a 28-day SLI. |
-
-Explicit exclusions in [conformance.md](conformance.md) remain excluded.
+Race tests, hosted-adapter proof on the deployment, calibration, and the SLO
+window remain open in [progress.md](progress.md).

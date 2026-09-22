@@ -2,10 +2,10 @@
 
 Status: non-normative empirical observations on `jev-1.13.0`, not a general benchmark and not proof of the model’s internal architecture.
 
-The historical scenario name `test` below maps to [examples/llm/](examples/llm/).
-Measurements are reported research observations, not independent reproduction
-or LeX conformance proof. Earlier chaos variants are described historically;
-only files present in [examples/chaos/](examples/chaos/) are available captures.
+The scenarios were hand-authored Jev question maps (`playground`, `test` on LLM
+topics, `context`, `chaos`) sent directly to the model before LeX existed.
+Their captures are retired; git history keeps them. Measurements are research
+observations, not independent reproduction or LeX conformance proof.
 
 ## Summary
 
@@ -101,11 +101,11 @@ Observing `billing supported = 0.69` with conflicting ledgers shows Jev partly c
 - “eligible evidence exists for the hypothesis”;
 - “the hypothesis is established by coherent evidence”.
 
-LeX should define separate predicates:
+Callers should ask separate predicates:
 
 - `supported`: eligible witness exists;
 - `established`: evidence is sufficient and coherent;
-- `safe_to_act`: model-reported safety signal; deterministic policy and external authority still decide whether action is allowed;
+- `safe_to_act`: model-reported safety signal; the caller's policy and external authority still decide whether action is allowed;
 - `action`: chosen operational branch.
 
 ## Recommended question design
@@ -154,8 +154,8 @@ Do not use Score for unordered categories.
 
 ## Next measurements
 
-1. Generate `ContextPack` via Context Runtime HTTP API, not manually.
-2. Build a labeled entity corpus with expected predicates and verdict.
+1. Build the frozen Context state with Context Runtime, not by hand.
+2. Build a labeled corpus with expected answers per question.
 3. Compare raw state, plain RAG, and ContextPack on the same questions.
 4. Repeat each request and measure consistency.
 5. Measure calibration: accuracy by Noul/confidence bands.

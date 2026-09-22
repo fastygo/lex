@@ -1,5 +1,5 @@
 ---
-description: LeX code map and the procedure for adding typed-decision primitives, HTTP routes, adapters, and protocol entities without leaking domain meaning into the generic core
+description: LeX code map and the procedure for adding typed-decision primitives, HTTP routes, adapters, checks, and protocol entities without leaking domain meaning into the core
 globs: cmd/**,internal/**,scripts/**
 alwaysApply: false
 ---
@@ -9,77 +9,69 @@ alwaysApply: false
 ## Package map (dependencies point downward)
 
 ```text
-cmd/api                     wiring: env -> adapter -> httpapi.Config
-internal/httpapi            HTTP boundary: parse, auth, stages, problems, responses
-  decision*.go              generic /v1/decisions and generic replay dispatch
-  evaluation.go legacy*.go  deprecated /v1/evaluations compatibility only
-  reasons.go                stable problem reason codes (RFC 9457)
-internal/wire               schemas, typed records, bundle sealing, replay
-  schema/*.json             request/bundle schemas + openapi.json (normative wire)
-  decision*.go              generic envelope 0.2; bundle.go/replay.go legacy 0.1
-internal/verify             deterministic structural checks and finding codes
-internal/lifecycle          legal stage graph per request kind
-internal/canonical          RFC 8785 JCS + SHA-256; the only hashing path
-internal/evidence           frozen Context binding; asks Context to rebuild
-internal/adapters/*         provider transport; systemone is the shared client
-internal/profile/claimvalidation  legacy policy, gate, verdict; compatibility only
-internal/conformance        boundary tests between packages
+cmd/api                wiring: env -> adapter -> httpapi.Config
+internal/httpapi       HTTP boundary: auth, negotiation, budgets, stages, problems
+  decision*.go         /v1/decisions request, dispatch, response
+  handler.go           routes, capabilities, replay
+  request.go response.go trace.go reasons.go   shared helpers and reason catalog
+internal/wire          schemas, typed records, hashes, sealing, replay verifier
+  schema/*.json        request and bundle schemas + openapi.json (normative wire)
+  context.go           optional Context binding check
+internal/verify        answer checks and the finding-code catalog
+internal/lifecycle     legal stage graph per request kind
+internal/canonical     RFC 8785 JCS + SHA-256; the only hashing path
+internal/evidence      strict decode of a frozen Context state and its rebuild
+internal/adapters/*    provider transport; systemone is the shared client
+internal/conformance   obligation map and core boundary tests
 ```
 
-Hard boundaries, enforced by `internal/conformance/generic_boundary_test.go`:
+Hard boundaries, enforced by `internal/conformance`:
 
-- Generic code (`wire/decision*`, `httpapi/decision*`, `verify/decision.go`)
-  never imports `internal/profile` or `claimvalidation`. Add every new
-  generic file to that test's path list.
-- No domain vocabulary from fixtures in generic code. Meaning lives in the
-  caller's State and QuestionSet.
+- No `Verdict`, `Profile`, `Threshold`, or claim-validation code anywhere in
+  production files.
+- No fixture vocabulary in production files. Meaning lives in the caller's
+  State and QuestionSet.
 - Provider names, endpoints, keys, retries, and aliases stay in
   `internal/adapters/<provider>`. The core sees only `httpapi.Decider`.
 
 ## Adding a feature: decide the layer first
 
 1. A new question the caller wants answered? That is caller data, not code.
-   Add a fixture under `.project/.jev/generic/` if it proves something.
-2. A new typed primitive or answer field? Change both
-   `decision-request.schema.json` and `decision-bundle.schema.json`, the Go
-   record in `wire/decision.go` (`Validate`, `ProviderQuestions`,
-   `VerifierQuestions`), the check in `verify/decision.go`, and
-   `openapi.json`. Every conforming adapter must preserve it, or it is not a
-   primitive.
-3. A new route? Add a `<name>.go` + `<name>_request.go` pair in `httpapi`, a
+   Add an example under `.project/examples/` only if it proves something.
+2. A new typed primitive or answer field? Change
+   `decision-request.schema.json`, `decision-bundle.schema.json`, the record in
+   `wire/decision.go` (`Validate`, `ProviderQuestions`, `VerifierQuestions`),
+   the check in `verify/decision.go`, and `openapi.json`. Every conforming
+   adapter must preserve it, or it is not a primitive.
+3. A new route? Add `<name>.go` + `<name>_request.go` in `httpapi`, a
    `lifecycle.Kind` with its stage graph, a `trace.go` constructor, reasons in
-   `reasons.go`, the path in `openapi.json`, and a disclosure in
-   `/v1/capabilities` if callers need to discover it.
+   `reasons.go`, the path in `openapi.json`, and a capability disclosure if
+   callers must discover it.
 4. A new provider? New package under `internal/adapters/`, implement
    `Decider`, register it in `adapters/select.go`, `cmd/api/main.go`, and
    `Config.adapterPins`, and pass `adapters/conformance` fixtures. Exact
    resolved model pin; no fallback, no retry.
 5. A new protocol entity? It needs a schema, a typed record, a canonical hash,
-   a place in the sealed bundle, a replay check, and a normative definition in
-   `.project/.lex/protocol.md`. If it changes a durable boundary, write an ADR
-   in `.project/.plan/adr/`.
-6. A new checkpoint (deterministic check)? Add a finding code in
-   `verify/codes.go` with its test, emit it from the verifier that owns the
-   stage, list it in `.project/.lex/checks.md`, and make replay reproduce it.
-   A check inspects structure, hashes, pins, or bindings; it never judges
-   domain meaning. New finding codes are additive.
+   a place in the sealed bundle, a replay check, and a definition in
+   `.project/.lex/protocol.md`. A durable boundary change also needs an entry
+   in `.project/.plan/decisions.md`.
+6. A new checkpoint? Add a finding code in `verify/codes.go`, emit it from the
+   verifier that owns the stage, list it in `.project/.lex/checks.md`, and make
+   replay reproduce it. A check inspects structure, hashes, pins, or bindings;
+   it never judges domain meaning. New codes are additive.
 
 ## Change discipline
 
 - Schema first, then typed record, then verifier, then handler, then docs.
-- Canary rule (`.project/.lex/governance.md`): fields, meanings, reason codes,
-  and status mapping are fixed within an envelope version; add, never change.
-  A breaking change gets a new envelope version and the previous verifier
-  stays available for replay. Version identifiers carry no pre-release suffix.
-- Hash only through `internal/canonical`. Never hash `metadata` or transport
-  details into a bundle.
+- Canary rule (`.project/.lex/governance.md`): within an envelope version add,
+  never change. A breaking change gets a new envelope version and the previous
+  verifier stays available for replay.
+- Hash only through `internal/canonical`. Never seal `metadata` or transport
+  details.
 - Request errors never reach a provider: 400 `invalid_json` for non-JSON, 422
-  `question_error` for schema or QuestionSet violations, with a JSON pointer in
-  `detail` and no caller values.
-- Do not add retrieval, profiles, thresholds, or verdicts to the generic path.
-  Put caller-specific behavior in the caller.
-- Tests with the change: table tests beside the code, a negative case that
-  proves the provider was not called, and a replay case for anything sealed.
-- Update `.project/.lex/` when behavior changes, and `README.md`/`AGENTS.md`
-  when the public surface changes. Run `go test ./... -count=1` and
-  `go vet ./...`.
+  `question_error` with a JSON pointer and no caller values.
+- A new MUST line in `protocol.md` or `checks.md` needs a mapped test in
+  `internal/conformance/obligations_test.go`.
+- Tests with the change: table tests beside the code, a negative case proving
+  the provider was not called, and a replay case for anything sealed.
+- Run `go test ./... -count=1` and `go vet ./...`.

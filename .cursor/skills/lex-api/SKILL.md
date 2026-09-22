@@ -29,7 +29,6 @@ Call from server-side code or a terminal only. CORS is denied by design.
 | `POST /v1/replays` | post a returned `replay_bundle` unchanged |
 | `GET /v1/capabilities` | primitives, limits, adapter contract, model policy |
 | `GET /healthz` | liveness, no auth |
-| `POST /v1/evaluations` | deprecated claim validation; do not use for new work |
 
 Every authenticated call needs `Authorization: Bearer <token>`,
 `Accept: application/json`, and, with a body, `Content-Type: application/json`.
@@ -169,8 +168,8 @@ build State + QuestionSet
 Paths in the LeX repository (`github.com/fastygo/lex`); not needed to call the API.
 
 - Client guide with TypeScript, Python, and Go clients: `.project/.lex/client-integration.md`
-- Contract: `.project/.lex/generic-decision-api.md`
-- Checks and error classes: `.project/.lex/checks.md`
-- Capability map: `.project/.jev/capability.md`
+- Contract: `.project/.lex/protocol.md`
+- Checks, finding codes, and error mapping: `.project/.lex/checks.md`
+- Built, open, and refused capabilities: `.project/.lex/scope.md`
 - Schemas: `internal/wire/schema/decision-request.schema.json`, `openapi.json`
-- Fixtures: `.project/.jev/generic/`
+- Examples: `.project/examples/`

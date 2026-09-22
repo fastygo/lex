@@ -8,61 +8,33 @@ if (!revision || !deploymentID) {
   throw new Error("LEX_REVISION and LEX_DEPLOYMENT_ID are required");
 }
 
-const tokenLine = readFileSync(new URL("../.env", import.meta.url), "utf8")
-  .split(/\r?\n/)
-  .find((line) => line.startsWith("LEX_BEARER_TOKENS="));
-if (!tokenLine) {
-  throw new Error("LEX_BEARER_TOKENS is missing from .env");
+function tokenFromEnvFile() {
+  let text;
+  try {
+    text = readFileSync(new URL("../.env", import.meta.url), "utf8");
+  } catch {
+    return "";
+  }
+  const line = text.split(/\r?\n/).find((entry) => entry.startsWith("LEX_BEARER_TOKENS="));
+  if (!line) return "";
+  return Object.keys(JSON.parse(line.slice("LEX_BEARER_TOKENS=".length)))[0] ?? "";
 }
-const token = Object.keys(JSON.parse(tokenLine.slice("LEX_BEARER_TOKENS=".length)))[0];
+
+const token = process.env.LEX_TOKEN || tokenFromEnvFile();
 if (!token) {
-  throw new Error("LEX_BEARER_TOKENS has no bearer token");
+  throw new Error("Set LEX_TOKEN or LEX_BEARER_TOKENS in .env");
 }
 
 function readJSON(relative) {
   return JSON.parse(readFileSync(new URL(relative, import.meta.url), "utf8"));
 }
 
-const contextFixture = readJSON("../.project/.jev/test-vercel/requests/context-account-access-frozen.json");
 const probes = [
-  {
-    name: "intent-noul-choice",
-    request: readJSON("../.project/.jev/generic/intent-decision-request.json"),
-  },
-  {
-    name: "storage-noul-score",
-    request: readJSON("../.project/.jev/generic/database-decision-request.json"),
-  },
-  {
-    name: "context-noul-choice",
-    request: {
-      project_id: contextFixture.project_id,
-      decision: { id: "context-binding-step", version: "1" },
-      state: { task: "classify the supplied request without merging frozen evidence" },
-      question_set: {
-        id: "example.context-binding",
-        version: "1",
-        questions: {
-          route: {
-            type: "choice",
-            instructions: "Which route is best supported by the supplied state?",
-            options: {
-              account_access: "Account access support",
-              billing: "Billing support",
-              other: "No declared route",
-            },
-          },
-          has_frozen_context: {
-            type: "noul",
-            instructions: "Is a frozen context binding supplied with this state?",
-          },
-        },
-      },
-      context: contextFixture.context,
-      metadata: { fixture: "generic-canary-context" },
-    },
-  },
+  { name: "intent-noul-choice", request: readJSON("../.project/examples/intent-decision-request.json") },
+  { name: "storage-noul-score", request: readJSON("../.project/examples/database-decision-request.json") },
+  { name: "context-noul-choice", request: readJSON("../.project/examples/context-decision-request.json") },
 ];
+const projectID = probes[0].request.project_id;
 
 async function call(path, body) {
   return callRaw(path, JSON.stringify(body));
@@ -103,7 +75,7 @@ if (
 }
 
 const rawJevBody = JSON.stringify({
-  project_id: contextFixture.project_id,
+  project_id: projectID,
   decision: { id: "negative-step", version: "1" },
   state: { text: "negative probe" },
   question_set: {
@@ -150,7 +122,7 @@ for (const probe of probes) {
     throw new Error(`${probe.name} replay did not reproduce structural validity`);
   }
   const bundleText = JSON.stringify(bundle);
-  if (bundleText.includes("generic-canary-context") || bundleText.includes('"fixture"')) {
+  if (bundleText.includes('"metadata"') || bundleText.includes('"fixture"')) {
     throw new Error(`${probe.name} retained non-normative metadata in its replay bundle`);
   }
   rows.push({
@@ -171,7 +143,7 @@ for (const probe of probes) {
 }
 
 const runID = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
-const output = new URL(`../.project/.jev/test-vercel/generic-canary/${runID}/`, import.meta.url);
+const output = new URL(`../.project/.plan/canary/${runID}/`, import.meta.url);
 mkdirSync(output, { recursive: true });
 writeFileSync(
   new URL("summary.json", output),
@@ -192,4 +164,4 @@ for (const row of rows) {
 for (const row of negativeRows) {
   console.log(`${row.name}\t${row.http}\t${row.reason}`);
 }
-console.log(`.project/.jev/test-vercel/generic-canary/${runID}`);
+console.log(`.project/.plan/canary/${runID}`);

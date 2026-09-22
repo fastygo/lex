@@ -11,7 +11,7 @@ func TestDecodeRejectsInvalidUnicodeWithoutRepair(t *testing.T) {
 			t.Fatalf("HashJSON accepted %q", raw)
 		}
 	}
-	for _, raw := range []string{`{"x":"\ud83d\ude00"}`, `{"x":"�"}`} {
+	for _, raw := range []string{`{"x":"\ud83d\ude00"}`, "{\"x\":\"\uFFFD\"}"} {
 		if _, err := DecodeJSON([]byte(raw)); err != nil {
 			t.Fatalf("valid Unicode %q: %v", raw, err)
 		}

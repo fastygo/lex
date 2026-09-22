@@ -1,20 +1,13 @@
 # LeX project documentation
 
-Status: canary release (generic envelope `0.2`, legacy `0.1`); no stable
-release or conformance certification is claimed.
+Status: canary release, envelope `0.2`. No stable release or conformance
+certification is claimed.
 
-## Directory ownership
+- [Specification](.lex/README.md): normative protocol, checks, scope, client guide.
+- [Plan](.plan/README.md): architecture, decisions, progress, conformance report.
+- [Examples](examples/): `POST /v1/decisions` request bodies, validated by tests.
+- [Research](.jev/README.md): non-normative Jev observations.
+- [Assets](.assets/README.md): the project logo.
 
-- [Canonical specification](.lex/README.md): protocol contracts and explicitly marked planning documents.
-- [Implementation plan](.plan/README.md): Go REST, Framework + Context, Vercel, RAM-only ADRs, SLOs, and standards acceptance.
-- [Architecture guidance](.vsa/README.md): vertical slices and ICOM; subordinate to the protocol.
-- [Research](.jev/README.md): non-normative manual inputs, captured responses, and historical notes.
-- [Assets](.assets/README.md): informative illustrations.
-
-Start with the [canonical reading order](.lex/README.md).
-
-Edit the owning canonical document when behavior changes; link instead of
-maintaining parallel specifications. Preserve research captures. Examples do
-not prove implementation, calibration, interoperability, or safe execution.
-
-Human-readable content here is English. Optional: `npm run check:english`.
+Edit the owning document when behavior changes; never keep a parallel copy.
+Human-readable text is English (`npm run check:english`).
