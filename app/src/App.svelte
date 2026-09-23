@@ -56,7 +56,7 @@
   }
 </script>
 
-<Block class="flex min-h-screen flex-col bg-background font-sans text-foreground">
+<Block class="flex min-h-screen w-full min-w-0 max-w-full flex-col overflow-x-clip bg-background font-sans text-foreground">
   <Link href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-background focus:p-2">
     {copy.skip}
   </Link>
@@ -91,9 +91,12 @@
       />
     {:else if router.route.name === "playground"}
       <PlaygroundView
-        heading={copy.playground.title}
         jsonLabel={copy.playground.json}
         runLabel={copy.playground.run}
+        hideJson={copy.playground.hideJson}
+        showJson={copy.playground.showJson}
+        splitLabel={copy.playground.split}
+        deleteEdge={copy.playground.deleteEdge}
         locked={copy.playground.locked}
         trapLabel={copy.honeypot}
         themeMode={theme.mode}

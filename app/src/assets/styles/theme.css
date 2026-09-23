@@ -92,6 +92,8 @@
   --cm-editor-gutter: hsl(220 18.3673% 9.6078%);
   --cm-diff-add: hsl(142 35% 42%);
   --cm-diff-del: hsl(0 55% 52%);
+  --logo-accent: hsl(24.8908 100.0000% 55.0980%);
+  --logo-primary: hsl(217.2414 32.5843% 17.4510%);
 }
 
 .dark {
@@ -128,6 +130,8 @@
   --sidebar-border: hsl(217.2414 32.5843% 17.4510%);
   --sidebar-ring: hsl(24.8908 100.0000% 55.0980%);
   --overlay: hsl(0 0% 0% / 0.6);
+  --logo-accent: hsl(32.2059 91.8919% 70.9804%);
+  --logo-primary: hsl(213.4884 84.3137% 90.0000%);
   --font-sans: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Cascadia Code", Consolas, "Courier New", monospace;
@@ -330,7 +334,9 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-overlay: var(--overlay);
-
+  --color-logo-accent: var(--logo-accent);
+  --color-logo-primary: var(--logo-primary);
+  
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
   --font-serif: var(--font-serif);
@@ -393,7 +399,7 @@
   }
 
   html {
-    @apply min-h-full overflow-auto font-sans;
+    @apply min-h-full overflow-x-clip overflow-y-auto font-sans;
   }
 
   body {

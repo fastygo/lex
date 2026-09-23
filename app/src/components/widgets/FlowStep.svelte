@@ -1,39 +1,27 @@
 <script lang="ts">
   import { Handle, Position, type NodeProps } from "@xyflow/svelte";
-  import { Block, Button, Stack, Text, Title } from "$ui8kit/ui";
+  import { Block, Stack, Text, Title } from "$ui8kit/ui";
   import type { StepData } from "$lib/layout";
 
   let { data }: NodeProps = $props();
   const step = $derived(data as StepData);
+  const handleStyle = "width: 12px; height: 12px;";
 </script>
 
 <Block
-  class="w-60 rounded-md border bg-card px-3 py-3 shadow-sm {step.included
+  class="w-60 cursor-grab rounded-md border bg-card px-3 py-3 shadow-sm active:cursor-grabbing {step.included
     ? 'border-primary'
     : 'border-dashed border-border'}"
 >
-  {#if step.lane !== "input"}
-    <Handle type="target" position={Position.Top} />
+  {#if !step.grouped && step.lane !== "input"}
+    <Handle type="target" position={Position.Top} style={handleStyle} />
   {/if}
-  <Stack class="gap-2">
+  <Stack class="gap-1">
     <Text class="text-xs tracking-wide text-muted-foreground">{step.lane}</Text>
     <Title as={3} class="text-sm">{step.title}</Title>
     <Text class="text-xs text-muted-foreground">{step.detail}</Text>
-    {#if step.questionId}
-      <Button
-        type="button"
-        size="sm"
-        variant={step.included ? "secondary" : "outline"}
-        onclick={(event: MouseEvent) => {
-          event.stopPropagation();
-          if (step.questionId) step.ontoggle?.(step.questionId);
-        }}
-      >
-        {step.included ? step.includedLabel : step.includeLabel}
-      </Button>
-    {/if}
   </Stack>
-  {#if step.lane !== "output"}
-    <Handle type="source" position={Position.Bottom} />
+  {#if !step.grouped && step.lane !== "output"}
+    <Handle type="source" position={Position.Bottom} style={handleStyle} />
   {/if}
 </Block>

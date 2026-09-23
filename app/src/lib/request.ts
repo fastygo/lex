@@ -1,3 +1,4 @@
+import { legalLink, type FlowLink } from "$lib/layout";
 import { sliceById, type SliceDef, type SliceQuestion } from "$lib/slices";
 
 export const projectKind = "lex-flow-project";
@@ -15,7 +16,8 @@ export type ReasonCode =
   | "quiet"
   | "burst"
   | "lock"
-  | "session";
+  | "session"
+  | "output";
 
 export type DecisionDraft = {
   project_id: string;
@@ -150,20 +152,33 @@ export function selectedFromDraft(slice: SliceDef, draft: DecisionDraft | null):
   return ids;
 }
 
-export function projectFile(sliceId: string, requestText: string) {
+export function readLinks(value: unknown, slice: SliceDef): FlowLink[] {
+  if (!Array.isArray(value)) return [];
+  const links: FlowLink[] = [];
+  for (const item of value) {
+    if (!isRecord(item) || typeof item.source !== "string" || typeof item.target !== "string") continue;
+    if (!legalLink(slice, item.source, item.target)) continue;
+    if (links.some((link) => link.source === item.source && link.target === item.target)) continue;
+    links.push({ source: item.source, target: item.target });
+  }
+  return links;
+}
+
+export function projectFile(sliceId: string, requestText: string, links: FlowLink[]) {
   return {
     kind: projectKind,
     version: projectVersion,
     sliceId: sliceById(sliceId).id,
     requestText,
+    links,
   };
 }
 
-export function readProjectFile(value: unknown): { sliceId: string; requestText: string } | null {
+export function readProjectFile(value: unknown): { sliceId: string; requestText: string; links: FlowLink[] } | null {
   if (!isRecord(value)) return null;
   if (value.kind !== projectKind || value.version !== projectVersion) return null;
   if (typeof value.sliceId !== "string" || typeof value.requestText !== "string") return null;
   const slice = sliceById(value.sliceId);
   if (slice.id !== value.sliceId && !value.sliceId) return null;
-  return { sliceId: slice.id, requestText: value.requestText };
+  return { sliceId: slice.id, requestText: value.requestText, links: readLinks(value.links, slice) };
 }

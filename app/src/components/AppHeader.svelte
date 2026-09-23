@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Cog, Moon, Sun } from "lucide-svelte/icons";
-  import { Block, Box, Button, Disclosure, Group, Input, Stack, Summary, Title } from "$ui8kit/ui";
+  import { Block, Box, Button, Disclosure, Group, Inline, Stack, Summary, Title } from "$ui8kit/ui";
 
   let {
     logo,
@@ -35,10 +35,12 @@
   } = $props();
 </script>
 
-<Block tag="header" class="border-b border-border px-4 py-3">
-  <Group class="w-full justify-between gap-4">
-    <Button type="button" variant="ghost" class="px-2 text-base font-semibold" onclick={() => onNavigate("/")}>
-      <Title as={1} class="text-base">{logo}</Title>
+<Block tag="header" class="relative min-w-0 border-b border-border px-4 py-3">
+  <Group class="w-full min-w-0 justify-between gap-4">
+    <Button type="button" variant="ghost" class="px-2 text-base font-bold" onclick={() => onNavigate("/")}>
+      <Title as={1} class="text-base font-bold">
+        <Inline class="text-logo-primary">{logo.slice(0, 2)}</Inline><Inline class="text-logo-accent">{logo.slice(2)}</Inline>
+      </Title>
     </Button>
     <Group class="gap-2">
       {#each items as item (item.href)}
@@ -79,7 +81,7 @@
           </Stack>
         </Box>
       </Disclosure>
-      <Input
+      <input
         id="lex-project-file"
         type="file"
         accept="application/json"

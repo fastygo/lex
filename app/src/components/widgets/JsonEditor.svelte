@@ -53,4 +53,4 @@
   });
 </script>
 
-<Box class="h-full min-h-80 overflow-hidden rounded-md border border-border" {@attach mount}></Box>
+<Box class="min-h-0 w-full flex-1 overflow-hidden rounded-md border border-border" {@attach mount}></Box>

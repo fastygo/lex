@@ -1,12 +1,11 @@
 import { copy } from "$lib/copy";
-import { layoutSlice } from "$lib/layout";
+import { layoutSlice, legalLink, type FlowLink, type Placement, wiredIds } from "$lib/layout";
 import {
   buildDraft,
   formatDraft,
   projectFile,
   readDraft,
   readProjectFile,
-  selectedFromDraft,
   type ReasonCode,
 } from "$lib/request";
 import { sliceById, type SliceDef } from "$lib/slices";
@@ -22,6 +21,8 @@ const sessionMs = 1200;
 export function createPlayground(initialSliceId: string) {
   let sliceId = $state(sliceById(initialSliceId).id);
   let requestText = $state("");
+  let links = $state<FlowLink[]>([]);
+  let placements = $state<Record<string, Placement>>({});
   let revision = $state(0);
   let trap = $state("");
   let status = $state("");
@@ -37,20 +38,21 @@ export function createPlayground(initialSliceId: string) {
     return sliceById(sliceId);
   }
 
-  function writeFresh(id: string) {
-    const next = sliceById(id);
-    sliceId = next.id;
-    requestText = formatDraft(buildDraft(next, next.state, []));
-    revision += 1;
-    status = "";
-    assembledAt = 0;
-  }
-
-  writeFresh(initialSliceId);
-  revision = 0;
-
   function structural(): ReasonCode[] {
     return readDraft(requestText, slice()).codes;
+  }
+
+  function linkCodes(): ReasonCode[] {
+    const codes: ReasonCode[] = [];
+    const wired = new Set(wiredIds(slice(), links));
+    if (!slice().questions.every((question) => wired.has(question.id))) codes.push("questions");
+    if (slice().context && !wired.has("context")) codes.push("context");
+    if (!links.some((link) => link.source === "decision" && link.target === "output")) codes.push("output");
+    return codes;
+  }
+
+  function blocking(): ReasonCode[] {
+    return [...new Set<ReasonCode>([...structural(), ...linkCodes()])];
   }
 
   function syncAssembly(codes: ReasonCode[]) {
@@ -71,6 +73,33 @@ export function createPlayground(initialSliceId: string) {
     quietUntil = Date.now() + quietMs;
   }
 
+  function rebuild(nextLinks: FlowLink[]) {
+    const parsed = readDraft(requestText, slice());
+    const state = parsed.draft?.state ?? slice().state;
+    const next = buildDraft(slice(), state, wiredIds(slice(), nextLinks));
+    if (parsed.draft) {
+      for (const [key, question] of Object.entries(parsed.draft.question_set.questions)) {
+        if (next.question_set.questions[key]) next.question_set.questions[key] = question;
+      }
+    }
+    requestText = formatDraft(next);
+    revision += 1;
+  }
+
+  function writeFresh(id: string) {
+    const next = sliceById(id);
+    sliceId = next.id;
+    links = [];
+    placements = {};
+    requestText = formatDraft(buildDraft(next, next.state, []));
+    revision += 1;
+    status = "";
+    assembledAt = 0;
+  }
+
+  writeFresh(initialSliceId);
+  revision = 0;
+
   return {
     get sliceId() {
       return sliceId;
@@ -81,6 +110,9 @@ export function createPlayground(initialSliceId: string) {
     get requestText() {
       return requestText;
     },
+    get links() {
+      return links;
+    },
     get revision() {
       return revision;
     },
@@ -89,19 +121,22 @@ export function createPlayground(initialSliceId: string) {
     },
     set trap(value: string) {
       trap = value;
-      syncAssembly(structural());
+      syncAssembly(blocking());
     },
     get status() {
       return status;
     },
-    get selected() {
-      return selectedFromDraft(slice(), readDraft(requestText, slice()).draft);
-    },
     get graph() {
-      return layoutSlice(slice(), this.selected);
+      return layoutSlice(slice(), links, placements);
+    },
+    place(id: string, x: number, y: number) {
+      if (id === "questions") return;
+      const current = placements[id];
+      if (current && current.x === x && current.y === y) return;
+      placements = { ...placements, [id]: { x, y } };
     },
     reasons(): string[] {
-      const codes = new Set<ReasonCode>(structural());
+      const codes = new Set<ReasonCode>(blocking());
       if (trap.trim() !== "") codes.add("trap");
       const t = now;
       if (codes.size === 0) {
@@ -118,9 +153,9 @@ export function createPlayground(initialSliceId: string) {
     },
     tick() {
       now = Date.now();
-      const ready = structural().length === 0 && trap.trim() === "";
-      if (ready && assembledAt === 0) assembledAt = now;
-      if (!ready) assembledAt = 0;
+      const codes = blocking();
+      if (codes.length === 0 && trap.trim() === "" && assembledAt === 0) assembledAt = now;
+      if (codes.length > 0 || trap.trim() !== "") assembledAt = 0;
     },
     load(id: string) {
       if (sliceId === sliceById(id).id && requestText) return;
@@ -129,51 +164,56 @@ export function createPlayground(initialSliceId: string) {
     forceLoad(id: string) {
       writeFresh(id);
     },
-    toggle(id: string) {
+    connect(source: string | null, target: string | null) {
+      if (!legalLink(slice(), source, target) || !source || !target) return;
+      if (links.some((link) => link.source === source && link.target === target)) return;
       noteClick();
-      const current = new Set(this.selected);
-      if (current.has(id)) current.delete(id);
-      else current.add(id);
-      const parsed = readDraft(requestText, slice());
-      const state = parsed.draft?.state ?? slice().state;
-      const next = buildDraft(slice(), state, [...current]);
-      if (parsed.draft) {
-        for (const [key, question] of Object.entries(parsed.draft.question_set.questions)) {
-          if (next.question_set.questions[key]) next.question_set.questions[key] = question;
-        }
-      }
-      requestText = formatDraft(next);
-      revision += 1;
+      const next = [...links, { source, target }];
+      links = next;
+      rebuild(next);
       status = "";
-      syncAssembly(readDraft(requestText, slice()).codes);
+      syncAssembly(blocking());
+    },
+    removeLinks(removed: FlowLink[]) {
+      if (removed.length === 0) return;
+      const drop = new Set(removed.map((link) => `${link.source}->${link.target}`));
+      const next = links.filter((link) => !drop.has(`${link.source}->${link.target}`));
+      if (next.length === links.length) return;
+      noteClick();
+      links = next;
+      rebuild(next);
+      status = "";
+      syncAssembly(blocking());
     },
     editRequest(text: string) {
       if (text === requestText) return;
       noteEdit();
       requestText = text;
       status = "";
-      syncAssembly(structural());
+      syncAssembly(blocking());
     },
     run() {
       if (!this.canRun) return;
       const parsed = readDraft(requestText, slice());
-      if (!parsed.draft || parsed.codes.length > 0) return;
+      if (!parsed.draft || parsed.codes.length > 0 || linkCodes().length > 0) return;
       runReadyAt = Date.now() + runLockMs;
       status = copy.playground.composed;
       requestText = formatDraft(parsed.draft);
       revision += 1;
     },
     exportProject() {
-      return projectFile(sliceId, requestText);
+      return projectFile(sliceId, requestText, links);
     },
     importProject(value: unknown): boolean {
       const file = readProjectFile(value);
       if (!file) return false;
       sliceId = file.sliceId;
+      links = file.links;
+      placements = {};
       requestText = file.requestText;
       revision += 1;
       status = "";
-      syncAssembly(structural());
+      syncAssembly(blocking());
       return true;
     },
   };
