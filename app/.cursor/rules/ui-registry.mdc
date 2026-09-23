@@ -34,7 +34,7 @@ Document frame is `index.html`. The client entry is `src/main.ts`.
 ## Placement
 
 - New atom → `src/kit/ui`, export from `src/kit/ui/index.svelte.ts`.
-- Used by ≥2 screens → `widgets/` (props and callbacks only).
+- Used by 2 or more screens -> `widgets/` (props and callbacks only).
 - One route body → `views/<Name>View.svelte`.
 - The app frame opens on `Block` (no `tag`), owns session, loading, errors,
   and mutations.

@@ -1,9 +1,13 @@
-const storageKey = "lex-theme";
-
-function storedMode(): "light" | "dark" {
-  const saved = localStorage.getItem(storageKey);
-  if (saved === "light" || saved === "dark") return saved;
+function systemMode(): "light" | "dark" {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+function dropStoredTheme() {
+  try {
+    localStorage.removeItem("lex-theme");
+  } catch {
+    // Storage can throw in a locked browser. The theme still stays in memory.
+  }
 }
 
 export function applyTheme(mode: "light" | "dark") {
@@ -11,12 +15,10 @@ export function applyTheme(mode: "light" | "dark") {
 }
 
 export function createTheme() {
-  let mode = $state(storedMode());
-
-  $effect(() => {
-    applyTheme(mode);
-    localStorage.setItem(storageKey, mode);
-  });
+  dropStoredTheme();
+  const initial = systemMode();
+  let mode = $state(initial);
+  applyTheme(initial);
 
   return {
     get mode() {
@@ -24,6 +26,7 @@ export function createTheme() {
     },
     toggle() {
       mode = mode === "dark" ? "light" : "dark";
+      applyTheme(mode);
     },
   };
 }

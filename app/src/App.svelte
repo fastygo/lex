@@ -57,7 +57,9 @@
   }
 
   function exportFile() {
-    const payload = JSON.stringify(board.exportProject(), null, 2);
+    const project = board.exportProject();
+    if (!project) return;
+    const payload = JSON.stringify(project);
     const blob = new Blob([payload], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");

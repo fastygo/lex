@@ -287,21 +287,86 @@ export function readLinks(value: unknown, slice: SliceDef): FlowLink[] {
   return links;
 }
 
-export function projectFile(sliceId: string, requestText: string, links: FlowLink[]) {
+const lexId = /^[A-Za-z][A-Za-z0-9._:-]{0,255}$/;
+
+function allowedFields(value: Record<string, unknown>, fields: string[]): boolean {
+  return Object.keys(value).every((key) => fields.includes(key));
+}
+
+function readLexRequest(value: unknown): Record<string, unknown> | null {
+  if (!isRecord(value) || !allowedFields(value, ["project_id", "decision", "state", "question_set", "context", "metadata"])) {
+    return null;
+  }
+  if (typeof value.project_id !== "string" || !lexId.test(value.project_id)) return null;
+  if (!isRecord(value.decision) || !allowedFields(value.decision, ["id", "version"])) return null;
+  if (typeof value.decision.id !== "string" || !lexId.test(value.decision.id)) return null;
+  if (typeof value.decision.version !== "string" || value.decision.version.length === 0) return null;
+  if (!isRecord(value.state)) return null;
+  if (!isRecord(value.question_set) || !allowedFields(value.question_set, ["id", "version", "questions"])) return null;
+  if (typeof value.question_set.id !== "string" || !lexId.test(value.question_set.id)) return null;
+  if (typeof value.question_set.version !== "string" || value.question_set.version.length === 0) return null;
+  if (!isRecord(value.question_set.questions)) return null;
+  for (const question of Object.values(value.question_set.questions)) {
+    if (!lexQuestion(question)) return null;
+  }
+  if (value.context !== undefined && !lexContext(value.context)) return null;
+  if (value.metadata !== undefined && !lexMetadata(value.metadata)) return null;
+  return value;
+}
+
+function lexQuestion(value: unknown): boolean {
+  if (!isRecord(value) || typeof value.type !== "string" || typeof value.instructions !== "string" || value.instructions.length === 0) {
+    return false;
+  }
+  if (value.type === "noul") return allowedFields(value, ["type", "instructions"]);
+  if (value.type === "choice") return allowedFields(value, ["type", "instructions", "options"]) && isOptionMap(value.options);
+  if (value.type === "score") return allowedFields(value, ["type", "instructions", "levels"]) && isLevelList(value.levels);
+  return false;
+}
+
+function lexContext(value: unknown): boolean {
+  if (!isRecord(value) || !allowedFields(value, ["pack", "snapshot", "pack_request"])) return false;
+  return isRecord(value.pack) && isRecord(value.snapshot) && isRecord(value.pack_request);
+}
+
+function lexMetadata(value: unknown): boolean {
+  if (!isRecord(value) || Object.keys(value).length > 16) return false;
+  return Object.values(value).every((item) => typeof item === "string");
+}
+
+export type FlowProject = {
+  kind: typeof projectKind;
+  version: typeof projectVersion;
+  sliceId: string;
+  request: Record<string, unknown>;
+  links: FlowLink[];
+};
+
+export function projectFile(sliceId: string, requestText: string, links: FlowLink[]): FlowProject | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(requestText);
+  } catch {
+    return null;
+  }
+  const request = readLexRequest(parsed);
+  if (!request) return null;
   return {
     kind: projectKind,
     version: projectVersion,
     sliceId: sliceById(sliceId).id,
-    requestText,
+    request,
     links,
   };
 }
 
 export function readProjectFile(value: unknown): { sliceId: string; requestText: string; links: FlowLink[] } | null {
-  if (!isRecord(value)) return null;
+  if (!isRecord(value) || "requestText" in value) return null;
   if (value.kind !== projectKind || value.version !== projectVersion) return null;
-  if (typeof value.sliceId !== "string" || typeof value.requestText !== "string") return null;
+  if (typeof value.sliceId !== "string") return null;
+  const request = readLexRequest(value.request);
+  if (!request) return null;
   const slice = sliceById(value.sliceId);
-  if (slice.id !== value.sliceId && !value.sliceId) return null;
-  return { sliceId: slice.id, requestText: value.requestText, links: readLinks(value.links, slice) };
+  if (slice.id !== value.sliceId) return null;
+  return { sliceId: slice.id, requestText: JSON.stringify(request, null, 2), links: readLinks(value.links, slice) };
 }

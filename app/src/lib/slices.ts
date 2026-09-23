@@ -255,6 +255,43 @@ export const slices: SliceDef[] = [
       }),
     ],
   },
+  {
+    id: "product-abc",
+    title: "Product ABC",
+    domain: "Catalog",
+    summary: "Judge history, band agreement, assortment role, and how strongly revenue share fits class A. The band stays in State.",
+    decisionId: "product-abc",
+    questionSetId: "catalog.abc",
+    state: {
+      sku: "SKU-1042",
+      title: "USB-C cable 1 m",
+      category: "Accessories",
+      period: "2026-08",
+      units_sold: 840,
+      revenue: 420000,
+      revenue_share: 0.18,
+      margin_share: 0.04,
+      abc_band: "A",
+      periods_observed: 6,
+    },
+    context: false,
+    questions: [
+      noul("history_sufficient", "Does the state include enough observations to judge the product role?"),
+      noul("band_matches_share", "Does the stated ABC band agree with the revenue share?"),
+      choice("assortment_role", "Which assortment role best matches this product?", {
+        traffic: "High revenue share with a small margin share. The product draws demand.",
+        profit: "A material contribution to margin.",
+        niche: "Small revenue share and small margin share.",
+        other: "None of these roles.",
+        manual_review: "A human must decide.",
+      }),
+      score("abc_strength", "How strongly does the revenue share fit class A on this ordered scale?", [
+        "The share is small and does not look like class A.",
+        "The share is noticeable, but class A is not clear from it.",
+        "The share is large and typical of class A.",
+      ]),
+    ],
+  },
 ];
 
 export const firstSlice = slices[0];

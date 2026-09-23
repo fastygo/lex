@@ -13,11 +13,14 @@ const ROOT = path.resolve(import.meta.dirname, "..");
 const SKIP_DIR_NAMES = new Set([
   ".git",
   "node_modules",
+  "dist",
   ".manual",
 ]);
 
 const SKIP_FILE_NAMES = new Set([
   "check-english-only.mjs",
+  // Caller-language fixture. Question text is Russian on purpose.
+  "support-seller-flow-ru.json",
 ]);
 
 /** Unicode code points allowed outside ASCII for English typography. */
