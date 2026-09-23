@@ -27,6 +27,18 @@
   });
 
   const active = $derived(router.route.name);
+  const project = $derived(
+    active === "playground"
+      ? {
+          label: copy.project,
+          importLabel: copy.importProject,
+          exportLabel: copy.exportProject,
+          fileLabel: copy.fileInput,
+          onImport: importFile,
+          onExport: exportFile,
+        }
+      : undefined,
+  );
 
   function openSlice(id: string) {
     board.forceLoad(id);
@@ -71,14 +83,12 @@
     themeMode={theme.mode}
     themeLight={copy.themeLight}
     themeDark={copy.themeDark}
-    projectLabel={copy.project}
-    importLabel={copy.importProject}
-    exportLabel={copy.exportProject}
-    fileLabel={copy.fileInput}
+    menuLabel={copy.menu}
+    menuTitle={copy.menuTitle}
+    closeLabel={copy.closeMenu}
+    {project}
     onNavigate={router.navigate}
     onTheme={theme.toggle}
-    onImport={importFile}
-    onExport={exportFile}
   />
   <AppMain class="p-4">
     {#if router.route.name === "slices"}
@@ -91,13 +101,20 @@
       />
     {:else if router.route.name === "playground"}
       <PlaygroundView
-        jsonLabel={copy.playground.json}
+        requestLabel={copy.playground.requestJson}
+        stateLabel={copy.playground.stateJson}
+        questionsLabel={copy.playground.questionsJson}
+        stateJsonError={copy.playground.reasons["state-json"]}
+        stateEmptyError={copy.playground.reasons["state-empty"]}
+        questionsJsonError={copy.playground.questionsJsonError}
+        questionsShapeError={copy.playground.questionsShapeError}
+        combineLabel={copy.playground.combine}
+        hideCombine={copy.playground.hideCombine}
         runLabel={copy.playground.run}
         hideJson={copy.playground.hideJson}
         showJson={copy.playground.showJson}
         splitLabel={copy.playground.split}
         deleteEdge={copy.playground.deleteEdge}
-        locked={copy.playground.locked}
         trapLabel={copy.honeypot}
         themeMode={theme.mode}
         {board}

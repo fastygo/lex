@@ -295,7 +295,6 @@
   --destructive: #b42318;
 }
 :root.dark {
-  --primary-foreground: hsl(220 23% 5%);
   --cm-comment: #969daa;
   --cm-meta: #969daa;
 }
@@ -487,6 +486,19 @@
   place-items: center;
   position: fixed;
   z-index: 40;
+}
+
+[data-ui8kit="dialog"][data-side="start"][data-state="open"] {
+  place-items: stretch start;
+  width: auto;
+  max-width: none;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--background) 40%, transparent);
+  box-shadow: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

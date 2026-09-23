@@ -82,6 +82,7 @@
       bind:edges
       {nodeTypes}
       fitView
+      fitViewOptions={{ padding: 0.2 }}
       {colorMode}
       {onconnect}
       {ondelete}
@@ -98,7 +99,13 @@
       class="h-full w-full"
     >
       <Background />
-      <Controls />
+      <Controls
+        position="bottom-left"
+        showZoom={true}
+        showFitView={true}
+        showLock={true}
+        fitViewOptions={{ padding: 0.2 }}
+      />
     </SvelteFlow>
   </Box>
   {#if menu}

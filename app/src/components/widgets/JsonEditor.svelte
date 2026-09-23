@@ -9,11 +9,15 @@
   let {
     value,
     revision,
+    label,
+    readonly = false,
     onchange,
   }: {
     value: string;
     revision: number;
-    onchange: (text: string) => void;
+    label: string;
+    readonly?: boolean;
+    onchange?: (text: string) => void;
   } = $props();
 
   let view = $state<EditorView | null>(null);
@@ -29,9 +33,10 @@
           workspaceEditorTheme,
           studioSyntaxHighlighting,
           EditorView.lineWrapping,
+          ...(readonly ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : []),
           EditorView.updateListener.of((update) => {
-            if (!update.docChanged) return;
-            onchange(update.state.doc.toString());
+            if (readonly || !update.docChanged) return;
+            onchange?.(update.state.doc.toString());
           }),
         ],
       }),
@@ -53,4 +58,4 @@
   });
 </script>
 
-<Box class="min-h-0 w-full flex-1 overflow-hidden rounded-md border border-border" {@attach mount}></Box>
+<Box class="min-h-0 w-full flex-1 overflow-hidden rounded-md border border-border" aria-label={label} {@attach mount}></Box>

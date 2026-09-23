@@ -18,6 +18,9 @@ export const workspaceEditorTheme = EditorView.theme(
       lineHeight: "1.45",
       overflow: "auto",
     },
+    ".cm-content, .cm-gutters": {
+      fontSize: "12px",
+    },
     ".cm-content": {
       caretColor: "var(--primary)",
       padding: "0.5rem 0",

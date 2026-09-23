@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { Block, Box, Button, Group, Stack, Text } from "$ui8kit/ui";
+  import { Braces, Combine } from "lucide-svelte/icons";
+  import { Alert, Block, Box, Button, Group, Text } from "$ui8kit/ui";
   import DecisionFlow from "$components/widgets/DecisionFlow.svelte";
   import JsonEditor from "$components/widgets/JsonEditor.svelte";
   import { legalLink } from "$lib/layout";
@@ -7,32 +8,49 @@
   import type { Connection, Edge } from "@xyflow/svelte";
 
   let {
-    jsonLabel,
+    requestLabel,
+    stateLabel,
+    questionsLabel,
+    stateJsonError,
+    stateEmptyError,
+    questionsJsonError,
+    questionsShapeError,
+    combineLabel,
+    hideCombine,
     runLabel,
     hideJson,
     showJson,
     splitLabel,
     deleteEdge,
-    locked,
     trapLabel,
     themeMode,
     board,
   }: {
-    jsonLabel: string;
+    requestLabel: string;
+    stateLabel: string;
+    questionsLabel: string;
+    stateJsonError: string;
+    stateEmptyError: string;
+    questionsJsonError: string;
+    questionsShapeError: string;
+    combineLabel: string;
+    hideCombine: string;
     runLabel: string;
     hideJson: string;
     showJson: string;
     splitLabel: string;
     deleteEdge: string;
-    locked: string;
     trapLabel: string;
     themeMode: "light" | "dark";
     board: Playground;
   } = $props();
 
-  let jsonOpen = $state(true);
+  type Side = "closed" | "json" | "combine";
+
+  let side = $state<Side>(window.matchMedia("(max-width: 767px)").matches ? "closed" : "json");
   let jsonWidth = $state(360);
   const graph = $derived(board.graph);
+  const note = $derived(board.notice());
 
   function clampWidth(value: number, limit: number) {
     return Math.min(limit, Math.max(220, value));
@@ -72,6 +90,14 @@
     }
   }
 
+  function openJson() {
+    side = side === "json" ? "closed" : "json";
+  }
+
+  function openCombine() {
+    side = side === "combine" ? "closed" : "combine";
+  }
+
   function acceptConnection(connection: Connection | Edge) {
     if (!legalLink(board.slice, connection.source, connection.target)) return false;
     return !board.links.some((link) => link.source === connection.source && link.target === connection.target);
@@ -79,25 +105,39 @@
 </script>
 
 <Block tag="section" class="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
-  <Group class="w-full min-w-0 justify-between gap-3">
-    <Block class="rounded-md border border-border bg-card px-3 py-1.5 text-sm font-medium">{board.slice.title}</Block>
-    <Group class="min-w-0 gap-2">
-      {#if board.status}
-        <Text role="status" class="max-w-xs min-w-0 truncate text-sm text-muted-foreground">{board.status}</Text>
-      {:else if !board.canRun}
-        <Text class="max-w-xs min-w-0 truncate text-sm text-muted-foreground">{board.reasons()[0] ?? locked}</Text>
-      {/if}
+  <Group class="w-full min-w-0 items-start justify-between gap-3">
+    <Alert
+      variant={note.variant}
+      role={note.role}
+      data-ui8kit="alert"
+      class="flex w-fit max-w-[calc(100%-7rem)] flex-col gap-1 px-3 py-2 shadow-none"
+    >
+      <Text class="text-xs font-bold">{note.title}</Text>
+      <Text class="text-[calc(0.75rem*0.9)] text-muted-foreground">{note.text}</Text>
+    </Alert>
+    <Group class="shrink-0 gap-2">
       <Button type="button" size="sm" disabled={!board.canRun} onclick={() => board.run()}>
         {runLabel}
       </Button>
       <Button
         type="button"
-        size="sm"
-        variant="outline"
-        aria-pressed={!jsonOpen}
-        onclick={() => (jsonOpen = !jsonOpen)}
+        size="icon"
+        variant="ghost"
+        aria-pressed={side === "combine"}
+        aria-label={side === "combine" ? hideCombine : combineLabel}
+        onclick={openCombine}
       >
-        {jsonOpen ? hideJson : showJson}
+        <Combine size={18} strokeWidth={2} />
+      </Button>
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        aria-pressed={side === "json"}
+        aria-label={side === "json" ? hideJson : showJson}
+        onclick={openJson}
+      >
+        <Braces size={18} strokeWidth={2} />
       </Button>
     </Group>
   </Group>
@@ -117,7 +157,7 @@
         />
       {/key}
     </Box>
-    {#if jsonOpen}
+    {#if side !== "closed"}
       <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
       <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
       <div
@@ -132,10 +172,40 @@
         onpointerdown={startDrag}
         onkeydown={resizeKey}
       ></div>
-      <Stack class="h-full min-h-0 shrink-0 gap-2" style="width: {jsonWidth}px">
-        <Text class="text-sm font-medium">{jsonLabel}</Text>
-        <JsonEditor value={board.requestText} revision={board.revision} onchange={(text) => board.editRequest(text)} />
-      </Stack>
+      <Box class="flex h-full min-h-0 shrink-0 flex-col gap-2" style="width: {jsonWidth}px">
+        {#if side === "combine"}
+          <Box class="flex min-h-0 flex-1 flex-col gap-1">
+            <Text class="px-1 text-xs text-muted-foreground">{stateLabel}</Text>
+            {#if board.stateIssue}
+              <Text class="px-1 text-xs text-destructive">
+                {board.stateIssue === "state-empty" ? stateEmptyError : stateJsonError}
+              </Text>
+            {/if}
+            <JsonEditor
+              label={stateLabel}
+              value={board.stateText}
+              revision={board.stateRevision}
+              onchange={(text) => board.editState(text)}
+            />
+          </Box>
+          <Box class="flex min-h-0 flex-1 flex-col gap-1">
+            <Text class="px-1 text-xs text-muted-foreground">{questionsLabel}</Text>
+            {#if board.questionsIssue}
+              <Text class="px-1 text-xs text-destructive">
+                {board.questionsIssue === "questions-json" ? questionsJsonError : questionsShapeError}
+              </Text>
+            {/if}
+            <JsonEditor
+              label={questionsLabel}
+              value={board.questionsText}
+              revision={board.questionsRevision}
+              onchange={(text) => board.editQuestions(text)}
+            />
+          </Box>
+        {:else}
+          <JsonEditor label={requestLabel} value={board.requestText} revision={board.revision} readonly />
+        {/if}
+      </Box>
     {/if}
   </Box>
   <input
